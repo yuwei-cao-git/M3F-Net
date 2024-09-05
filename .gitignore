@@ -7,8 +7,6 @@ data/raw/
 data/processed/
 *.tif
 *.png
-*.wpr
-*.wpu
 *.yml
 data_utils/
 utils/
