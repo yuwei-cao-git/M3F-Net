@@ -9,10 +9,10 @@ seasons=("spring" "summer" "fall" "winter")
 # Iterate over each season
 for season in "${seasons[@]}"; do
   # Define the input directory
-  input_dir="$root_dir/$season/L2A"
+  input_dir="$root_dir/$season/L2A_S"
 
   # Define the output directory
-  output_dir="$root_dir/$season/composite_10m"
+  output_dir="$root_dir/$season/composites_10m"
 
   # Create the output directory if it doesn't exist
   mkdir -p "$output_dir"

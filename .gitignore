@@ -9,4 +9,5 @@ data/processed/
 *.png
 *.yml
 data_utils/
-utils/
+data_processing/
+*log.txt
