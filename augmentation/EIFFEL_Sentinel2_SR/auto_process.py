@@ -50,7 +50,7 @@ def run_l2a_process(xml_file, output_file):
 
 # In[4]:
 
-directory = r"D:\rfm_sen"
+directory = r"E:\rmf_s2"
 for season in ["spring"]:
     input_folder = f"{directory}/{season}"
     l2a_folder = f"{input_folder}/L2A"
