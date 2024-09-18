@@ -11,3 +11,9 @@ data/processed/
 data_utils/
 data_processing/
 *log.txt
+*logs
+*.log
+*.ckpt
+wandb
+*.yaml
+*.wandb
