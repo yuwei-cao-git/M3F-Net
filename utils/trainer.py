@@ -3,7 +3,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import CSVLogger, WandbLogger
 import wandb
 import pandas as pd
-from model.ResUnet_MF import ResUNet_MF
+from models.model import Model
 from dataset.s2 import TreeSpeciesDataModule
 from os.path import join
 
@@ -44,9 +44,9 @@ def train(data_dir, datasets_to_use, resolution, log_name, num_epoch=10, batch_s
     n_bands = data_module.train_dataset.n_bands
     
     # Use the calculated input channels from the DataModule to initialize the model
-    model = ResUNet_MF(
+    model = Model(
         n_bands=n_bands,  # Example channel config
-        out_channels=9,
+        n_classes=9,
         use_mf=use_mf,
         use_residual=use_residual,
         optimizer_type="adam",
@@ -64,7 +64,7 @@ def train(data_dir, datasets_to_use, resolution, log_name, num_epoch=10, batch_s
     )
 
     csv_logger = CSVLogger(save_dir='../logs/csv_logs', name=log_name)
-    wandb_logger = WandbLogger(name=log_name, save_dir='../logs/wandb_logs', offline=True)
+    wandb_logger = WandbLogger(name=log_name)
     
     # Create a PyTorch Lightning Trainer
     trainer = Trainer(
@@ -72,8 +72,7 @@ def train(data_dir, datasets_to_use, resolution, log_name, num_epoch=10, batch_s
         logger=[wandb_logger, csv_logger],
         callbacks=[checkpoint_callback]
     )
-    wandb_logger.log_text('parameters.txt', dataframe=pd.DataFrame({'datasets': [datasets_to_use], 'num_epoches': num_epoch, 'resolution': resolution}))
-
+    
     # Train the model
     trainer.fit(model, data_module)
 
@@ -82,6 +81,7 @@ def train(data_dir, datasets_to_use, resolution, log_name, num_epoch=10, batch_s
 
     # Save the best model after training
     trainer.save_checkpoint(f"../logs/checkpoints/{log_name}/final_model.pt")
+    
     # Load the saved model
     #model = UNetLightning.load_from_checkpoint("final_model.ckpt")
     wandb.finish()

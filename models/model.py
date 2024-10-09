@@ -1,18 +1,19 @@
 import torch
-import torch.nn as nn
 import pytorch_lightning as pl
-import torch.nn.functional as F
-from .blocks import MF, ResidualBlock
+from .blocks import MF
 from .loss import MaskedMSELoss
 from .metrics import r2_score_torch
 
+from .unet import UNet
+from .ResUnet import ResUnet
+
 # Updating UNet to incorporate residual connections and MF module
-class ResUNet_MF(pl.LightningModule):
-    def __init__(self, n_bands=13, out_channels=9, use_mf=False, use_residual=False, optimizer_type="adam", learning_rate=1e-3, scheduler_type=None, scheduler_params=None):
+class Model(pl.LightningModule):
+    def __init__(self, n_bands=13, n_classes=9, use_mf=False, use_residual=False, optimizer_type="adam", learning_rate=1e-3, scheduler_type=None, scheduler_params=None):
         """
         Args:
             n_bands (int): Number of input channels (bands) for each season.
-            out_channels (int): Number of output channels.
+            n_classes (int): Number of output classes.
             use_mf (bool): Whether to use the MF module.
             use_residual (bool): Whether to use Residual connections in U-Net blocks.
             optimizer_type (str): Type of optimizer ('adam', 'sgd', etc.).
@@ -20,7 +21,7 @@ class ResUNet_MF(pl.LightningModule):
             scheduler_type (str): Type of scheduler ('plateau', etc.).
             scheduler_params (dict): Parameters for the scheduler (e.g., 'patience', 'factor' for ReduceLROnPlateau).
         """
-        super(ResUNet_MF, self).__init__()
+        super(Model, self).__init__()
 
         self.use_mf = use_mf
         self.use_residual = use_residual
@@ -34,32 +35,18 @@ class ResUNet_MF(pl.LightningModule):
 
         # Define the U-Net architecture with or without Residual connections
         if self.use_residual:
-            self.enc_conv0 = ResidualBlock(total_input_channels, 64)
-            self.enc_conv1 = ResidualBlock(64, 128)
-            self.enc_conv2 = ResidualBlock(128, 256)
-            self.enc_conv3 = ResidualBlock(256, 512)
-            self.dec_conv3 = ResidualBlock(512, 256)
-            self.dec_conv2 = ResidualBlock(256, 128)
-            self.dec_conv1 = ResidualBlock(128, 64)
+            # Using ResUNet
+            self.model = ResUnet(n_channels=total_input_channels, n_classes=n_classes)
         else:
-            self.enc_conv0 = nn.Conv2d(total_input_channels, 64, kernel_size=3, padding=1)
-            self.enc_conv1 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
-            self.enc_conv2 = nn.Conv2d(128, 256, kernel_size=3, padding=1)
-            self.enc_conv3 = nn.Conv2d(256, 512, kernel_size=3, padding=1)
-            self.dec_conv3 = nn.Conv2d(512, 256, kernel_size=3, padding=1)
-            self.dec_conv2 = nn.Conv2d(256, 128, kernel_size=3, padding=1)
-            self.dec_conv1 = nn.Conv2d(128, 64, kernel_size=3, padding=1)
+            # Using standard UNet
+            self.model = UNet(n_channels=total_input_channels, n_classes=n_classes)
 
-        self.dec_conv0 = nn.Conv2d(64, out_channels, kernel_size=3, padding=1)  # Output layer
-        self.pool = nn.MaxPool2d(2)
-        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-
-        # Loss and learning rate
-        self.learning_rate = learning_rate
+        # Loss function
         self.criterion = MaskedMSELoss()
-
-        # Optimizer and scheduler types
+        
+        # Optimizer and scheduler settings
         self.optimizer_type = optimizer_type
+        self.learning_rate = learning_rate
         self.scheduler_type = scheduler_type
         self.scheduler_params = scheduler_params if scheduler_params else {}
         
@@ -69,31 +56,12 @@ class ResUNet_MF(pl.LightningModule):
         # Optionally pass inputs through MF module
         if self.use_mf:
             # Apply the MF module first to extract features from input
-            spring, summer, fall, winter = inputs  # Unpack the individual datasets
-            # Process through the MF module
-            fused_features = self.mf_module([spring, summer, fall, winter])
+            fused_features = self.mf_module(inputs)
         else:
             # Concatenate all seasons directly if no MF module
             fused_features = torch.cat(inputs, dim=1)
 
-        # U-Net forward pass (with or without residual connections)
-        x1 = F.relu(self.enc_conv0(fused_features))
-        x2 = self.pool(x1)
-        x2 = F.relu(self.enc_conv1(x2))
-        x3 = self.pool(x2)
-        x3 = F.relu(self.enc_conv2(x3))
-        x4 = self.pool(x3)
-        x4 = F.relu(self.enc_conv3(x4))
-
-        x = self.up(x4)
-        x = F.relu(self.dec_conv3(x))
-        x = self.up(x)
-        x = F.relu(self.dec_conv2(x))
-        x = self.up(x)
-        x = F.relu(self.dec_conv1(x))
-        x = self.dec_conv0(x)  # Output layer (no activation here)
-
-        return x
+        return self.model(fused_features)
     
     def compute_loss_and_metrics(self, outputs, targets, masks, stage="val"):
         """
