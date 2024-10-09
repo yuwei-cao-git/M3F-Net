@@ -8,7 +8,7 @@ astunparse==1.6.3
 async-timeout==4.0.3
 attrs==23.2.0
 certifi
-charset-normalizer==3.3.2
+charset-normalizer
 click==8.1.7
 click-plugins==1.1.1
 cligj==0.7.2
