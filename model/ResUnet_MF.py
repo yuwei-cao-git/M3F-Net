@@ -63,7 +63,7 @@ class ResUNet_MF(pl.LightningModule):
         self.scheduler_type = scheduler_type
         self.scheduler_params = scheduler_params if scheduler_params else {}
         
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["loss_weight"])
 
     def forward(self, inputs):
         # Optionally pass inputs through MF module

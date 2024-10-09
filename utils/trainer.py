@@ -21,7 +21,7 @@ def load_tile_names(file_path):
         tile_names = f.read().splitlines()
     return tile_names
 
-def train(data_dir, datasets_to_use, resolution, log_name, num_epoch=10, mode='img', use_mf=True, use_residual=True):
+def train(data_dir, datasets_to_use, resolution, log_name, num_epoch=10, batch_size=48, mode='img', use_mf=True, use_residual=True):
     wandb.init()
     # Tile names for train, validation, and test
     tile_names = {
@@ -34,8 +34,8 @@ def train(data_dir, datasets_to_use, resolution, log_name, num_epoch=10, mode='i
         tile_names=tile_names,
         processed_dir=join(data_dir, f'{resolution}m'),  # Base directory where the datasets are stored
         datasets_to_use=datasets_to_use,
-        batch_size=8,
-        num_workers=4
+        batch_size=batch_size,
+        num_workers=8
     )
     
     # Call setup explicitly to initialize datasets

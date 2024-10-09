@@ -12,6 +12,7 @@ def main():
     parser.add_argument('--log_name', type=str, required=True, help="Log file name")
     parser.add_argument('--resolution', type=int, choices=[20, 10], default=20, help="Resolution to use for the data")
     parser.add_argument('--num_epoch', type=int, required=True, help="Number of epochs to train the model")
+    parser.add_argument('--batch_size', type=int, default=48, help="Number of epochs to train the model")
     parser.add_argument('--use_mf', action='store_true', help="Use multi-fusion (set flag to enable)")
     parser.add_argument('--use_residual', action='store_true', help="Use residual connections (set flag to enable)")
 
@@ -24,9 +25,11 @@ def main():
     # Call the train function with parsed arguments
     train(
         data_dir=args.data_dir,
+        datasets_to_use=datasets_to_use,
         resolution=args.resolution,
         log_name=args.log_name,
         num_epoch=args.num_epoch,
+        batch_size=args.batch_size,
         mode=args.mode,
         use_mf=args.use_mf,
         use_residual=args.use_residual)
