@@ -68,7 +68,7 @@ wandb login xxx
 #Run python script
 # The $((SLURM_NTASKS_PER_NODE * SLURM_JOB_NUM_NODES)) variable tells the script how many processes are available for this execution. “srun” executes the script <tasks-per-node * nodes> times
 echo "Start runing model.................................................................................."
-srun python main.py --init_method tcp://$MASTER_ADDR:3456 --data_dir 'data' --resolution 20 log_name 'ResUnet_S4_20m_MF' --num_epoch2010 --batch_size 48 --mode 'img' --use_mf --use_residual
+srun python main.py --init_method tcp://$MASTER_ADDR:3456 --data_dir 'data' --resolution 20 --log_name 'ResUnet_S4_20m_MF' --num_epoch 200 --batch_size 48 --mode 'img' --use_mf --use_residual
 
 cd $SLURM_TMPDIR
 tar -cf ~/scratch/output/run${next_index}/checkpoints.tar work/M3F-Net/logs/checkpoints/*
