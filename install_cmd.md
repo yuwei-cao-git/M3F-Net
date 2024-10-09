@@ -1,7 +1,7 @@
 mamba create --name tf -y python=3.8
 mamba activate tf
 python -m pip install --upgrade pip
-pip install torch==2.1.2+cu118 torchvision==0.16.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118 'numpy<2' 'setuptools<70'
+pip3 install torch==2.1.2+cu118 torchvision==0.16.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118 'numpy<2' 'setuptools<70'
 mamba install -c "nvidia/label/cuda-11.8.0" cuda-toolkit
 mamba deactivate
 mamba activate tf

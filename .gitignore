@@ -23,3 +23,6 @@ paper.html
 paper.pdf
 paper.quarto_ipynb
 paper_files/*
+
+*.sh
+*.ipynb
