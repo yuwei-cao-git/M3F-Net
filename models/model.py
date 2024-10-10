@@ -1,18 +1,12 @@
 import torch
 import pytorch_lightning as pl
-<<<<<<< HEAD:model/ResUnet_MF.py
-import torch.nn.functional as F
-from .blocks import MF, ResidualBlock
-from .loss import MaskedMSELoss
-from .metrics import r2_score_torch
-=======
+
 from .blocks import MF
 from .loss import MaskedMSELoss
 from .metrics import r2_score_torch
 
 from .unet import UNet
 from .ResUnet import ResUnet
->>>>>>> 32bc888392c96b1723907c228e4dea1123b96baa:models/model.py
 
 # Updating UNet to incorporate residual connections and MF module
 class Model(pl.LightningModule):
