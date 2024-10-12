@@ -208,6 +208,8 @@ class UpSampleConcat(nn.Module):
     def __init__(self):
         super(UpSampleConcat, self).__init__()
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        #else:
+            #self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
     
     def forward(self, x, xskip):
         #x = F.interpolate(x, scale_factor=2, mode='nearest')

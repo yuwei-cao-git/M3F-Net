@@ -5,7 +5,7 @@
 #SBATCH --tasks-per-node=4 # This is the number of model replicas we will place on the GPU.
 #SBATCH --mem=128G
 #SBATCH --job-name="test-multi-gpu"
-#SBATCH --time=01:00:00        # Specify run time 
+#SBATCH --time=03:00:00        # Specify run time 
 #SBATCH --mail-user=yuwei.cao@ubc.ca    # Request email notifications
 #SBATCH --mail-type=ALL
 
