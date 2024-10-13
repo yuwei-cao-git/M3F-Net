@@ -22,7 +22,7 @@ def load_tile_names(file_path):
     return tile_names
 
 def train(data_dir, datasets_to_use, resolution, log_name, learning_rate, optimizer, scheduler, mode='img', num_epoch=10, batch_size=48, use_mf=True, use_residual=True):
-    seed_everything(42, workers=True)
+    #seed_everything(42, workers=True)
     # Tile names for train, validation, and test
     tile_names = {
         'train': load_tile_names(join(data_dir, f'{resolution}m', 'dataset/train_tiles.txt')),
