@@ -9,7 +9,7 @@ def main():
     batch_size = config.batch_size
     learning_rate = config.learning_rate
     optimizer_name = config.optimizer
-    max_epoch = config.max_epoch
+    max_epoch = config.epochs
     scheduler = config.scheduler
     resolution = config.resolution
     use_mf = config.use_mf
