@@ -69,6 +69,7 @@ def train(config, data_dir, datasets_to_use, log_name):
     trainer = Trainer(
         max_epochs=config.epochs,
         logger=wandb_logger,
+        strategy='ddp',
         callbacks=[checkpoint_callback]
     )
     
