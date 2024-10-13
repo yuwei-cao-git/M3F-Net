@@ -21,20 +21,20 @@ def load_tile_names(file_path):
         tile_names = f.read().splitlines()
     return tile_names
 
-def train(data_dir, datasets_to_use, resolution, log_name, learning_rate, optimizer, scheduler, mode='img', num_epoch=10, batch_size=48, use_mf=True, use_residual=True):
+def train(config, data_dir, datasets_to_use, log_name):
     seed_everything(1)
     # Tile names for train, validation, and test
     tile_names = {
-        'train': load_tile_names(join(data_dir, f'{resolution}m', 'dataset/train_tiles.txt')),
-        'val': load_tile_names(join(data_dir, f'{resolution}m', 'dataset/val_tiles.txt')),
-        'test': load_tile_names(join(data_dir, f'{resolution}m', 'dataset/test_tiles.txt'))
+        'train': load_tile_names(join(data_dir, f'{config.resolution}m', 'dataset/train_tiles.txt')),
+        'val': load_tile_names(join(data_dir, f'{config.resolution}m', 'dataset/val_tiles.txt')),
+        'test': load_tile_names(join(data_dir, f'{config.resolution}m', 'dataset/test_tiles.txt'))
     }
     # Initialize the DataModule
     data_module = TreeSpeciesDataModule(
         tile_names=tile_names,
-        processed_dir=join(data_dir, f'{resolution}m'),  # Base directory where the datasets are stored
+        processed_dir=join(data_dir, f'{config.resolution}m'),  # Base directory where the datasets are stored
         datasets_to_use=datasets_to_use,
-        batch_size=batch_size,
+        batch_size=config.batch_size,
         num_workers=8
     )
     
@@ -46,12 +46,12 @@ def train(data_dir, datasets_to_use, resolution, log_name, learning_rate, optimi
     # Use the calculated input channels from the DataModule to initialize the model
     model = Model(
         n_bands=n_bands,  # Example channel config
-        n_classes=9,
-        use_mf=use_mf,
-        use_residual=use_residual,
-        optimizer=optimizer,
-        learning_rate=learning_rate,
-        scheduler=scheduler,
+        n_classes=config.n_classes,
+        use_mf=config.use_mf,
+        use_residual=config.use_residual,
+        optimizer=config.optimizer,
+        learning_rate=config.learning_rate,
+        scheduler=config.scheduler,
         scheduler_params={'patience': 3, 'factor': 0.5}
     )
 
@@ -63,13 +63,12 @@ def train(data_dir, datasets_to_use, resolution, log_name, learning_rate, optimi
         mode='min'  # We want to minimize the validation loss
     )
 
-    csv_logger = CSVLogger(save_dir='../logs/csv_logs', name=log_name)
-    wandb_logger = WandbLogger(name=log_name)
+    wandb_logger = WandbLogger(project='M3F-Net', name=log_name)
     
     # Create a PyTorch Lightning Trainer
     trainer = Trainer(
-        max_epochs=num_epoch,
-        logger=[wandb_logger, csv_logger],
+        max_epochs=config.epochs,
+        logger=wandb_logger,
         callbacks=[checkpoint_callback]
     )
     
