@@ -8,7 +8,7 @@ def main():
     config = wandb.config
     batch_size = config.batch_size
     learning_rate = config.learning_rate
-    optimizer_name = config.optimizer
+    optimizer = config.optimizer
     max_epoch = config.epochs
     scheduler = config.scheduler
     resolution = config.resolution
@@ -35,7 +35,7 @@ def main():
         num_epoch=max_epoch,
         batch_size=batch_size,
         learning_rate=learning_rate,
-        optimizer=optimizer_name,
+        optimizer=optimizer,
         scheduler=scheduler,
         mode=mode,
         use_mf=use_mf,

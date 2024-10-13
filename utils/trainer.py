@@ -49,9 +49,9 @@ def train(data_dir, datasets_to_use, resolution, log_name, learning_rate, optimi
         n_classes=9,
         use_mf=use_mf,
         use_residual=use_residual,
-        optimizer_type=optimizer,
+        optimizer=optimizer,
         learning_rate=learning_rate,
-        scheduler_type=scheduler,
+        scheduler=scheduler,
         scheduler_params={'patience': 3, 'factor': 0.5}
     )
 
