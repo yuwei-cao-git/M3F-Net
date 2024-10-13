@@ -1,10 +1,10 @@
 from utils.trainer import train
 import wandb
 
+wandb.init()
+config = wandb.config
+
 def main():
-    run=wandb.init()
-    config = wandb.config
-    
     if config.use_residual:
         log_name = "ResUnet_"
     else:
