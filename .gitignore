@@ -24,5 +24,4 @@ paper.pdf
 paper.quarto_ipynb
 paper_files/*
 
-*.sh
 imagery_classification_sample.ipynb

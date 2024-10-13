@@ -13,7 +13,7 @@ from .ResUnet import ResUnet
 
 # Updating UNet to incorporate residual connections and MF module
 class Model(pl.LightningModule):
-    def __init__(self, n_bands=13, n_classes=9, use_mf=False, use_residual=False, optimizer_type="adam", learning_rate=1e-3, scheduler_type=None, scheduler_params=None):
+    def __init__(self, n_bands=13, n_classes=9, use_mf=False, use_residual=False, optimizer="adam", learning_rate=1e-3, scheduler='plateau', scheduler_params=None):
         """
         Args:
             n_bands (int): Number of input channels (bands) for each season.
@@ -49,9 +49,9 @@ class Model(pl.LightningModule):
         self.criterion = nn.MSELoss()
         
         # Optimizer and scheduler settings
-        self.optimizer_type = optimizer_type
+        self.optimizer_type = optimizer
         self.learning_rate = learning_rate
-        self.scheduler_type = scheduler_type
+        self.scheduler_type = scheduler
         self.scheduler_params = scheduler_params if scheduler_params else {}
         
         self.save_hyperparameters(ignore=["loss_weight"])
@@ -130,20 +130,19 @@ class Model(pl.LightningModule):
         
         # Compute RMSE
         rmse = torch.sqrt(loss)
-        # **F1 Score Calculation**
+        # F1 Score Calculation
         # Convert outputs and targets to class labels by taking argmax
-        pred_labels = torch.argmax(valid_outputs, dim=1)
-        true_labels = torch.argmax(valid_targets, dim=1)
-
-        # Compute F1 score
-        num_classes = valid_outputs.size(1)
-        f1 = f1_score_torch(true_labels, pred_labels, num_classes)
+        #pred_labels = torch.argmax(valid_outputs, dim=1)
+        #true_labels = torch.argmax(valid_targets, dim=1)
+        #num_classes = valid_outputs.size(1)
+        #f1 = f1_score_torch(true_labels, pred_labels, num_classes)
         
         # Log the loss and R² score
-        self.log(f'{stage}_loss', loss, logger=True)
-        self.log(f'{stage}_r2', r2, logger=True, prog_bar=True, on_epoch=True)
-        self.log(f'{stage}_rmse', rmse, logger=True, on_epoch=True)
-        self.log(f'{stage}_f1', f1, logger=True, on_epoch=True)
+        sync_state = True
+        self.log(f'{stage}_loss', loss, logger=True, sync_dist=sync_state)
+        self.log(f'{stage}_r2', r2, logger=True, prog_bar=True, on_epoch=True, sync_dist=sync_state)
+        self.log(f'{stage}_rmse', rmse, logger=True, on_epoch=True, sync_dist=sync_state)
+        #self.log(f'{stage}_f1', f1, logger=True, on_epoch=True, sync_dist=sync_state)
 
         return loss
     
@@ -169,6 +168,8 @@ class Model(pl.LightningModule):
         # Choose the optimizer based on input parameter
         if self.optimizer_type == "adam":
             optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        elif self.optimizer_type == "adamW":
+            optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
         elif self.optimizer_type == "sgd":
             optimizer = torch.optim.SGD(self.parameters(), lr=self.learning_rate, momentum=0.9)
         else:
@@ -185,6 +186,14 @@ class Model(pl.LightningModule):
                     'scheduler': scheduler,
                     'monitor': 'val_loss',  # Reduce learning rate when 'val_loss' plateaus
                 }
+            }
+        elif self.scheduler_type == "steplr":
+            scheduler = torch.optim.lr_scheduler.StepLR(
+                optimizer, step_size=30
+            )
+            return{
+                'optimizer': optimizer,
+                'lr_scheduler': scheduler
             }
         else:
             return optimizer

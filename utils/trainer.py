@@ -1,4 +1,4 @@
-from pytorch_lightning import Trainer
+from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import CSVLogger, WandbLogger
 import wandb
@@ -21,8 +21,8 @@ def load_tile_names(file_path):
         tile_names = f.read().splitlines()
     return tile_names
 
-def train(data_dir, datasets_to_use, resolution, log_name, num_epoch=10, batch_size=48, mode='img', use_mf=True, use_residual=True):
-    wandb.init()
+def train(data_dir, datasets_to_use, resolution, log_name, learning_rate, optimizer, scheduler, mode='img', num_epoch=10, batch_size=48, use_mf=True, use_residual=True):
+    seed_everything(42, workers=True)
     # Tile names for train, validation, and test
     tile_names = {
         'train': load_tile_names(join(data_dir, f'{resolution}m', 'dataset/train_tiles.txt')),
@@ -49,9 +49,9 @@ def train(data_dir, datasets_to_use, resolution, log_name, num_epoch=10, batch_s
         n_classes=9,
         use_mf=use_mf,
         use_residual=use_residual,
-        optimizer_type="adam",
-        learning_rate=1e-3,
-        scheduler_type="plateau",
+        optimizer_type=optimizer,
+        learning_rate=learning_rate,
+        scheduler_type=scheduler,
         scheduler_params={'patience': 3, 'factor': 0.5}
     )
 
