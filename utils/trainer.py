@@ -79,6 +79,8 @@ def train(config):
     trainer = Trainer(
         max_epochs=config.epochs,
         logger=wandb_logger,
+        device=4,
+        num_nodes=1,
         strategy='ddp',
         callbacks=[checkpoint_callback]
     )
