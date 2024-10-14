@@ -3,7 +3,6 @@ import time
 from utils.trainer import train
 
 # local machine: wandb login --cloud --relogin
-wandb.login()
 
 def main():
     wandb.init(project='M3F-Net', group='0w8598wd')
