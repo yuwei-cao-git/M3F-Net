@@ -50,7 +50,7 @@ export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MAST
 
 # Log experiment variables
 wandb login *
-wandb agent ubc-yuwei-cao/M3F-Net/qexghn0n
+srun wandb agent ubc-yuwei-cao/M3F-Net/qexghn0n
 # wandb sweep --update ubc-yuwei-cao/M3F-Net/qexghn0n config.yaml
 cd $SLURM_TMPDIR
 tar -cf ~/scratch/output/${next_output_dir}/checkpoints.tar ./logs/checkpoints/*

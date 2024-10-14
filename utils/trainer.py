@@ -7,6 +7,9 @@ from models.model import Model
 from dataset.s2 import TreeSpeciesDataModule
 from os.path import join
 
+run=wandb.init()
+config = wandb.config
+
 def load_tile_names(file_path):
     """
     Load tile names from a .txt file.
@@ -21,8 +24,12 @@ def load_tile_names(file_path):
         tile_names = f.read().splitlines()
     return tile_names
 
-def train(config, data_dir, datasets_to_use, log_name):
+def train(config):
     seed_everything(1)
+    data_dir='./data'
+    # User specifies which datasets to use
+    datasets_to_use = ['rmf_s2/spring/tiles_128','rmf_s2/summer/tiles_128','rmf_s2/fall/tiles_128','rmf_s2/winter/tiles_128']
+    
     # Tile names for train, validation, and test
     tile_names = {
         'train': load_tile_names(join(data_dir, f'{config.resolution}m', 'dataset/train_tiles.txt')),
@@ -62,7 +69,13 @@ def train(config, data_dir, datasets_to_use, log_name):
         save_top_k=1,  # Only save the best model
         mode='min'  # We want to minimize the validation loss
     )
-
+    if config.use_residual:
+        log_name = "ResUnet_"
+    else:
+        log_name = "Unet_"
+    if config.use_mf:
+        log_name += 'MF_'
+    log_name += str(config.resolution)
     wandb_logger = WandbLogger(project='M3F-Net', name=log_name)
     
     # Create a PyTorch Lightning Trainer
@@ -84,4 +97,6 @@ def train(config, data_dir, datasets_to_use, log_name):
     
     # Load the saved model
     #model = UNetLightning.load_from_checkpoint("final_model.ckpt")
-    wandb.finish()
+    run.finish()
+    
+wandb.agent('ubc-yuwei-cao/M3F-Net/qexghn0n', function=train, count=10)
