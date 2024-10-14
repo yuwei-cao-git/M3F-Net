@@ -51,11 +51,9 @@ class Model(pl.LightningModule):
                 transforms.ColorJitter(brightness=.5, hue=.3),
                 transforms.RandomCrop(size=(128,128)),
                 transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5.)),
-                transforms.Normalize(),
                 transforms.RandomRotation(degrees=(0,180)),
                 transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75)),
                 transforms.RandomAdjustSharpness(sharpness_factor=2),
-                transforms.RandomChannelPermutation(),
             ]), p=0.3)
         # Loss function
         self.criterion = nn.MSELoss()
