@@ -101,6 +101,6 @@ def train():
     #model = UNetLightning.load_from_checkpoint("final_model.ckpt")
     run.finish()
     
-sweep_id = wandb.sweep(get_configs_from_file(path_yaml='config.yaml'), project='M3F-Net')
+sweep_id = 'qexghn0n'
 time.sleep(3)
 wandb.agent(sweep_id, function=train, count=10)
