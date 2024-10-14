@@ -41,4 +41,10 @@ parameters:
     values:
       - true
       - false
+  data_dir:
+    value: './data'
+  transforms:
+    values:
+      - true
+      - false
 program: train.py

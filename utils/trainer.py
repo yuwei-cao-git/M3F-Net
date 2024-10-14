@@ -1,14 +1,10 @@
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
-from lightning.pytorch.loggers import CSVLogger, WandbLogger
+from lightning.pytorch.loggers import WandbLogger
 import wandb
-import pandas as pd
 from models.model import Model
 from dataset.s2 import TreeSpeciesDataModule
 from os.path import join
-
-run=wandb.init()
-config = wandb.config
 
 def load_tile_names(file_path):
     """
@@ -26,7 +22,7 @@ def load_tile_names(file_path):
 
 def train(config):
     seed_everything(1)
-    data_dir='./data'
+    data_dir = config.data_dir
     # User specifies which datasets to use
     datasets_to_use = ['rmf_s2/spring/tiles_128','rmf_s2/summer/tiles_128','rmf_s2/fall/tiles_128','rmf_s2/winter/tiles_128']
     
@@ -56,6 +52,7 @@ def train(config):
         n_classes=config.n_classes,
         use_mf=config.use_mf,
         use_residual=config.use_residual,
+        transform=config.transforms,
         optimizer=config.optimizer,
         learning_rate=config.learning_rate,
         scheduler=config.scheduler,
@@ -97,6 +94,4 @@ def train(config):
     
     # Load the saved model
     #model = UNetLightning.load_from_checkpoint("final_model.ckpt")
-    run.finish()
-    
-wandb.agent('ubc-yuwei-cao/M3F-Net/qexghn0n', function=train, count=10)
+    wandb.finish()

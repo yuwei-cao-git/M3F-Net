@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
+import torchvision.transforms.v2 as transforms
 
 from .blocks import MF
 from .loss import MaskedMSELoss
@@ -13,7 +14,7 @@ from .ResUnet import ResUnet
 
 # Updating UNet to incorporate residual connections and MF module
 class Model(pl.LightningModule):
-    def __init__(self, n_bands=13, n_classes=9, use_mf=False, use_residual=False, optimizer="adam", learning_rate=1e-3, scheduler='plateau', scheduler_params=None):
+    def __init__(self, n_bands=13, n_classes=9, use_mf=False, use_residual=False, transform=False, optimizer="adam", learning_rate=1e-3, scheduler='plateau', scheduler_params=None):
         """
         Args:
             n_bands (int): Number of input channels (bands) for each season.
@@ -29,6 +30,7 @@ class Model(pl.LightningModule):
 
         self.use_mf = use_mf
         self.use_residual = use_residual
+        self.aug = transform
 
         if self.use_mf:
             # MF Module for seasonal fusion (each season has `n_bands` channels)
@@ -44,7 +46,17 @@ class Model(pl.LightningModule):
         else:
             # Using standard UNet
             self.model = UNet(n_channels=total_input_channels, n_classes=n_classes)
-
+        if self.aug:
+            self.transform = transforms.RandomApply(torch.nn.ModuleList([
+                transforms.ColorJitter(brightness=.5, hue=.3),
+                transforms.RandomCrop(size=(128,128)),
+                transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5.)),
+                transforms.Normalize(),
+                transforms.RandomRotation(degrees=(0,180)),
+                transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75)),
+                transforms.RandomAdjustSharpness(sharpness_factor=2),
+                transforms.RandomChannelPermutation(),
+            ]), p=0.3)
         # Loss function
         self.criterion = nn.MSELoss()
         
@@ -58,6 +70,8 @@ class Model(pl.LightningModule):
 
     def forward(self, inputs):
         # Optionally pass inputs through MF module
+        if self.aug:
+            inputs = self.transform(inputs)
         if self.use_mf:
             # Apply the MF module first to extract features from input
             fused_features = self.mf_module(inputs)
