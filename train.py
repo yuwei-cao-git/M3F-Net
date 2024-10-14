@@ -5,7 +5,9 @@ import wandb
 import pandas as pd
 from models.model import Model
 from dataset.s2 import TreeSpeciesDataModule
+from utils.common import get_configs_from_file, count_sweep
 from os.path import join
+import time
 
 run=wandb.init()
 config = wandb.config
@@ -99,4 +101,6 @@ def train():
     #model = UNetLightning.load_from_checkpoint("final_model.ckpt")
     run.finish()
     
-wandb.agent('ubc-yuwei-cao/M3F-Net/qexghn0n', function=train, count=10)
+sweep_id = wandb.sweep(get_configs_from_file(path_yaml='config.yaml'), project='M3F-Net')
+time.sleep(3)
+wandb.agent(sweep_id, function=train, count=10)
