@@ -48,7 +48,6 @@ class Model(pl.LightningModule):
             self.model = UNet(n_channels=total_input_channels, n_classes=n_classes)
         if self.aug:
             self.transform = transforms.RandomApply(torch.nn.ModuleList([
-                transforms.ColorJitter(brightness=.5, hue=.3),
                 transforms.RandomCrop(size=(128,128)),
                 transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5.)),
                 transforms.RandomRotation(degrees=(0,180)),
