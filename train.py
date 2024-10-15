@@ -7,10 +7,10 @@ from ray.air.integrations.wandb import WandbLoggerCallback
 def main():
     config = {
         "lr": tune.loguniform(1e-4, 1e-1),
-        "batch_size": 4, #tune.choice([32, 64, 128]),
+        "batch_size": tune.choice([32, 64, 128]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
         "epochs": 100,
-        "gpus": 1,
+        "gpus": 4,
         "use_mf": tune.choice([True, False]),
         "use_residual": tune.choice([True, False]),
         "data_dir": "./data",
