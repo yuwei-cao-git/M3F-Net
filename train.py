@@ -1,7 +1,7 @@
 from utils.trainer import train
 import traceback
 from ray import tune
-from ray.tune.integration.wandb import WandbLoggerCallback
+from ray.air.integrations.wandb import WandbLoggerCallback
 # local machine: wandb login --cloud --relogin
 
 def main():
@@ -35,6 +35,8 @@ def main():
                 )
             ]
         )
+        best_trial = analysis.get_best_trial("mean_accuracy", "max", "last")
+        print(best_trial)
     except Exception as e:
         traceback.print_exc()
         raise e

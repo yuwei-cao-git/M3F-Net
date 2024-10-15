@@ -1,11 +1,9 @@
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
 from ray import tune
-from ray.tune.integration.wandb import WandbLoggerCallback
 from pytorch_lightning.loggers import WandbLogger
 from models.model import Model
 from dataset.s2 import TreeSpeciesDataModule
-from os.path import join
 
 def train(config):
     seed_everything(1)

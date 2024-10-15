@@ -40,6 +40,7 @@ virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
 pip install ray numpy torch torchaudio pytorch_lightning lightning torcheval --no-index
+pip install ray[tune]
 pip install --no-index -r requirements.txt
 pip install laspy[laszip]
 
