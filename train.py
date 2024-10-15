@@ -1,5 +1,4 @@
 import wandb
-import time
 from utils.trainer import train
 import argparse
 
@@ -8,7 +7,7 @@ import argparse
 def main():
     wandb.init(project='M3F-Net')
     parser = argparse.ArgumentParser()
-    parser.add_argument('--wandb_resume_version', type=str)
+    parser.add_argument('--wandb_resume_version')
     args = parser.parse_args()
     
     # update: 
