@@ -1,7 +1,6 @@
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
-import wandb
 from models.model import Model
 from dataset.s2 import TreeSpeciesDataModule
 from os.path import join

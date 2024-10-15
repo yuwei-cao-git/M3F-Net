@@ -16,7 +16,7 @@ parameters:
   learning_rate:
     distribution: uniform
     max: 0.1
-    min: 1e-06
+    min: 1e-05
   mode:
     value: img
   n_bands:
@@ -51,3 +51,8 @@ parameters:
     values:
       - true
       - false
+
+command:
+  - ${env}
+  - python
+  - main.py
