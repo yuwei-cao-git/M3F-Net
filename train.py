@@ -1,8 +1,8 @@
-from utils.trainer import train
+from utils.trainer import train_func
 import traceback
 from ray import tune
-from ray.tune.logger import DEFAULT_LOGGERS
 from ray.air.integrations.wandb import WandbLoggerCallback
+import os
 # local machine: wandb login --cloud --relogin
 
 def main():
@@ -14,7 +14,7 @@ def main():
         "gpus": 4,
         "use_mf": tune.choice([True, False]),
         "use_residual": tune.choice([True, False]),
-        "data_dir": "../data",
+        "data_dir": os.path.join(os.getcwd(), "data"),
         "n_bands": 13,
         "n_classes": 13,
         "resolution": tune.choice([10, 20]),
@@ -23,7 +23,7 @@ def main():
     }
     try:
         analysis = tune.run(
-            train,
+            train_func,
             resources_per_trial={"cpu": 8, "gpu": config.get("gpus", 1)},
             metric="val_loss",
             mode="min",

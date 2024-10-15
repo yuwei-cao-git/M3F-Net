@@ -5,7 +5,7 @@ from pytorch_lightning.loggers import WandbLogger
 from models.model import Model
 from dataset.s2 import TreeSpeciesDataModule
 
-def train(config):
+def train_func(config):
     seed_everything(1)
     wandb_logger = WandbLogger(project='M3F-Net', name=f"trial_{tune.Trainable().trial_id}", log_model=True)
     # Update wandb config
