@@ -35,12 +35,12 @@ echo "Data transfered"
 
 # Load python module, and additional required modules
 module purge 
-module load python/3.11 scipy-stack
+module module load gcc arrow/17.0.0 python/3.11
+module scipy-stack
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
 pip install ray numpy torch torchaudio pytorch_lightning lightning torcheval --no-index
-pip install ray[tune]
 pip install --no-index -r requirements.txt
 pip install laspy[laszip]
 
@@ -49,7 +49,6 @@ export TORCH_NCCL_BLOCKING_WAIT=1  #Set this environment variable if you wish to
 export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MASTER_ADDR environment variable.
 
 # Log experiment variables
-wandb login *
 #wandb agent ubc-yuwei-cao/M3F-Net/kfqtbh8r
 
 #Run python script
