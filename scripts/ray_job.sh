@@ -28,19 +28,20 @@ echo "Source code cloned!"
 mkdir -p data/10m
 # extract an archive to a different directory, the ‘-C’ option is followed by the destination path
 tar -xf $project/data/10m.tar -C ./data/10m
+mkdir -p data/20m
+# extract an archive to a different directory, the ‘-C’ option is followed by the destination path
+tar -xf $project/data/20m.tar -C ./data/20m
 echo "Data transfered"
 
 # Load python module, and additional required modules
 module purge 
-module load python/3.10 scipy-stack
+module load python/3.11 scipy-stack
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
-#pip install lightning torcheval --no-index
+pip install ray numpy torch torchaudio pytorch_lightning lightning torcheval --no-index
 pip install --no-index -r requirements.txt
-pip install --no-index ray[tune]
 pip install laspy[laszip]
-echo "Virtual Env created!"
 
 # Set environment variables
 export TORCH_NCCL_BLOCKING_WAIT=1  #Set this environment variable if you wish to use the NCCL backend for inter-GPU communication.
