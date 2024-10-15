@@ -22,6 +22,13 @@ def load_tile_names(file_path):
 
 def train(config):
     seed_everything(1)
+    if config.use_residual:
+        log_name = "ResUnet_"
+    else:
+        log_name = "Unet_"
+    if config.use_mf:
+        log_name += 'MF_'
+    log_name += str(config.resolution)
     wandb_logger = WandbLogger(project='M3F-Net', name=log_name, resume="must")
     data_dir = config.data_dir
     # User specifies which datasets to use
@@ -57,13 +64,6 @@ def train(config):
         save_top_k=1,  # Only save the best model
         mode='min'  # We want to minimize the validation loss
     )
-    if config.use_residual:
-        log_name = "ResUnet_"
-    else:
-        log_name = "Unet_"
-    if config.use_mf:
-        log_name += 'MF_'
-    log_name += str(config.resolution)
     
     # Create a PyTorch Lightning Trainer
     trainer = Trainer(
