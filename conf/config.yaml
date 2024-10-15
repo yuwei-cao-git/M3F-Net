@@ -55,6 +55,6 @@ parameters:
 command:
   - ${env}
   - echo    **this line is different than usual**
-  - python3
+  - python
   - ${program}
   - ${args}
