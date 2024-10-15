@@ -62,7 +62,7 @@ class Model(pl.LightningModule):
         self.learning_rate = config.learning_rate
         self.scheduler_type = config.scheduler
         
-        self.save_hyperparameters(ignore=["loss_weight"])
+        #self.save_hyperparameters(ignore=["loss_weight"])
 
     def forward(self, inputs):
         # Optionally pass inputs through MF module
