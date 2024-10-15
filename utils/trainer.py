@@ -53,7 +53,7 @@ def train(config):
     trainer.test(model, data_module)
 
     # Save the best model after training
-    trainer.save_checkpoint(f"../logs/checkpoints/trial_{tune.get_trial_id()}/final_model.pt")
+    #trainer.save_checkpoint(f"../logs/checkpoints/trial_{tune.Trainable().trial_id}/final_model.pt")
     
     # Load the saved model
     #model = UNetLightning.load_from_checkpoint("final_model.ckpt")
