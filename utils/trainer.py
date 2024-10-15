@@ -20,7 +20,7 @@ def load_tile_names(file_path):
         tile_names = f.read().splitlines()
     return tile_names
 
-def train(config):
+def train(config, args):
     seed_everything(1)
     data_dir = config.data_dir
     # User specifies which datasets to use
@@ -73,7 +73,7 @@ def train(config):
     if config.use_mf:
         log_name += 'MF_'
     log_name += str(config.resolution)
-    wandb_logger = WandbLogger(project='M3F-Net', name=log_name, resume="must")
+    wandb_logger = WandbLogger(project='M3F-Net', name=log_name, version=args.wandb_resume_version, resume="must")
     
     # Create a PyTorch Lightning Trainer
     trainer = Trainer(
