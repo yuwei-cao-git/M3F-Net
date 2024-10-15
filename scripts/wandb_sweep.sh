@@ -8,6 +8,7 @@
 #SBATCH --time=03:00:00        # Specify run time 
 #SBATCH --mail-user=yuwei.cao@ubc.ca    # Request email notifications
 #SBATCH --mail-type=ALL
+#SBATCH --array=1-10    #e.g. 1-4 will create agents labeled 1,2,3,4
 
 next_output_dir=$(date +%Y%m%d%H%M%S)
 mkdir ~/scratch/output/${next_output_dir}
@@ -48,10 +49,28 @@ echo "Virtual Env created!"
 export TORCH_NCCL_BLOCKING_WAIT=1  #Set this environment variable if you wish to use the NCCL backend for inter-GPU communication.
 export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MASTER_ADDR environment variable.
 
+# SET SWEEP_ID HERE. Note sweep must already be created on wandb before submitting job
+SWEEP_ID="ubc-yuwei-cao/M3F-Net/cl83t90p"
+API_KEY="df8a833b419940bc3a6d3e5e04857fe61bb72eef"
 # Log experiment variables
-wandb login *
-srun wandb agent ubc-yuwei-cao/M3F-Net/qexghn0n
+srun wandb login *
+
+# RUN WANDB AGENT IN ONE TASK
+{
+    IFS=$'\n' read -r -d '' SWEEP_DETAILS; RUN_ID=$(echo $SWEEP_DETAILS | sed -e "s/.*\[\([^]]*\)\].*/\1/g" -e "s/[\'\']//g")
+    IFS=$'\n' read -r -d '' SWEEP_COMMAND;
+} < <((printf '\0%s\0' "$(srun --ntasks=1 wandb agent --count 1 $SWEEP_ID)" 1>&2) 2>&1)
+
+
+SWEEP_COMMAND="${SWEEP_COMMAND} --wandb_resume_version ${RUN_ID}"
+
+# WAIT FOR ALL TASKS TO CATCH UP
+wait
+
+# RUN SWEEP COMMAND IN ALL TASKS
+srun  $SWEEP_COMMAND
 # wandb sweep --update ubc-yuwei-cao/M3F-Net/qexghn0n config.yaml
+
 cd $SLURM_TMPDIR
 tar -cf ~/scratch/output/${next_output_dir}/checkpoints.tar ./logs/checkpoints/*
 tar -cf ~/scratch/output/${next_output_dir}/wandblogs.tar ./wandb/*

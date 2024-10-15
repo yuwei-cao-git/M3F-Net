@@ -73,7 +73,7 @@ def train(config):
     if config.use_mf:
         log_name += 'MF_'
     log_name += str(config.resolution)
-    wandb_logger = WandbLogger(project='M3F-Net', name=log_name)
+    wandb_logger = WandbLogger(project='M3F-Net', name=log_name, resume="must")
     
     # Create a PyTorch Lightning Trainer
     trainer = Trainer(

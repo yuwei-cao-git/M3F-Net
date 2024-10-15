@@ -1,3 +1,7 @@
+project: M3F-Net
+name: my_sweeep
+program: train.py
+
 method: bayes
 metric:
   goal: minimize
@@ -42,9 +46,15 @@ parameters:
       - true
       - false
   data_dir:
-    value: './data'
+    value: '/mnt/d/Sync/Research/tree_species_estimation/tree_dataset/rmf/processed'
   transforms:
     values:
       - true
       - false
-program: train.py
+
+command:
+  - ${env}
+  - echo    **this line is different than usual**
+  - python3
+  - ${program}
+  - ${args}

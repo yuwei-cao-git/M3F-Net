@@ -1,15 +1,18 @@
 import wandb
 import time
 from utils.trainer import train
+import argparse
 
 # local machine: wandb login --cloud --relogin
 
+
 def main():
-    wandb.init(project='M3F_Net', group='cln04v81')
+    wandb.init(project='M3F-Net')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--wandb_resume_version', type=str)
+    args = parser.parse_args()
+    
     # update: 
     # wandb sweep --update ubc-yuwei-cao/M3F-Net/0w8598wd ./conf/config.yaml
-    train(wandb.config)
+    train(wandb.config, args)
     
-sweep_id = 'M3F_Net/cln04v81'
-time.sleep(3)
-wandb.agent(sweep_id, function=main)
