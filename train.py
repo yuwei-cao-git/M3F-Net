@@ -5,12 +5,10 @@ import argparse
 
 # local machine: wandb login --cloud --relogin
 
+wandb.init(project='M3F-Net', group='cln04v81')
+config = wandb.config
+
 def main():
-    wandb.init(project='M3F-Net', group='cln04v81')
     # update: 
     # wandb sweep --update ubc-yuwei-cao/M3F-Net/0w8598wd ./conf/config.yaml
-    train(wandb.config)
-    
-sweep_id = 'M3F-Net/cln04v81'
-time.sleep(3)
-wandb.agent(sweep_id, function=main, count=10)
+    train(config)

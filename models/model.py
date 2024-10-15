@@ -14,7 +14,7 @@ from .ResUnet import ResUnet
 
 # Updating UNet to incorporate residual connections and MF module
 class Model(pl.LightningModule):
-    def __init__(self, n_bands=13, n_classes=9, use_mf=False, use_residual=False, transform=False, optimizer="adam", learning_rate=1e-3, scheduler='plateau', scheduler_params=None):
+    def __init__(self, config):
         """
         Args:
             n_bands (int): Number of input channels (bands) for each season.
@@ -28,24 +28,24 @@ class Model(pl.LightningModule):
         """
         super(Model, self).__init__()
 
-        self.use_mf = use_mf
-        self.use_residual = use_residual
-        self.aug = transform
+        self.use_mf = config.use_mf
+        self.use_residual = config.use_residual
+        self.aug = config.transforms
 
         if self.use_mf:
             # MF Module for seasonal fusion (each season has `n_bands` channels)
-            self.mf_module = MF(channels=n_bands)
+            self.mf_module = MF(channels=config.n_bands)
             total_input_channels = 64  # MF module outputs 64 channels after processing four seasons
         else:
-            total_input_channels = n_bands * 4  # If no MF module, concatenating all seasons directly
+            total_input_channels = config.n_bands * 4  # If no MF module, concatenating all seasons directly
 
         # Define the U-Net architecture with or without Residual connections
         if self.use_residual:
             # Using ResUNet
-            self.model = ResUnet(n_channels=total_input_channels, n_classes=n_classes)
+            self.model = ResUnet(n_channels=total_input_channels, n_classes=config.n_classes)
         else:
             # Using standard UNet
-            self.model = UNet(n_channels=total_input_channels, n_classes=n_classes)
+            self.model = UNet(n_channels=total_input_channels, n_classes=config.n_classes)
         if self.aug:
             self.transform = transforms.RandomApply(torch.nn.ModuleList([
                 transforms.RandomCrop(size=(128,128)),
@@ -58,10 +58,9 @@ class Model(pl.LightningModule):
         self.criterion = nn.MSELoss()
         
         # Optimizer and scheduler settings
-        self.optimizer_type = optimizer
-        self.learning_rate = learning_rate
-        self.scheduler_type = scheduler
-        self.scheduler_params = scheduler_params if scheduler_params else {}
+        self.optimizer_type = config.optimizer
+        self.learning_rate = config.learning_rate
+        self.scheduler_type = config.scheduler
         
         self.save_hyperparameters(ignore=["loss_weight"])
 
@@ -189,7 +188,7 @@ class Model(pl.LightningModule):
         # Configure the scheduler based on the input parameter
         if self.scheduler_type == "plateau":
             scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer, **self.scheduler_params
+                optimizer, patience=3, factor=0.5
             )
             return {
                 'optimizer': optimizer,

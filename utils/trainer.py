@@ -20,8 +20,9 @@ def load_tile_names(file_path):
         tile_names = f.read().splitlines()
     return tile_names
 
-def train(config, args):
+def train(config):
     seed_everything(1)
+    wandb_logger = WandbLogger(project='M3F-Net', name=log_name, resume="must")
     data_dir = config.data_dir
     # User specifies which datasets to use
     datasets_to_use = ['rmf_s2/spring/tiles_128','rmf_s2/summer/tiles_128','rmf_s2/fall/tiles_128','rmf_s2/winter/tiles_128']
@@ -43,20 +44,10 @@ def train(config, args):
     
     # Call setup explicitly to initialize datasets
     data_module.setup(stage='fit')
-    # Access `n_bands` after the dataset has been initialized
-    n_bands = data_module.train_dataset.n_bands
-    
+
     # Use the calculated input channels from the DataModule to initialize the model
     model = Model(
-        n_bands=n_bands,  # Example channel config
-        n_classes=config.n_classes,
-        use_mf=config.use_mf,
-        use_residual=config.use_residual,
-        transform=config.transforms,
-        optimizer=config.optimizer,
-        learning_rate=config.learning_rate,
-        scheduler=config.scheduler,
-        scheduler_params={'patience': 3, 'factor': 0.5}
+        config
     )
 
     # Define a checkpoint callback to save the best model
@@ -73,7 +64,6 @@ def train(config, args):
     if config.use_mf:
         log_name += 'MF_'
     log_name += str(config.resolution)
-    wandb_logger = WandbLogger(project='M3F-Net', name=log_name, version=args.wandb_resume_version, resume="must")
     
     # Create a PyTorch Lightning Trainer
     trainer = Trainer(
