@@ -4,23 +4,32 @@ import torch
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
+from os.path import join
 
+def load_tile_names(file_path):
+    """
+    Load tile names from a .txt file.
+
+    Args:
+        file_path (str): Path to the .txt file.
+
+    Returns:
+        tile_names (list): List of tile names.
+    """
+    with open(file_path, 'r') as f:
+        tile_names = f.read().splitlines()
+    return tile_names
 class TreeSpeciesDataset(Dataset):
     def __init__(self, tile_names, processed_dir, datasets):
         """
         Args:
             tile_names (list): List of tile filenames to load.
             processed_dir (str): Base directory containing the processed data folders.
-            datasets (list): List of dataset folder names to include (e.g., ['s2/spring', 's2/summer', ...]).
+            datasets (list): List of dataset folder names to include (e.g., ['s2/spring', 's2/summer',...]).
         """
         self.tile_names = tile_names
         self.processed_dir = processed_dir
         self.datasets = datasets  # List of dataset folder names
-        
-        # Calculate number of bands by inspecting the first tile of the first dataset
-        example_file = os.path.join(self.processed_dir, datasets[0], tile_names[0])
-        with rasterio.open(example_file) as src:
-            self.n_bands = src.count
 
     def __len__(self):
         return len(self.tile_names)
@@ -57,7 +66,7 @@ class TreeSpeciesDataset(Dataset):
         return input_data_list, target_tensor, mask_tensor
 
 class TreeSpeciesDataModule(pl.LightningDataModule):
-    def __init__(self, tile_names, processed_dir, datasets_to_use, batch_size=4, num_workers=4):
+    def __init__(self, config):
         """
         Args:
             tile_names (dict): Dictionary with 'train', 'val', and 'test' keys containing lists of tile filenames to load.
@@ -67,11 +76,19 @@ class TreeSpeciesDataModule(pl.LightningDataModule):
             num_workers (int): Number of workers for DataLoader.
         """
         super().__init__()
-        self.tile_names = tile_names
-        self.processed_dir = processed_dir
-        self.datasets_to_use = datasets_to_use
-        self.batch_size = batch_size
-        self.num_workers = num_workers
+        
+        # Tile names for train, validation, and test
+        self.tile_names = {
+            'train': load_tile_names(join(config.data_dir, f'{config.resolution}m', 'dataset/train_tiles.txt')),
+            'val': load_tile_names(join(config.data_dir, f'{config.resolution}m', 'dataset/val_tiles.txt')),
+            'test': load_tile_names(join(config.data_dir, f'{config.resolution}m', 'dataset/test_tiles.txt'))
+        }
+        # User specifies which datasets to use
+        self.processed_dir = join(config.data_dir, f'{config.resolution}m')
+        self.datasets_to_use = ['rmf_s2/spring/tiles_128','rmf_s2/summer/tiles_128','rmf_s2/fall/tiles_128','rmf_s2/winter/tiles_128']
+    
+        self.batch_size = config.batch_size
+        self.num_workers = 8
 
     def setup(self, stage=None):
         """

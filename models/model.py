@@ -27,25 +27,25 @@ class Model(pl.LightningModule):
             scheduler_params (dict): Parameters for the scheduler (e.g., 'patience', 'factor' for ReduceLROnPlateau).
         """
         super(Model, self).__init__()
-
-        self.use_mf = config.use_mf
-        self.use_residual = config.use_residual
-        self.aug = config.transforms
+        self.config = config
+        self.use_mf = self.config.use_mf
+        self.use_residual = self.config.use_residual
+        self.aug = self.config.transforms
 
         if self.use_mf:
             # MF Module for seasonal fusion (each season has `n_bands` channels)
-            self.mf_module = MF(channels=config.n_bands)
+            self.mf_module = MF(channels=self.config.n_bands)
             total_input_channels = 64  # MF module outputs 64 channels after processing four seasons
         else:
-            total_input_channels = config.n_bands * 4  # If no MF module, concatenating all seasons directly
+            total_input_channels = self.config.n_bands * 4  # If no MF module, concatenating all seasons directly
 
         # Define the U-Net architecture with or without Residual connections
         if self.use_residual:
             # Using ResUNet
-            self.model = ResUnet(n_channels=total_input_channels, n_classes=config.n_classes)
+            self.model = ResUnet(n_channels=total_input_channels, n_classes=self.config.n_classes)
         else:
             # Using standard UNet
-            self.model = UNet(n_channels=total_input_channels, n_classes=config.n_classes)
+            self.model = UNet(n_channels=total_input_channels, n_classes=self.config.n_classes)
         if self.aug:
             self.transform = transforms.RandomApply(torch.nn.ModuleList([
                 transforms.RandomCrop(size=(128,128)),
@@ -58,9 +58,9 @@ class Model(pl.LightningModule):
         self.criterion = nn.MSELoss()
         
         # Optimizer and scheduler settings
-        self.optimizer_type = config.optimizer
-        self.learning_rate = config.learning_rate
-        self.scheduler_type = config.scheduler
+        self.optimizer_type = self.config.optimizer
+        self.learning_rate = self.config.learning_rate
+        self.scheduler_type = self.config.scheduler
         
         #self.save_hyperparameters(ignore=["loss_weight"])
 

@@ -1,51 +1,21 @@
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
-from lightning.pytorch.loggers import WandbLogger
+from ray import tune
+from ray.tune.integration.wandb import WandbLoggerCallback
+from pytorch_lightning.loggers import WandbLogger
 from models.model import Model
 from dataset.s2 import TreeSpeciesDataModule
 from os.path import join
 
-def load_tile_names(file_path):
-    """
-    Load tile names from a .txt file.
-
-    Args:
-        file_path (str): Path to the .txt file.
-
-    Returns:
-        tile_names (list): List of tile names.
-    """
-    with open(file_path, 'r') as f:
-        tile_names = f.read().splitlines()
-    return tile_names
-
 def train(config):
     seed_everything(1)
-    if config.use_residual:
-        log_name = "ResUnet_"
-    else:
-        log_name = "Unet_"
-    if config.use_mf:
-        log_name += 'MF_'
-    log_name += str(config.resolution)
-    wandb_logger = WandbLogger(project='M3F-Net', name=log_name, resume="must")
-    data_dir = config.data_dir
-    # User specifies which datasets to use
-    datasets_to_use = ['rmf_s2/spring/tiles_128','rmf_s2/summer/tiles_128','rmf_s2/fall/tiles_128','rmf_s2/winter/tiles_128']
+    wandb_logger = WandbLogger(project='M3F-Net', name=f"trial_{tune.get_trial_id()}", log_model=True)
+    # Update wandb config
+    wandb_logger.experiment.config.update(config)
     
-    # Tile names for train, validation, and test
-    tile_names = {
-        'train': load_tile_names(join(data_dir, f'{config.resolution}m', 'dataset/train_tiles.txt')),
-        'val': load_tile_names(join(data_dir, f'{config.resolution}m', 'dataset/val_tiles.txt')),
-        'test': load_tile_names(join(data_dir, f'{config.resolution}m', 'dataset/test_tiles.txt'))
-    }
     # Initialize the DataModule
     data_module = TreeSpeciesDataModule(
-        tile_names=tile_names,
-        processed_dir=join(data_dir, f'{config.resolution}m'),  # Base directory where the datasets are stored
-        datasets_to_use=datasets_to_use,
-        batch_size=config.batch_size,
-        num_workers=8
+        config
     )
     
     # Call setup explicitly to initialize datasets
@@ -68,7 +38,7 @@ def train(config):
     trainer = Trainer(
         max_epochs=config.epochs,
         logger=wandb_logger,
-        devices=4,
+        gpus=4,
         num_nodes=1,
         strategy='ddp',
         callbacks=[checkpoint_callback]
@@ -76,13 +46,17 @@ def train(config):
     
     # Train the model
     trainer.fit(model, data_module)
+    
+    # Report the final metric to Ray Tune
+    final_result = trainer.callback_metrics["test_r2"].item()
+    tune.report(loss=final_result)
 
     # Test the model after training
     trainer.test(model, data_module)
 
     # Save the best model after training
-    trainer.save_checkpoint(f"../logs/checkpoints/{log_name}/final_model.pt")
+    trainer.save_checkpoint(f"../logs/checkpoints/trial_{tune.get_trial_id()}/final_model.pt")
     
     # Load the saved model
     #model = UNetLightning.load_from_checkpoint("final_model.ckpt")
-    wandb.finish()
+    #wandb.finish()
