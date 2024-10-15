@@ -51,9 +51,9 @@ export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MAST
 
 # SET SWEEP_ID HERE. Note sweep must already be created on wandb before submitting job
 SWEEP_ID="ubc-yuwei-cao/M3F-Net/cl83t90p"
-API_KEY="df8a833b419940bc3a6d3e5e04857fe61bb72eef"
+API_KEY="****"
 # Log experiment variables
-srun wandb login API_KEY
+srun wandb login $API_KEY
 
 # RUN WANDB AGENT IN ONE TASK
 {
