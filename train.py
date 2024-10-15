@@ -31,6 +31,7 @@ def main():
             callbacks=[
                 WandbLoggerCallback(
                     project="M3F-Net",
+                    api_key="df8a833b419940bc3a6d3e5e04857fe61bb72eef",
                     log_config=True
                 )
             ]
