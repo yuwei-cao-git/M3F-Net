@@ -36,9 +36,9 @@ def train(config):
     
     # Create a PyTorch Lightning Trainer
     trainer = Trainer(
-        max_epochs=config.epochs,
+        max_epochs=config["epochs"],
         logger=wandb_logger,
-        gpus=4,
+        gpus=config.get("gpus", 1),
         num_nodes=1,
         strategy='ddp',
         callbacks=[checkpoint_callback]

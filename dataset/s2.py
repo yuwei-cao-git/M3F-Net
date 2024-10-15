@@ -76,18 +76,18 @@ class TreeSpeciesDataModule(pl.LightningDataModule):
             num_workers (int): Number of workers for DataLoader.
         """
         super().__init__()
-        
+        self.config = config
         # Tile names for train, validation, and test
         self.tile_names = {
-            'train': load_tile_names(join(config.data_dir, f'{config.resolution}m', 'dataset/train_tiles.txt')),
-            'val': load_tile_names(join(config.data_dir, f'{config.resolution}m', 'dataset/val_tiles.txt')),
-            'test': load_tile_names(join(config.data_dir, f'{config.resolution}m', 'dataset/test_tiles.txt'))
+            'train': load_tile_names(join(self.config["data_dir"], f'{self.config["resolution"]}m', 'dataset/train_tiles.txt')),
+            'val': load_tile_names(join(self.config["data_dir"], f'{self.config["resolution"]}m', 'dataset/val_tiles.txt')),
+            'test': load_tile_names(join(self.config["data_dir"], f'{self.config["resolution"]}m', 'dataset/test_tiles.txt'))
         }
         # User specifies which datasets to use
-        self.processed_dir = join(config.data_dir, f'{config.resolution}m')
+        self.processed_dir = join(self.config["data_dir"], f'{self.config["resolution"]}m')
         self.datasets_to_use = ['rmf_s2/spring/tiles_128','rmf_s2/summer/tiles_128','rmf_s2/fall/tiles_128','rmf_s2/winter/tiles_128']
     
-        self.batch_size = config.batch_size
+        self.batch_size = config["batch_size"]
         self.num_workers = 8
 
     def setup(self, stage=None):
