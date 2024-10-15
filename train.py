@@ -5,7 +5,6 @@ import argparse
 
 # local machine: wandb login --cloud --relogin
 
-
 def main():
     wandb.init(project='M3F-Net')
     parser = argparse.ArgumentParser()
@@ -16,3 +15,5 @@ def main():
     # wandb sweep --update ubc-yuwei-cao/M3F-Net/0w8598wd ./conf/config.yaml
     train(wandb.config, args)
     
+if __name__ == "__main__":
+    main()
