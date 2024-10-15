@@ -7,7 +7,7 @@ from dataset.s2 import TreeSpeciesDataModule
 
 def train(config):
     seed_everything(1)
-    wandb_logger = WandbLogger(project='M3F-Net', name=f"trial_{tune.get_trial_id()}", log_model=True)
+    wandb_logger = WandbLogger(project='M3F-Net', name=f"trial_{tune.Trainable().trial_id}", log_model=True)
     # Update wandb config
     wandb_logger.experiment.config.update(config)
     
