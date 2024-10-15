@@ -51,10 +51,3 @@ parameters:
     values:
       - true
       - false
-
-command:
-  - ${env}
-  - echo    **this line is different than usual**
-  - python
-  - ${program}
-  - ${args}

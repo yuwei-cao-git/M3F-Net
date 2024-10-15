@@ -5,7 +5,7 @@ import argparse
 
 # local machine: wandb login --cloud --relogin
 
-wandb.init(project='M3F-Net', group='cln04v81')
+wandb.init(project='M3F-Net', group='9984wag6')
 config = wandb.config
 
 def main():
