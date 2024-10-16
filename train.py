@@ -1,64 +1,40 @@
-from utils.trainer import train_func
-import traceback
-import wandb
-import ray
-from ray import tune, train
-from ray.air.integrations.wandb import WandbLoggerCallback, setup_wandb
+import argparse
+from utils.trainer import train
 import os
-
-# local machine: wandb login --cloud --relogin
+import wandb
 
 def main():
-    config = {
-        "lr": tune.loguniform(1e-4, 1e-1),
-        "batch_size": tune.choice([32, 64, 128]),
-        "optimizer": tune.choice(["adam", "sgd", "adamW"]),
-        "epochs": 100,
-        "gpus": 4,
-        "use_mf": tune.choice([True, False]),
-        "use_residual": tune.choice([True, False]),
-        "n_bands": 13,
-        "n_classes": 13,
-        "resolution": tune.choice([10, 20]),
-        "scheduler": tune.choice(["plateau", "steplr", "cosine"]),
-        "transforms": tune.choice([True, False]),
-    }
-    try:
-        wandb.init(project='M3F-Net')
-        trainable_with_resources = tune.with_resources(train_func,
-        resources_per_trial={"cpu": 32, "gpu": 4})
-        tuner = tune.Tuner(
-            trainable_with_resources,
-            tune_config=tune.TuneConfig(
-                metric="val_loss",
-                mode="min",
-                num_samples=10,
-            ),
-            run_config=train.RunConfig(
-                storage_path="~/scratch/ray_results",
-                log_to_file=("my_stdout.log", "my_stderr.log"),
-                callbacks=[
-                    WandbLoggerCallback(
-                        project="M3F-Net",
-                        log_config=True,
-                        save_checkpoints=True
-                    )],
-            ),
-            param_space=config
-        )
-        results = tuner.fit()
-        print("the best config is:" + str(results.get_best_result().config))
-    except Exception as e:
-        traceback.print_exc()
-        raise e
+    # Create argument parser
+    parser = argparse.ArgumentParser(description="Train model with given parameters")
 
-if __name__ == '__main__':
-    mock_api = True
+    # Add arguments
+    parser.add_argument('--mode', type=str, choices=['img', 'pts', 'both'], default='img', 
+                        help="Mode to run the model: 'img', 'pts', or 'both'")
+    #parser.add_argument('--data_dir', type=str, default='./data', help="path to data dir")
+    parser.add_argument('--n_bands', type=int, default=13, help="number bands per tile")
+    parser.add_argument('--n_classes', type=int, default=9, help="number classes")
+    parser.add_argument('--learning_rate', type=float, default=0.001, help="initial learning rate")
+    parser.add_argument('--optimizer', type=str, default='adam', help="optimizer")
+    parser.add_argument('--scheduler', type=str, default='steplr', help="scheduler")
+    parser.add_argument('--log_name', type=str, required=True, help="Log file name")
+    parser.add_argument('--resolution', type=int, choices=[20, 10], default=20, help="Resolution to use for the data")
+    parser.add_argument('--epochs', type=int, default=10, help="Number of epochs to train the model")
+    parser.add_argument('--batch_size', type=int, default=48, help="Number of epochs to train the model")
+    parser.add_argument('--use_mf', action='store_true', help="Use multi-fusion (set flag to enable)")
+    parser.add_argument('--use_residual', action='store_true', help="Use residual connections (set flag to enable)")
+    parser.add_argument('--transforms', action='store_true')
+    parser.add_argument('--gpus', type=int, default=1)
 
-    if mock_api:
-        os.environ.setdefault("WANDB_MODE", "disabled")
-        os.environ.setdefault("WANDB_API_KEY", "abcd")
-        ray.init(
-            runtime_env={"env_vars": {"WANDB_MODE": "disabled", "WANDB_API_KEY": "abcd"}}
-        )
+    # Parse arguments
+    configs = vars(parser.parse_args())
+    configs["data_dir"] = os.path.join(os.getcwd(), "data")
+    configs["save_dir"] = os.path.join(os.getcwd(), "logs", configs["log_name"])
+    if not os.path.exists(configs["save_dir"]):
+        os.makedirs(configs["save_dir"])
+    print(configs)
+    wandb.init(project='M3F-Net')
+    # Call the train function with parsed arguments
+    train(configs)
+
+if __name__ == "__main__":
     main()

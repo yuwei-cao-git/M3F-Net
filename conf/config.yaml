@@ -1,11 +1,11 @@
 project: M3F-Net
-name: my_sweeep
+name: wandb_sweep
 program: train.py
 
 method: bayes
 metric:
-  goal: minimize
-  name: val_loss
+  goal: maximize
+  name: test_r2
 parameters:
   batch_size:
     values:
@@ -47,12 +47,16 @@ parameters:
       - false
   data_dir:
     value: '/mnt/d/Sync/Research/tree_species_estimation/tree_dataset/rmf/processed'
+  save_dir:
+    value: './logs/sweep_results'
   transforms:
     values:
       - true
       - false
+  gpus:
+    value: 4
 
 command:
   - ${env}
   - python
-  - main.py
+  - sweep_tune.py

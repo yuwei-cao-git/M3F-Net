@@ -30,8 +30,10 @@ echo "Source code cloned!"
 
 # data transfer
 mkdir -p data/10m
+mkdir -p data/20m
 # extract an archive to a different directory, the ‘-C’ option is followed by the destination path
 tar -xf $project/data/10m.tar -C ./data/10m
+tar -xf $project/data/20m.tar -C ./data/20m
 echo "Data transfered"
 
 # Load python module, and additional required modules
@@ -40,7 +42,7 @@ module load python/3.11 scipy-stack
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
-pip install ray torch torchaudio pytorch_lightning lightning torcheval --no-index
+pip install torch torchaudio pytorch_lightning lightning torcheval --no-index
 pip install laspy[laszip]
 pip install --no-index -r requirements.txt
 
@@ -50,30 +52,15 @@ echo "Virtual Env created!"
 export TORCH_NCCL_BLOCKING_WAIT=1  #Set this environment variable if you wish to use the NCCL backend for inter-GPU communication.
 export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MASTER_ADDR environment variable.
 
-# SET SWEEP_ID HERE. Note sweep must already be created on wandb before submitting job
-SWEEP_ID="ubc-yuwei-cao/M3F-Net/cl83t90p"
-API_KEY="****"
+API_KEY="abcd"
 # Log experiment variables
 srun wandb login $API_KEY
 
-# RUN WANDB AGENT IN ONE TASK
-{
-    IFS=$'\n' read -r -d '' SWEEP_DETAILS; RUN_ID=$(echo $SWEEP_DETAILS | sed -e "s/.*\[\([^]]*\)\].*/\1/g" -e "s/[\'\']//g")
-    IFS=$'\n' read -r -d '' SWEEP_COMMAND;
-} < <((printf '\0%s\0' "$(srun --ntasks=1 wandb agent --count 1 $SWEEP_ID)" 1>&2) 2>&1)
-
-
-SWEEP_COMMAND="${SWEEP_COMMAND} --wandb_resume_version ${RUN_ID}"
-
-# WAIT FOR ALL TASKS TO CATCH UP
-wait
-
 # RUN SWEEP COMMAND IN ALL TASKS
-srun  $SWEEP_COMMAND
+srun  python sweep_tune.py
 # wandb sweep --update ubc-yuwei-cao/M3F-Net/qexghn0n config.yaml
 
 cd $SLURM_TMPDIR
-tar -cf ~/scratch/output/${next_output_dir}/checkpoints.tar ./logs/checkpoints/*
 tar -cf ~/scratch/output/${next_output_dir}/wandblogs.tar ./wandb/*
 
 # Check the exit status

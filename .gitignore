@@ -15,7 +15,7 @@ data_processing/
 *.log
 *.ckpt
 wandb
-
+data/
 *.wandb
 paper.qmd
 paper_files/libs/bootstrap/bootstrap-icons.css

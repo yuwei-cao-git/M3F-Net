@@ -47,17 +47,14 @@ export TORCH_NCCL_BLOCKING_WAIT=1  #Set this environment variable if you wish to
 export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MASTER_ADDR environment variable.
 
 wandb login df8a833b419940bc3a6d3e5e04857fe61bb72eef
-# Log experiment variables
-#wandb agent ubc-yuwei-cao/M3F-Net/kfqtbh8r
-
 #Run python script
-# The $((SLURM_NTASKS_PER_NODE * SLURM_JOB_NUM_NODES)) variable tells the script how many processes are available for this execution. “srun” executes the script <tasks-per-node * nodes> times
 echo "Start runing model.................................................................................."
 srun python train.py
 
 cd $SLURM_TMPDIR
-tar -cf ~/scratch/output/${next_output_dir}/tmp.tar /tmp/*
+tar -cf ~/scratch/output/${next_output_dir}/tmp.tar /tmp/ray/*
 tar -cf ~/scratch/output/${next_output_dir}/wandb.tar ./wandb/*
+tar -cf ~/scratch/output/${next_output_dir}/logs.tar ./logs/*
 
 # Check the exit status
 if [ $job_failed -ne 0 ]; then

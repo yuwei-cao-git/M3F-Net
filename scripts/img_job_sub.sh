@@ -50,7 +50,6 @@ export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MAST
 
 # Log experiment variables
 wandb login *
-wandb agent ubc-yuwei-cao/M3F-Net/kfqtbh8r
 
 #Run python script
 # The $((SLURM_NTASKS_PER_NODE * SLURM_JOB_NUM_NODES)) variable tells the script how many processes are available for this execution. “srun” executes the script <tasks-per-node * nodes> times
@@ -58,7 +57,7 @@ echo "Start runing model........................................................
 srun python train.py --data_dir './data' --resolution 10 --log_name 'ResUnet_S4_10m_MF' --num_epoch 200 --batch_size 48 --mode 'img' --use_mf --use_residual
 
 cd $SLURM_TMPDIR
-tar -cf ~/scratch/output/${next_output_dir}/checkpoints.tar ./logs/checkpoints/*
+tar -cf ~/scratch/output/${next_output_dir}/checkpoints.tar ./logs/*
 tar -cf ~/scratch/output/${next_output_dir}/wandblogs.tar ./wandb/*
 
 # Check the exit status

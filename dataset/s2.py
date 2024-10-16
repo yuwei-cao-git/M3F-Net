@@ -80,7 +80,7 @@ class TreeSpeciesDataModule(pl.LightningDataModule):
         self.config = config
         # Tile names for train, validation, and test
         # User specifies which datasets to use
-        self.processed_dir = join('../data', f'{self.config["resolution"]}m')
+        self.processed_dir = join(config["data_dir"], f'{self.config["resolution"]}m')
         self.tile_names = {
             'train': load_tile_names(join(self.processed_dir, 'dataset/train_tiles.txt')),
             'val': load_tile_names(join(self.processed_dir, 'dataset/val_tiles.txt')),
@@ -89,7 +89,6 @@ class TreeSpeciesDataModule(pl.LightningDataModule):
         self.datasets_to_use = ['rmf_s2/spring/tiles_128','rmf_s2/summer/tiles_128','rmf_s2/fall/tiles_128','rmf_s2/winter/tiles_128']
     
         self.batch_size = config["batch_size"]
-        self.num_workers = 8
 
     def setup(self, stage=None):
         """
@@ -101,10 +100,10 @@ class TreeSpeciesDataModule(pl.LightningDataModule):
         self.test_dataset = TreeSpeciesDataset(self.tile_names['test'], self.processed_dir, self.datasets_to_use)
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False)
 
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers)
+        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False)

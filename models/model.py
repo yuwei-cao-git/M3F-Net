@@ -197,6 +197,8 @@ class Model(pl.LightningModule):
                     'monitor': 'val_loss',  # Reduce learning rate when 'val_loss' plateaus
                 }
             }
+        elif self.scheduler_type == "asha":
+            return optimizer
         elif self.scheduler_type == "steplr":
             scheduler = torch.optim.lr_scheduler.StepLR(
                 optimizer, step_size=30
