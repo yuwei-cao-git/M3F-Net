@@ -38,7 +38,8 @@ module module load gcc arrow/17.0.0 python/3.11 scipy-stack
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
-pip install ray numpy torch torchaudio pytorch_lightning lightning torcheval tensorboardx pyarrow --no-index
+pip install ray numpy torch torchaudio pytorch_lightning lightning torcheval tensorboardx --no-index
+pip install ray[tune]
 pip install --no-index -r requirements.txt
 pip install laspy[laszip]
 
@@ -49,12 +50,12 @@ export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MAST
 wandb login df8a833b419940bc3a6d3e5e04857fe61bb72eef
 #Run python script
 echo "Start runing model.................................................................................."
-srun python train.py
+srun python ray_tune.py
 
 cd $SLURM_TMPDIR
 tar -cf ~/scratch/output/${next_output_dir}/tmp.tar /tmp/ray/*
 tar -cf ~/scratch/output/${next_output_dir}/wandb.tar ./wandb/*
-tar -cf ~/scratch/output/${next_output_dir}/logs.tar ./logs/*
+tar -cf ~/scratch/output/${next_output_dir}/logs.tar ./logs/ray_results/*
 
 # Check the exit status
 if [ $job_failed -ne 0 ]; then
