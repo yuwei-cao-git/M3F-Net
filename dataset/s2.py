@@ -19,6 +19,7 @@ def load_tile_names(file_path):
     with open(file_path, 'r') as f:
         tile_names = f.read().splitlines()
     return tile_names
+
 class TreeSpeciesDataset(Dataset):
     def __init__(self, tile_names, processed_dir, datasets):
         """
@@ -78,13 +79,13 @@ class TreeSpeciesDataModule(pl.LightningDataModule):
         super().__init__()
         self.config = config
         # Tile names for train, validation, and test
-        self.tile_names = {
-            'train': load_tile_names(join(self.config["data_dir"], f'{self.config["resolution"]}m', 'dataset/train_tiles.txt')),
-            'val': load_tile_names(join(self.config["data_dir"], f'{self.config["resolution"]}m', 'dataset/val_tiles.txt')),
-            'test': load_tile_names(join(self.config["data_dir"], f'{self.config["resolution"]}m', 'dataset/test_tiles.txt'))
-        }
         # User specifies which datasets to use
-        self.processed_dir = join(self.config["data_dir"], f'{self.config["resolution"]}m')
+        self.processed_dir = join('../data', f'{self.config["resolution"]}m')
+        self.tile_names = {
+            'train': load_tile_names(join(self.processed_dir, 'dataset/train_tiles.txt')),
+            'val': load_tile_names(join(self.processed_dir, 'dataset/val_tiles.txt')),
+            'test': load_tile_names(join(self.processed_dir, 'dataset/test_tiles.txt'))
+        }
         self.datasets_to_use = ['rmf_s2/spring/tiles_128','rmf_s2/summer/tiles_128','rmf_s2/fall/tiles_128','rmf_s2/winter/tiles_128']
     
         self.batch_size = config["batch_size"]

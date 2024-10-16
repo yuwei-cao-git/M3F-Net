@@ -36,13 +36,14 @@ echo "Data transfered"
 
 # Load python module, and additional required modules
 module purge 
-module load python/3.10 scipy-stack
+module load python/3.11 scipy-stack
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
-#pip install lightning torcheval --no-index
-pip install --no-index -r requirements.txt
+pip install ray torch torchaudio pytorch_lightning lightning torcheval --no-index
 pip install laspy[laszip]
+pip install --no-index -r requirements.txt
+
 echo "Virtual Env created!"
 
 # Set environment variables

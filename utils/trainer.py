@@ -12,17 +12,13 @@ def train_func(config):
     wandb_logger.experiment.config.update(config)
     
     # Initialize the DataModule
-    data_module = TreeSpeciesDataModule(
-        config
-    )
+    data_module = TreeSpeciesDataModule(config)
     
     # Call setup explicitly to initialize datasets
     data_module.setup(stage='fit')
 
     # Use the calculated input channels from the DataModule to initialize the model
-    model = Model(
-        config
-    )
+    model = Model(config)
 
     # Define a checkpoint callback to save the best model
     checkpoint_callback = ModelCheckpoint(

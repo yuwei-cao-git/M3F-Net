@@ -26,21 +26,19 @@ echo "Source code cloned!"
 
 # data transfer
 mkdir -p data/10m
-# extract an archive to a different directory, the ‘-C’ option is followed by the destination path
-tar -xf $project/data/10m.tar -C ./data/10m
 mkdir -p data/20m
 # extract an archive to a different directory, the ‘-C’ option is followed by the destination path
+tar -xf $project/data/10m.tar -C ./data/10m
 tar -xf $project/data/20m.tar -C ./data/20m
 echo "Data transfered"
 
 # Load python module, and additional required modules
 module purge 
-module module load gcc arrow/17.0.0 python/3.11
-module scipy-stack
+module module load gcc arrow/17.0.0 python/3.11 scipy-stack
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
-pip install ray numpy torch torchaudio pytorch_lightning lightning torcheval --no-index
+pip install ray numpy torch torchaudio pytorch_lightning lightning torcheval tensorboardx pyarrow --no-index
 pip install --no-index -r requirements.txt
 pip install laspy[laszip]
 
@@ -57,8 +55,7 @@ echo "Start runing model........................................................
 srun python train.py
 
 cd $SLURM_TMPDIR
-tar -cf ~/scratch/output/${next_output_dir}/checkpoints.tar ./logs/checkpoints/*
-tar -cf ~/scratch/output/${next_output_dir}/wandblogs.tar ./wandb/*
+tar -cf ~/scratch/output/${next_output_dir}/ /tmp/*
 
 # Check the exit status
 if [ $job_failed -ne 0 ]; then
