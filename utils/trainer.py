@@ -1,13 +1,14 @@
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
-from ray import tune
+from ray import tune, train
+import wandb
 from pytorch_lightning.loggers import WandbLogger
 from models.model import Model
 from dataset.s2 import TreeSpeciesDataModule
 
 def train_func(config):
     seed_everything(1)
-    wandb_logger = WandbLogger(project='M3F-Net', name=f"trial_{tune.Trainable().trial_id}", log_model=True)
+    wandb_logger = WandbLogger(project='M3F-Net', name=f"trial_{tune.Trainable().trial_id}", save_dir='./wandb', log_model=True)
     # Update wandb config
     wandb_logger.experiment.config.update(config)
     
@@ -43,7 +44,7 @@ def train_func(config):
     
     # Report the final metric to Ray Tune
     final_result = trainer.callback_metrics["test_r2"].item()
-    tune.report(loss=final_result)
+    train.report(loss=final_result)
 
     # Test the model after training
     trainer.test(model, data_module)

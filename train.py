@@ -1,8 +1,11 @@
 from utils.trainer import train_func
 import traceback
-from ray import tune
-from ray.air.integrations.wandb import WandbLoggerCallback
+import wandb
+import ray
+from ray import tune, train
+from ray.air.integrations.wandb import WandbLoggerCallback, setup_wandb
 import os
+
 # local machine: wandb login --cloud --relogin
 
 def main():
@@ -21,26 +24,41 @@ def main():
         "transforms": tune.choice([True, False]),
     }
     try:
-        analysis = tune.run(
-            train_func,
-            resources_per_trial={"cpu": 8, "gpu": config.get("gpus", 1)},
-            metric="val_loss",
-            mode="min",
-            config=config,
-            num_samples=10,
-            callbacks=[
-                WandbLoggerCallback(
-                    project="M3F-Net",
-                    api_key="df8a833b419940bc3a6d3e5e04857fe61bb72eef",
-                    log_config=True
-                )
-            ]
+        wandb.init(project='M3F-Net')
+        trainable_with_resources = tune.with_resources(train_func,
+        resources_per_trial={"cpu": 32, "gpu": 4})
+        tuner = tune.Tuner(
+            trainable_with_resources,
+            tune_config=tune.TuneConfig(
+                metric="val_loss",
+                mode="min",
+                num_samples=10,
+            ),
+            run_config=train.RunConfig(
+                storage_path="~/scratch/ray_results",
+                log_to_file=("my_stdout.log", "my_stderr.log"),
+                callbacks=[
+                    WandbLoggerCallback(
+                        project="M3F-Net",
+                        log_config=True,
+                        save_checkpoints=True
+                    )],
+            ),
+            param_space=config
         )
-        best_trial = analysis.get_best_trial("mean_accuracy", "max", "last")
-        print(best_trial)
+        results = tuner.fit()
+        print("the best config is:" + str(results.get_best_result().config))
     except Exception as e:
         traceback.print_exc()
         raise e
 
 if __name__ == '__main__':
+    mock_api = True
+
+    if mock_api:
+        os.environ.setdefault("WANDB_MODE", "disabled")
+        os.environ.setdefault("WANDB_API_KEY", "abcd")
+        ray.init(
+            runtime_env={"env_vars": {"WANDB_MODE": "disabled", "WANDB_API_KEY": "abcd"}}
+        )
     main()
