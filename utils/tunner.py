@@ -43,7 +43,7 @@ def train_func(config):
     trainer.fit(model, data_module)
     
     # Report the final metric to Ray Tune
-    final_result = trainer.callback_metrics["test_r2"].item()
+    final_result = trainer.callback_metrics["val_loss"].item()
     train.report(loss=final_result)
 
     # Test the model after training

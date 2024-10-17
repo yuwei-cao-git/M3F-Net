@@ -29,7 +29,7 @@ def main():
         "scheduler": "asha", # tune.choice(["plateau", "steplr", "cosine"]),
         "transforms": tune.choice([True, False]),
         "save_dir": save_dir,
-        "n_samples": 10
+        "n_samples": 2
     }
     try:
         wandb.init(project='M3F-Net-ray')
