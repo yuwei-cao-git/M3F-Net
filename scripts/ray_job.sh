@@ -34,7 +34,7 @@ echo "Data transfered"
 
 # Load python module, and additional required modules
 module purge 
-module module load gcc arrow/17.0.0 python/3.11 scipy-stack
+module load gcc arrow/17.0.0 python/3.11 scipy-stack
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip

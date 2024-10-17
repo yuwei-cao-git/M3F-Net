@@ -13,7 +13,7 @@ def main():
     data_dir = os.path.join(os.getcwd(), "data")
     save_dir = os.path.join(os.getcwd(), "logs", "ray_results")
     if not os.path.exists(save_dir):
-        os.mkdir(save_dir)
+        os.makedirs(save_dir)
     config = {
         "data_dir": data_dir,
         "learning_rate": tune.loguniform(1e-4, 1e-1),
