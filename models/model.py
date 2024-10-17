@@ -31,13 +31,17 @@ class Model(pl.LightningModule):
         self.use_mf = self.config["use_mf"]
         self.use_residual = self.config["use_residual"]
         self.aug = self.config["transforms"]
+        if self.config["resolution"] == 10:
+            self.n_bands = 12
+        else:
+            self.n_bands = 9
 
         if self.use_mf:
             # MF Module for seasonal fusion (each season has `n_bands` channels)
-            self.mf_module = MF(channels=self.config["n_bands"])
+            self.mf_module = MF(channels=self.n_bands)
             total_input_channels = 64  # MF module outputs 64 channels after processing four seasons
         else:
-            total_input_channels = self.config["n_bands"] * 4  # If no MF module, concatenating all seasons directly
+            total_input_channels = self.n_bands * 4  # If no MF module, concatenating all seasons directly
 
         # Define the U-Net architecture with or without Residual connections
         if self.use_residual:

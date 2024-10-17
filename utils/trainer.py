@@ -24,17 +24,23 @@ def train(args):
         save_top_k=1,  # Only save the best model
         mode='min'  # We want to minimize the validation loss
     )
-    
-    wandb_logger = WandbLogger(name=args["log_name"])
+    if args["use_residual"]:
+        log_name = "ResUnet_"
+    else:
+        log_name = "Unet_"
+    if args["use_mf"]:
+        log_name += 'MF_'
+    log_name += str(args["resolution"])
+    wandb_logger = WandbLogger(name=log_name)
     
     # Create a PyTorch Lightning Trainer
     trainer = Trainer(
         max_epochs=args["epochs"],
         logger=[wandb_logger],
         callbacks=[checkpoint_callback],
-        devices=args["gpus"],
+        devices=1, #args["gpus"],
         num_nodes=1,
-        strategy='ddp',
+        #strategy='ddp',
     )
     
     # Train the model
@@ -44,7 +50,7 @@ def train(args):
     trainer.test(model, data_module)
 
     # Save the best model after training
-    trainer.save_checkpoint(os.path.join(args["save_dir"], f'{args["log_name"]}", "final_model.pt'))
+    trainer.save_checkpoint(os.path.join(args["save_dir"], log_name, 'final_model.pt'))
     
     # Load the saved model
     #model = UNetLightning.load_from_checkpoint("final_model.ckpt")
