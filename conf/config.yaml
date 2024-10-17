@@ -46,7 +46,7 @@ parameters:
       - true
       - false
   data_dir:
-    value: '/mnt/d/Sync/Research/tree_species_estimation/tree_dataset/rmf/processed'
+    value: './data'
   save_dir:
     value: './logs/sweep_results'
   transforms:

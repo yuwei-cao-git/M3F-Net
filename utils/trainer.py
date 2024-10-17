@@ -31,6 +31,7 @@ def train(args):
     if args["use_mf"]:
         log_name += 'MF_'
     log_name += str(args["resolution"])
+    
     wandb_logger = WandbLogger(name=log_name)
     
     # Create a PyTorch Lightning Trainer

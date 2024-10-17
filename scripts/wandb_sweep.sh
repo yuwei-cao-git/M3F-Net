@@ -6,9 +6,6 @@
 #SBATCH --mem=128G
 #SBATCH --job-name="test-multi-gpu"
 #SBATCH --time=03:00:00        # Specify run time 
-#SBATCH --mail-user=yuwei.cao@ubc.ca    # Request email notifications
-#SBATCH --mail-type=ALL
-#SBATCH --array=1-10    #e.g. 1-4 will create agents labeled 1,2,3,4
 
 next_output_dir=$(date +%Y%m%d%H%M%S)
 mkdir ~/scratch/output/${next_output_dir}
@@ -61,6 +58,7 @@ wandb agent ubc-yuwei-cao/M3F_Net_Sweep/qra46txj
 
 cd $SLURM_TMPDIR
 tar -cf ~/scratch/output/${next_output_dir}/wandblogs.tar ./wandb/*
+tar -cf ~/scratch/output/${next_output_dir}/logs.tar ./logs/sweep_results/* 
 
 # Check the exit status
 if [ $job_failed -ne 0 ]; then

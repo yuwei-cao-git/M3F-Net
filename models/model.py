@@ -53,7 +53,6 @@ class Model(pl.LightningModule):
         if self.aug:
             self.transform = transforms.RandomApply(torch.nn.ModuleList([
                 transforms.RandomCrop(size=(128,128)),
-                transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5.)),
                 transforms.RandomRotation(degrees=(0,180)),
                 transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75)),
                 transforms.RandomAdjustSharpness(sharpness_factor=2),
