@@ -1,7 +1,5 @@
 from utils.tunner import train_func
 import traceback
-import wandb
-import ray
 from ray import tune, train
 from ray.tune.schedulers import ASHAScheduler
 from ray.air.integrations.wandb import WandbLoggerCallback
@@ -19,7 +17,7 @@ def main():
         "learning_rate": tune.loguniform(1e-4, 1e-1),
         "batch_size": tune.choice([32, 64, 128]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
-        "epochs": 100,
+        "epochs": 1,
         "gpus": 4,
         "use_mf": tune.choice([True, False]),
         "use_residual": tune.choice([True, False]),
@@ -32,13 +30,12 @@ def main():
         "n_samples": 2
     }
     try:
-        wandb.init(project='M3F-Net-ray')
-        
+        #wandb.init(project='M3F-Net-ray')
         scheduler = ASHAScheduler(
             max_t=1,
             grace_period=1,
             reduction_factor=2)
-        trainable_with_gpu = tune.with_resources(train_func, {"gpu":  config.get("gpus", 1)})
+        trainable_with_gpu = tune.with_resources(train_func, {"gpu": config.get("gpus", 1)})
         tuner = tune.Tuner(
             trainable_with_gpu,
             tune_config=tune.TuneConfig(
@@ -53,8 +50,10 @@ def main():
                 callbacks=[
                     WandbLoggerCallback(
                         project="M3F-Net-ray",
+                        api_key=os.environ["WANDB_API_KEY"],
                         log_config=True,
-                        save_checkpoints=True
+                        save_checkpoints=True,
+                        upload_checkpoints=True
                     )],
             ),
             param_space=config
@@ -66,6 +65,7 @@ def main():
         raise e
 
 if __name__ == '__main__':
+    '''
     mock_api = True
     if mock_api:
         os.environ.setdefault("WANDB_MODE", "disabled")
@@ -73,4 +73,5 @@ if __name__ == '__main__':
         ray.init(
             runtime_env={"env_vars": {"WANDB_MODE": "disabled", "WANDB_API_KEY": "abcd"}}
         )
+    '''
     main()

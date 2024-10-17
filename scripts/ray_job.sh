@@ -2,7 +2,7 @@
 #SBATCH --job-name=ray_tune
 #SBATCH --output=ray_tune_%j.out
 #SBATCH --error=ray_tune_%j.err
-#SBATCH --time=03:00:00        # Specify run time 
+#SBATCH --time=00:30:00        # Specify run time 
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
@@ -10,7 +10,7 @@
 #SBATCH --mem=128G
 
 next_output_dir=$(date +%Y%m%d%H%M%S)
-mkdir ~/scratch/output/${next_output_dir}
+mkdir ~/scratch/ray_output/${next_output_dir}
 echo "created output dir"
 
 # Trap the exit status of the job
@@ -34,28 +34,26 @@ echo "Data transfered"
 
 # Load python module, and additional required modules
 module purge 
-module load gcc arrow/17.0.0 python/3.11 scipy-stack
+module load python StdEnv/2020 gcc/9.3.0 arrow cuda
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
-pip install ray numpy torch torchaudio pytorch_lightning lightning torcheval tensorboardx --no-index
-pip install ray[tune]
-pip install --no-index -r requirements.txt
-pip install laspy[laszip]
+pip install -r requirements.txt
 
 # Set environment variables
 export TORCH_NCCL_BLOCKING_WAIT=1  #Set this environment variable if you wish to use the NCCL backend for inter-GPU communication.
 export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MASTER_ADDR environment variable.
 
-wandb login abcd
+export WANDB_API_KEY=df8a833b419940bc3a6d3e5e04857fe61bb72eef
+wandb login
 #Run python script
 echo "Start runing model.................................................................................."
 srun python ray_tune.py
+wandb sync ./logs/ray_results/wandb/*
 
 cd $SLURM_TMPDIR
-tar -cf ~/scratch/output/${next_output_dir}/tmp.tar /tmp/ray/*
-tar -cf ~/scratch/output/${next_output_dir}/wandb.tar ./wandb/*
-tar -cf ~/scratch/output/${next_output_dir}/logs.tar ./logs/ray_results/*
+tar -cf ~/scratch/ray_output/${next_output_dir}/tmp.tar /tmp/ray/*
+tar -cf ~/scratch/ray_output/${next_output_dir}/logs.tar ./logs/ray_results/*
 
 # Check the exit status
 if [ $job_failed -ne 0 ]; then
