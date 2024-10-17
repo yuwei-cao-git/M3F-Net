@@ -4,12 +4,14 @@ from ray import tune, train
 from pytorch_lightning.loggers import WandbLogger
 from models.model import Model
 import os
+import wandb
+import time
 from dataset.s2 import TreeSpeciesDataModule
 
 def train_func(config):
     seed_everything(1)
     
-    wandb_logger = WandbLogger(project='M3F-Net-ray', name=f"trial_{tune.Trainable().trial_id}", save_dir=config["save_dir"], log_model=True)
+    wandb_logger = WandbLogger(project='M3F-Net-ray', name=f"trial_{tune.Trainable().trial_id}", save_dir=config["save_dir"], log_model=True, offline=True)
     wandb_logger.experiment.config.update(config)
     
     # Initialize the DataModule
@@ -51,3 +53,6 @@ def train_func(config):
 
     # Save the best model after training
     trainer.save_checkpoint(os.path.join(config["save_dir"], f"trial_{tune.Trainable().trial_id}", "final_model.pt"))
+    
+    time.sleep(5)  # Wait for wandb to finish logging
+    wandb.finish()
