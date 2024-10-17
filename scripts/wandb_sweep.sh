@@ -52,9 +52,8 @@ echo "Virtual Env created!"
 export TORCH_NCCL_BLOCKING_WAIT=1  #Set this environment variable if you wish to use the NCCL backend for inter-GPU communication.
 export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MASTER_ADDR environment variable.
 
-API_KEY="df8a833b419940bc3a6d3e5e04857fe61bb72eef"
 # Log experiment variables
-srun wandb login $API_KEY
+srun wandb login abcd
 
 # RUN SWEEP COMMAND IN ALL TASKS
 #srun  python sweep_tune.py
