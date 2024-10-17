@@ -38,7 +38,7 @@ def train(args):
         max_epochs=args["epochs"],
         logger=[wandb_logger],
         callbacks=[checkpoint_callback],
-        devices=1, #args["gpus"],
+        devices=args["gpus"],
         num_nodes=1,
         #strategy='ddp',
     )

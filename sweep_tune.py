@@ -17,7 +17,7 @@ def main():
         raise e
 
 if __name__ == '__main__':
-    #sweep_id = 'ubc-yuwei-cao/M3F_Net/cln04v81'
-    #sweep_id = wandb.sweep('ubc-yuwei-cao/M3F_Net_Sweep/qra46txj', project='M3F_Net_Sweep')
-    #wandb.agent(sweep_id, function=main)
     main()
+    #sweep_id = 'ubc-yuwei-cao/M3F_Net_Sweep/qra46txj'
+    #sweep_id = 'ubc-yuwei-cao/M3F_Net/cln04v81'
+    #wandb.agent(sweep_id, function=main)
