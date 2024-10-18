@@ -34,7 +34,8 @@ echo "Data transfered"
 
 # Load python module, and additional required modules
 module purge 
-module load gcc/9.3.0 arrow/10.0.1 python/3.10 scipy-stack/2022a
+#module load gcc/9.3.0 arrow python/3.10 scipy-stack/2022a
+module load python StdEnv/2020 gcc/9.3.0 arrow # cuda
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
@@ -52,7 +53,7 @@ wandb login
 #Run python script
 echo "Start runing model.................................................................................."
 srun python ray_tune.py
-wandb sync ./logs/ray_results/wandb/*
+#wandb sync ./logs/ray_results/wandb/*
 
 cd $SLURM_TMPDIR
 tar -cf ~/scratch/ray_output/${next_output_dir}/tmp.tar /tmp/ray/*
