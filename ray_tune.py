@@ -23,7 +23,7 @@ def main():
         "use_residual": tune.choice([True, False]),
         "n_bands": 12,
         "n_classes": 9,
-        "resolution": tune.choice([10, 20]),
+        "resolution": 20, #tune.choice([10, 20]),
         "scheduler": "asha", # tune.choice(["plateau", "steplr", "cosine"]),
         "transforms": tune.choice([True, False]),
         "save_dir": save_dir,
@@ -39,8 +39,8 @@ def main():
         tuner = tune.Tuner(
             trainable_with_gpu,
             tune_config=tune.TuneConfig(
-                metric="val_loss",
-                mode="min",
+                metric="val_r2_epoch",
+                mode="max",
                 scheduler=scheduler,
                 num_samples=config["n_samples"],
             ),
@@ -59,7 +59,7 @@ def main():
             param_space=config
         )
         results = tuner.fit()
-        print("Best trial config: {}".format(results.get_best_result("val_loss","min").config))
+        print("Best trial config: {}".format(results.get_best_result("val_r2_epoch","max").config))
     except Exception as e:
         traceback.print_exc()
         raise e
