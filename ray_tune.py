@@ -23,7 +23,7 @@ def main():
         "use_residual": tune.choice([True, False]),
         "n_bands": 12,
         "n_classes": 9,
-        "resolution":tune.choice([10, 20]),
+        "resolution": tune.choice([10, 20]),
         "scheduler": "asha", # tune.choice(["plateau", "steplr", "cosine"]),
         "transforms": tune.choice([True, False]),
         "save_dir": save_dir,
@@ -50,7 +50,7 @@ def main():
                 callbacks=[
                     WandbLoggerCallback(
                         project="M3F-Net-ray",
-                        group='cedar'
+                        group='cedar',
                         api_key=os.environ["WANDB_API_KEY"],
                         log_config=True,
                         save_checkpoints=True,
