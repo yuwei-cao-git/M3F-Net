@@ -1,5 +1,6 @@
 from utils.tunner import train_func
 import traceback
+import ray
 from ray import tune, train
 from ray.tune.schedulers import ASHAScheduler
 from ray.air.integrations.wandb import WandbLoggerCallback
