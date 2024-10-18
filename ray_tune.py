@@ -54,7 +54,6 @@ def main():
                         api_key=os.environ["WANDB_API_KEY"],
                         log_config=True,
                         save_checkpoints=True,
-                        upload_checkpoints=True
                     )],
             ),
             param_space=config
