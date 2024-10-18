@@ -34,17 +34,20 @@ echo "Data transfered"
 
 # Load python module, and additional required modules
 module purge 
-module load python StdEnv/2020 gcc/9.3.0 arrow cuda
+module load gcc/9.3.0 arrow/10.0.1 python/3.10 scipy-stack
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
 pip install -r requirements.txt
 
+#Import pyarrow seperately
+python -c "import pyarrow"
+
 # Set environment variables
 export TORCH_NCCL_BLOCKING_WAIT=1  #Set this environment variable if you wish to use the NCCL backend for inter-GPU communication.
 export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MASTER_ADDR environment variable.
 
-export WANDB_API_KEY=df8a833b419940bc3a6d3e5e04857fe61bb72eef
+export WANDB_API_KEY=abcd
 wandb login
 #Run python script
 echo "Start runing model.................................................................................."
