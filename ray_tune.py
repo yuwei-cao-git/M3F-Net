@@ -17,17 +17,17 @@ def main():
         "learning_rate": tune.loguniform(1e-4, 1e-1),
         "batch_size": tune.choice([32, 64, 128]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
-        "epochs": 1,
-        "gpus": 1,
+        "epochs": 100,
+        "gpus": 4,
         "use_mf": tune.choice([True, False]),
         "use_residual": tune.choice([True, False]),
         "n_bands": 12,
         "n_classes": 9,
-        "resolution": 20, #tune.choice([10, 20]),
+        "resolution":tune.choice([10, 20]),
         "scheduler": "asha", # tune.choice(["plateau", "steplr", "cosine"]),
         "transforms": tune.choice([True, False]),
         "save_dir": save_dir,
-        "n_samples": 2
+        "n_samples": 10
     }
     try:
         #wandb.init(project='M3F-Net-ray')
@@ -50,6 +50,7 @@ def main():
                 callbacks=[
                     WandbLoggerCallback(
                         project="M3F-Net-ray",
+                        group='cedar'
                         api_key=os.environ["WANDB_API_KEY"],
                         log_config=True,
                         save_checkpoints=True,
