@@ -18,7 +18,7 @@ def main():
         "batch_size": tune.choice([32, 64, 128]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
         "epochs": 1,
-        "gpus": 4,
+        "gpus": 1,
         "use_mf": tune.choice([True, False]),
         "use_residual": tune.choice([True, False]),
         "n_bands": 12,
