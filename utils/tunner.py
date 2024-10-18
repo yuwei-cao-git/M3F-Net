@@ -46,7 +46,7 @@ def train_func(config):
     
     # Report the final metric to Ray Tune
     final_result = trainer.callback_metrics["val_r2_epoch"].item()
-    train.report({"r2": final_result})
+    train.report({"val_r2_epoch": final_result})
 
     # Test the model after training
     trainer.test(model, data_module)
