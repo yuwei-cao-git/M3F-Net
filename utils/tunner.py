@@ -11,7 +11,7 @@ from dataset.s2 import TreeSpeciesDataModule
 def train_func(config):
     seed_everything(1)
     
-    wandb_logger = WandbLogger(project='M3F-Net-ray', name=f"trial_{tune.Trainable().trial_id}", save_dir=config["save_dir"], log_model=True, offline=True)
+    wandb_logger = WandbLogger(project='M3F-Net-ray', name=f"trial_{tune.Trainable().trial_id}", save_dir=config["save_dir"], log_model=True)
     wandb_logger.experiment.config.update(config)
     
     # Initialize the DataModule
@@ -45,8 +45,8 @@ def train_func(config):
     trainer.fit(model, data_module)
     
     # Report the final metric to Ray Tune
-    final_result = trainer.callback_metrics["val_loss"].item()
-    train.report(loss=final_result)
+    final_result = trainer.callback_metrics["val_r2_epoch"].item()
+    train.report({"val_r2_epoch": final_result})
 
     # Test the model after training
     trainer.test(model, data_module)

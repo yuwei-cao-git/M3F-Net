@@ -1,5 +1,6 @@
 from utils.tunner import train_func
 import traceback
+import ray
 from ray import tune, train
 from ray.tune.schedulers import ASHAScheduler
 from ray.air.integrations.wandb import WandbLoggerCallback
@@ -17,7 +18,7 @@ def main():
         "learning_rate": tune.loguniform(1e-4, 1e-1),
         "batch_size": tune.choice([32, 64, 128]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
-        "epochs": 1,
+        "epochs": 100,
         "gpus": 4,
         "use_mf": tune.choice([True, False]),
         "use_residual": tune.choice([True, False]),
@@ -27,7 +28,7 @@ def main():
         "scheduler": "asha", # tune.choice(["plateau", "steplr", "cosine"]),
         "transforms": tune.choice([True, False]),
         "save_dir": save_dir,
-        "n_samples": 2
+        "n_samples": 10
     }
     try:
         #wandb.init(project='M3F-Net-ray')
@@ -39,8 +40,8 @@ def main():
         tuner = tune.Tuner(
             trainable_with_gpu,
             tune_config=tune.TuneConfig(
-                metric="val_loss",
-                mode="min",
+                metric="val_r2_epoch",
+                mode="max",
                 scheduler=scheduler,
                 num_samples=config["n_samples"],
             ),
@@ -50,16 +51,16 @@ def main():
                 callbacks=[
                     WandbLoggerCallback(
                         project="M3F-Net-ray",
+                        group='cedar',
                         api_key=os.environ["WANDB_API_KEY"],
                         log_config=True,
                         save_checkpoints=True,
-                        upload_checkpoints=True
                     )],
             ),
             param_space=config
         )
         results = tuner.fit()
-        print("Best trial config: {}".format(results.get_best_result("val_loss","min").config))
+        print("Best trial config: {}".format(results.get_best_result("val_r2_epoch","max").config))
     except Exception as e:
         traceback.print_exc()
         raise e

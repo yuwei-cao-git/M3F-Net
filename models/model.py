@@ -57,6 +57,11 @@ class Model(pl.LightningModule):
                 transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75)),
                 transforms.RandomAdjustSharpness(sharpness_factor=2),
             ]), p=0.3)
+        
+        # Initialize metric storage for different stages (e.g., 'val', 'train')
+        self.val_loss = []
+        self.val_r2 = []
+        
         # Loss function
         self.criterion = nn.MSELoss()
         
@@ -150,6 +155,11 @@ class Model(pl.LightningModule):
         #num_classes = valid_outputs.size(1)
         #f1 = f1_score_torch(true_labels, pred_labels, num_classes)
         
+        # Store metrics dynamically based on stage (e.g., val_loss, val_r2, val_rmse)
+        if stage == "val":
+            getattr(self, f"{stage}_loss").append(loss)
+            getattr(self, f"{stage}_r2").append(r2)
+        
         # Log the loss and R² score
         sync_state = True
         self.log(f'{stage}_loss', loss, logger=True, sync_dist=sync_state)
@@ -169,7 +179,21 @@ class Model(pl.LightningModule):
         inputs, targets, masks = batch
         outputs = self(inputs)  # Forward pass
         
+        
         return self.compute_loss_and_metrics(outputs, targets, masks, stage="val")
+    
+    def on_validation_epoch_end(self):
+        # Compute the average of loss and r2 for the validation stage
+        avg_loss = torch.stack(self.val_loss).mean()
+        avg_r2 = torch.stack(self.val_r2).mean()
+        
+        # Log averaged metrics
+        self.log("val_loss_epoch", avg_loss, sync_dist=True)
+        self.log("val_r2_epoch", avg_r2, sync_dist=True)
+        
+        # Clear the lists for the next epoch
+        self.val_loss.clear()
+        self.val_r2.clear()
     
     def test_step(self, batch, batch_idx):
         inputs, targets, masks = batch
