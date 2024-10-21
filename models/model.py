@@ -54,8 +54,7 @@ class Model(pl.LightningModule):
             self.transform = transforms.RandomApply(torch.nn.ModuleList([
                 transforms.RandomCrop(size=(128,128)),
                 transforms.RandomRotation(degrees=(0,180)),
-                transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75)),
-                transforms.RandomAdjustSharpness(sharpness_factor=2),
+                transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75))
             ]), p=0.3)
         
         # Initialize metric storage for different stages (e.g., 'val', 'train')
