@@ -33,13 +33,22 @@ tar -xf $project/data/20m.tar -C ./data/20m
 echo "Data transfered"
 
 # Load python module, and additional required modules
-module purge 
-#module load gcc/9.3.0 arrow python/3.10 scipy-stack/2022a
-module load python StdEnv/2020 gcc/9.3.0 arrow # cuda
+
+# srun -N $SLURM_NNODES -n $SLURM_NNODES config_env.sh
+# srun config_env.sh
+# source $SLURM_TMPDIR/env/bin/activate
+# module python StdEnv gcc arrow
+
+module purge
+# module load gcc/9.3.0 arrow python/3.10 scipy-stack/2022a
+module load python StdEnv gcc arrow
+
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
-pip install -r requirements.txt
+#pip install --no-index ray[all]
+pip install --no-index ray[tune] tensorboardX lightning pytorch_lightning torch torchaudio torchdata torcheval torchmetrics torchtext torchvision rasterio imageio wandb numpy pandas
+pip install laspy[laszip]
 
 #Import pyarrow seperately
 python -c "import pyarrow"
@@ -52,7 +61,7 @@ export WANDB_API_KEY=abcd
 wandb login
 #Run python script
 echo "Start runing model.................................................................................."
-srun python ray_tune.py
+srun python ray_tune.pypi
 #wandb sync ./logs/ray_results/wandb/*
 
 cd $SLURM_TMPDIR
