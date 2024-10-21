@@ -6,9 +6,8 @@ import torchvision.transforms.v2 as transforms
 
 from .blocks import MF
 from .loss import MaskedMSELoss
-from .metrics import r2_score_torch, f1_score_torch
+from .metrics import r2_score_torch
 from torchmetrics import R2Score
-from torchmetrics.classification import MultilabelF1Score
 
 from .unet import UNet
 from .ResUnet import ResUnet
@@ -65,7 +64,6 @@ class Model(pl.LightningModule):
         # Loss function
         self.criterion = nn.MSELoss()
         self.r2_calc = R2Score()
-        self.f1_calc = MultilabelF1Score()
         
         # Optimizer and scheduler settings
         self.optimizer_type = self.config["optimizer"]
@@ -143,11 +141,11 @@ class Model(pl.LightningModule):
         # Calculate R² score for valid pixels
         # **Rounding Outputs for R² Score**
         # Round outputs to two decimal place
-        valid_outputs=torch.round(valid_outputs, decimals=2).flatten()
+        valid_outputs=torch.round(valid_outputs, decimals=2)
         # Renormalize after rounding to ensure outputs sum to 1 #TODO: validate
         # rounded_outputs = rounded_outputs / rounded_outputs.sum(dim=1, keepdim=True).clamp(min=1e-6)
         #r2 = r2_score_torch(valid_targets, valid_outputs)
-        r2 = self.r2_calc(valid_outputs, valid_targets.flatten())
+        r2 = self.r2_calc(valid_outputs.flatten(), valid_targets.flatten())
         
         # Compute RMSE
         rmse = torch.sqrt(loss)
@@ -155,22 +153,18 @@ class Model(pl.LightningModule):
         # Convert outputs and targets to class labels by taking argmax
         #pred_labels = torch.argmax(valid_outputs, dim=1)
         #true_labels = torch.argmax(valid_targets, dim=1)
-        num_classes = valid_outputs.size(1)
         #f1 = f1_score_torch(true_labels, pred_labels, num_classes)
-        f1 = self.f1_calc(num_classes)
         
         # Store metrics dynamically based on stage (e.g., val_loss, val_r2, val_rmse)
         if stage == "val":
             getattr(self, f"{stage}_loss").append(loss)
             getattr(self, f"{stage}_r2").append(r2)
-            getattr(self, f"{stage}_f1").append(f1)
         
         # Log the loss and R² score
         sync_state = True
         self.log(f'{stage}_loss', loss, logger=True, sync_dist=sync_state)
         self.log(f'{stage}_r2', r2, logger=True, prog_bar=True, on_epoch=True, sync_dist=sync_state)
         self.log(f'{stage}_rmse', rmse, logger=True, on_epoch=True, sync_dist=sync_state)
-        self.log(f'{stage}_f1', f1, logger=True, on_epoch=True, sync_dist=sync_state)
 
         return loss
     
@@ -190,17 +184,14 @@ class Model(pl.LightningModule):
         # Compute the average of loss and r2 for the validation stage
         avg_loss = torch.stack(self.val_loss).mean()
         avg_r2 = torch.stack(self.val_r2).mean()
-        avg_f1 = torch.stack(self.val_f1).mean()
         
         # Log averaged metrics
         self.log("val_loss_epoch", avg_loss, sync_dist=True)
         self.log("val_r2_epoch", avg_r2, sync_dist=True)
-        self.log("val_f1_epoch", avg_f1, sync_dist=True)
         
         # Clear the lists for the next epoch
         self.val_loss.clear()
         self.val_r2.clear()
-        self.val_f1.clear()
     
     def test_step(self, batch, batch_idx):
         inputs, targets, masks = batch
