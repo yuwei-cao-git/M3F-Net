@@ -50,12 +50,24 @@ class Model(pl.LightningModule):
         else:
             # Using standard UNet
             self.model = UNet(n_channels=total_input_channels, n_classes=self.config["n_classes"])
-        if self.aug:
+        if self.aug == "random":
             self.transform = transforms.RandomApply(torch.nn.ModuleList([
                 transforms.RandomCrop(size=(128,128)),
+                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.ToDtype(torch.float32, scale=True),
+                transforms.RandomPerspective(distortion_scale=0.6, p=1.0),
                 transforms.RandomRotation(degrees=(0,180)),
                 transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75))
             ]), p=0.3)
+        else:
+            self.transform = transforms.Compose([
+                transforms.RandomCrop(size=(128,128)),
+                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.ToDtype(torch.float32, scale=True),
+                transforms.RandomPerspective(distortion_scale=0.6, p=1.0),
+                transforms.RandomRotation(degrees=(0,180)),
+                transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75))
+            ])
         
         # Initialize metric storage for different stages (e.g., 'val', 'train')
         self.val_loss = []
@@ -74,7 +86,7 @@ class Model(pl.LightningModule):
 
     def forward(self, inputs):
         # Optionally pass inputs through MF module
-        if self.aug:
+        if self.aug is not None:
             inputs = self.transform(inputs)
         if self.use_mf:
             # Apply the MF module first to extract features from input

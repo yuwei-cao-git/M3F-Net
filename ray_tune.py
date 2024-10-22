@@ -15,10 +15,10 @@ def main():
         os.makedirs(save_dir)
     config = {
         "data_dir": data_dir,
-        "learning_rate": tune.loguniform(1e-4, 1e-1),
+        "learning_rate": tune.loguniform(1e-5, 1e-1),
         "batch_size": tune.choice([32, 64, 128]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
-        "epochs": 100,
+        "epochs": 150,
         "gpus": 4,
         "use_mf": tune.choice([True, False]),
         "use_residual": tune.choice([True, False]),
