@@ -2,13 +2,11 @@ import argparse
 import os
 from pathlib import Path
 import torch
-import pytorch_lightning as pl
-from lightning.pytorch import Trainer
+from pytorch_lightning import Trainer, seed_everything
+from pytorch_lightning.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
-from lightning.pytorch.callbacks import ModelCheckpoint
-import wandb
 from models.pointNext import PointNeXtLightning
-from dataset.pts import prepare_dataset
+from dataset.pts import PointCloudDataModule
 
 parser = argparse.ArgumentParser(description="pytorch-lightning parallel test")
 parser.add_argument("--lr", type=float, default=0.1, help="")
@@ -19,9 +17,9 @@ parser.add_argument("--num_workers", type=int, default=8, help="")
 
 def main(params):
     print("Starting...")
-    pl.seed_everything(1)
+    seed_everything(1)
     # Initialize WandB, CSV Loggers
-    wandb_logger = WandbLogger(project="M3F-Net-pts_pl")
+    wandb_logger = WandbLogger(project="M3F-Net-pts")
     exp_name = params["exp_name"]
     exp_dirpath = os.path.join("checkpoints", exp_name)
     output_dir = Path(os.path.join(exp_dirpath, "output"))
@@ -35,11 +33,12 @@ def main(params):
         save_top_k=1,  # Save only the single best model based on the monitored metric
     )
     
+    # Initialize the DataModule
+    data_module = PointCloudDataModule(params)
+    
     # initialize model
-    model = PointNeXtLightning()
-
-    train_dataloader, val_dataloader = prepare_dataset(params)
-    # ddp = DDPStrategy(process_group_backend="nccl")
+    model = PointNeXtLightning(params)
+    
     # Instantiate the Trainer
     trainer = Trainer(
         max_epochs=params["epochs"],
@@ -47,10 +46,10 @@ def main(params):
         callbacks=[checkpoint_callback],
     )
 
-    trainer.fit(model, train_dataloader, val_dataloader)
+    trainer.fit(model, data_module)
 
     if params["eval"]:
-        trainer.test(model, val_dataloader)
+        trainer.test(model, data_module) 
 
 
 if __name__ == "__main__":
@@ -58,22 +57,22 @@ if __name__ == "__main__":
     class_weights = [1 / (100 * n / 11057) for n in n_samples]
     args = parser.parse_args()
     params = {
-        "exp_name": "DGCNN_pointaugment_7168_WEIGHTS_AUG2",  # experiment name
+        "exp_name": "pointNext_7168_WEIGHTS_AUG2",  # experiment name
         "augmentor": True,
         "batch_size": args.batch_size,  # batch size
         "train_weights": class_weights,  # training weights
-        "train_path": r"../../data/rmf_laz/train",
-        "train_pickle": r"../../data/rmf_laz/train/plots_comp.pkl",
-        "test_path": r"../../data/rmf_laz/val",
-        "test_pickle": r"../../data/rmf_laz/val/plots_comp.pkl",
+        "train_path": r"/mnt/g/rmf/dgcnn_spl/rmf_laz/train",
+        "train_pickle": r"/mnt/g/rmf/dgcnn_spl/rmf_laz/train/plots_comp.pkl",
+        "val_path": r"/mnt/g/rmf/dgcnn_spl/rmf_laz/val",
+        "val_pickle": r"/mnt/g/rmf/dgcnn_spl/rmf_laz/val/plots_comp.pkl",
+        "test_path": r"/mnt/g/rmf/dgcnn_spl/rmf_laz/test",
+        "test_pickle": r"/mnt/g/rmf/dgcnn_spl/rmf_laz/test/plots_comp.pkl",
         "augment": True,  # augment
         "n_augs": 2,  # number of augmentations
         "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
         "n_gpus": torch.cuda.device_count(),  # number of gpus
         "epochs": args.max_epochs,  # total epochs
-        "optimizer_a": "adam",  # augmentor optimizer,
         "optimizer_c": "adam",  # classifier optimizer
-        "lr_a": args.lr,  # augmentor learning rate
         "lr_c": args.lr,  # classifier learning rate
         "adaptive_lr": True,  # adaptive learning rate
         "patience": 10,  # patience

@@ -1,6 +1,23 @@
 import torch
 import torch.nn as nn
 
+class WeightedMSELoss(nn.Module):
+    def __init__(self, weights):
+        super(WeightedMSELoss, self).__init__()
+        self.weights = weights
+
+    def forward(self, y_pred, y_true):
+        squared_errors = torch.square(y_pred - y_true)
+        weighted_squared_errors = squared_errors * self.weights
+        loss = torch.mean(weighted_squared_errors) # for multi-gpu, should it set to sum?
+        return loss
+
+def calc_loss(y_true, y_pred, weights):
+    weighted_mse = WeightedMSELoss(weights)
+    loss = weighted_mse(F.softmax(y_pred, dim=1), y_true)
+    
+    return loss
+
 class MaskedMSELoss(nn.Module):
     def __init__(self):
         super(MaskedMSELoss, self).__init__()
