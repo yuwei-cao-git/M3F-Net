@@ -136,7 +136,7 @@ class Model(pl.LightningModule):
         valid_outputs, valid_targets = self.apply_mask(outputs, targets, masks)
         
         # Compute the masked loss
-        loss = self.criterion(valid_outputs, valid_targets)
+        mse = self.criterion(valid_outputs, valid_targets)
 
         # Calculate R² score for valid pixels
         # **Rounding Outputs for R² Score**
@@ -145,10 +145,10 @@ class Model(pl.LightningModule):
         # Renormalize after rounding to ensure outputs sum to 1 #TODO: validate
         # rounded_outputs = rounded_outputs / rounded_outputs.sum(dim=1, keepdim=True).clamp(min=1e-6)
         #r2 = r2_score_torch(valid_targets, valid_outputs)
-        r2 = self.r2_calc(valid_outputs.flatten(), valid_targets.flatten())
+        r2 = self.r2_calc(valid_outputs, valid_targets)
         
         # Compute RMSE
-        rmse = torch.sqrt(loss)
+        rmse = torch.sqrt(mse)
         # F1 Score Calculation
         # Convert outputs and targets to class labels by taking argmax
         #pred_labels = torch.argmax(valid_outputs, dim=1)
@@ -157,16 +157,16 @@ class Model(pl.LightningModule):
         
         # Store metrics dynamically based on stage (e.g., val_loss, val_r2, val_rmse)
         if stage == "val":
-            getattr(self, f"{stage}_loss").append(loss)
+            getattr(self, f"{stage}_loss").append(rmse)
             getattr(self, f"{stage}_r2").append(r2)
         
         # Log the loss and R² score
         sync_state = True
-        self.log(f'{stage}_loss', loss, logger=True, sync_dist=sync_state)
+        self.log(f'{stage}_loss', rmse, logger=True, sync_dist=sync_state)
         self.log(f'{stage}_r2', r2, logger=True, prog_bar=True, on_epoch=True, sync_dist=sync_state)
-        self.log(f'{stage}_rmse', rmse, logger=True, on_epoch=True, sync_dist=sync_state)
+        self.log(f'{stage}_mse', mse, logger=True, on_epoch=True, sync_dist=sync_state)
 
-        return loss
+        return rmse
     
     def training_step(self, batch, batch_idx):
         inputs, targets, masks = batch
