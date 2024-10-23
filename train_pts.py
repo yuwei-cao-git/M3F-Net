@@ -5,6 +5,7 @@ import torch
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
+from pytorch_lightning.utilities.model_summary import ModelSummary
 from models.pointNext import PointNeXtLightning
 from dataset.pts import PointCloudDataModule
 
@@ -38,6 +39,7 @@ def main(params):
     
     # initialize model
     model = PointNeXtLightning(params)
+    print(ModelSummary(model, max_depth=-1))  # Prints the full model summary
     
     # Instantiate the Trainer
     trainer = Trainer(
@@ -45,7 +47,7 @@ def main(params):
         logger=[wandb_logger],  # csv_logger
         callbacks=[checkpoint_callback],
     )
-
+    
     trainer.fit(model, data_module)
 
     if params["eval"]:

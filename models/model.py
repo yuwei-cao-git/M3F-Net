@@ -113,10 +113,13 @@ class Model(pl.LightningModule):
         # Expand the mask to match outputs and targets
         if outputs.dim() == 4:  # Image data
             # Apply softmax along the class dimension
-            expanded_mask = mask.unsqueeze(1).expand_as(F.softmax(outputs, dim=1))  # Shape: (batch_size, num_classes, H, W)
+            outputs = F.softmax(outputs, dim=1)
+            expanded_mask = mask.unsqueeze(1).expand_as(outputs)  # Shape: (batch_size, num_classes, H, W)
+            print(expanded_mask.shape)
             num_classes = outputs.size(1)
         elif outputs.dim() == 3:  # Point cloud data
-            expanded_mask = mask.unsqueeze(-1).expand_as(F.softmax(outputs, dim=-1))  # Shape: (batch_size, num_points, num_classes)
+            outputs = F.softmax(outputs, dim=-1)
+            expanded_mask = mask.unsqueeze(-1).expand_as(outputs)  # Shape: (batch_size, num_points, num_classes)
             num_classes = outputs.size(-1)
         else:
             raise ValueError("Unsupported output dimensions")
@@ -124,7 +127,6 @@ class Model(pl.LightningModule):
         # Apply mask to exclude invalid data points
         valid_outputs = outputs[~expanded_mask]
         valid_targets = targets[~expanded_mask]
-
         # Reshape to (-1, num_classes)
         valid_outputs = valid_outputs.view(-1, num_classes)
         valid_targets = valid_targets.view(-1, num_classes)
@@ -148,7 +150,7 @@ class Model(pl.LightningModule):
         valid_outputs, valid_targets = self.apply_mask(outputs, targets, masks)
         
         # Compute the masked loss
-        mse = self.criterion(valid_outputs, valid_targets)
+        loss = self.criterion(valid_outputs, valid_targets)
 
         # Calculate R² score for valid pixels
         # **Rounding Outputs for R² Score**
@@ -157,10 +159,10 @@ class Model(pl.LightningModule):
         # Renormalize after rounding to ensure outputs sum to 1 #TODO: validate
         # rounded_outputs = rounded_outputs / rounded_outputs.sum(dim=1, keepdim=True).clamp(min=1e-6)
         #r2 = r2_score_torch(valid_targets, valid_outputs)
-        r2 = self.r2_calc(valid_outputs, valid_targets)
+        r2 = self.r2_calc(valid_outputs.flatten(), valid_targets.flatten())
         
         # Compute RMSE
-        rmse = torch.sqrt(mse)
+        rmse = torch.sqrt(loss)
         # F1 Score Calculation
         # Convert outputs and targets to class labels by taking argmax
         #pred_labels = torch.argmax(valid_outputs, dim=1)
@@ -169,14 +171,14 @@ class Model(pl.LightningModule):
         
         # Store metrics dynamically based on stage (e.g., val_loss, val_r2, val_rmse)
         if stage == "val":
-            getattr(self, f"{stage}_loss").append(rmse)
+            getattr(self, f"{stage}_loss").append(loss)
             getattr(self, f"{stage}_r2").append(r2)
         
         # Log the loss and R² score
         sync_state = True
-        self.log(f'{stage}_loss', rmse, logger=True, sync_dist=sync_state)
+        self.log(f'{stage}_loss', loss, logger=True, sync_dist=sync_state)
         self.log(f'{stage}_r2', r2, logger=True, prog_bar=True, on_epoch=True, sync_dist=sync_state)
-        self.log(f'{stage}_mse', mse, logger=True, on_epoch=True, sync_dist=sync_state)
+        self.log(f'{stage}_rmse', rmse, logger=True, on_epoch=True, sync_dist=sync_state)
 
         return rmse
     
@@ -189,7 +191,6 @@ class Model(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         inputs, targets, masks = batch
         outputs = self(inputs)  # Forward pass
-        
         return self.compute_loss_and_metrics(outputs, targets, masks, stage="val")
     
     def on_validation_epoch_end(self):

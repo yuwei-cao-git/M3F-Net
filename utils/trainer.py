@@ -1,6 +1,7 @@
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
+from pytorch_lightning.utilities.model_summary import ModelSummary
 from models.model import Model
 from dataset.s2 import TreeSpeciesDataModule
 import os
@@ -16,7 +17,8 @@ def train(args):
     
     # Use the calculated input channels from the DataModule to initialize the model
     model = Model(args)
-
+    print(ModelSummary(model, max_depth=-1))  # Prints the full model summary
+    
     # Define a checkpoint callback to save the best model
     checkpoint_callback = ModelCheckpoint(
         monitor='val_loss',  # Track the validation loss
@@ -43,7 +45,6 @@ def train(args):
         num_nodes=1,
         #strategy='ddp',
     )
-    
     # Train the model
     trainer.fit(model, data_module)
 

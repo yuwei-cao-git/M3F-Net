@@ -55,5 +55,5 @@ class ResUnet(nn.Module):
         u4 = self.upsample_concat(d3, e1)    # f[1]+f[0] channels
         d4 = self.residual_block_d4(u4)      # f[0] channels
 
-        outputs = self.out_conv(d4)          # n_classes channels
-        return outputs
+        logits = self.out_conv(d4)          # n_classes channels
+        return logits

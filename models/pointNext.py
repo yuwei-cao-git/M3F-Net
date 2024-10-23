@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from torch.optim.lr_scheduler import StepLR
-from pointnext import pointnext_s, PointNextDecoder, PointNext
+from pointnext import pointnext_s, PointNext
 from .loss import WeightedMSELoss
 
 class PointNeXtLightning(pl.LightningModule):

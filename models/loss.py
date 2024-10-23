@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 class WeightedMSELoss(nn.Module):
     def __init__(self, weights):
@@ -14,7 +15,7 @@ class WeightedMSELoss(nn.Module):
 
 def calc_loss(y_true, y_pred, weights):
     weighted_mse = WeightedMSELoss(weights)
-    loss = weighted_mse(F.softmax(y_pred, dim=1), y_true)
+    loss = weighted_mse(y_pred, y_true)
     
     return loss
 

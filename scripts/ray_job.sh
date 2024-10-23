@@ -57,7 +57,7 @@ python -c "import pyarrow"
 export TORCH_NCCL_BLOCKING_WAIT=1  #Set this environment variable if you wish to use the NCCL backend for inter-GPU communication.
 export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MASTER_ADDR environment variable.
 
-export WANDB_API_KEY=abcd
+export WANDB_API_KEY=df8a833b419940bc3a6d3e5e04857fe61bb72eef
 wandb login
 #Run python script
 echo "Start runing model.................................................................................."
