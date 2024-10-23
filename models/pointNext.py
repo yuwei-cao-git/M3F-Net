@@ -13,8 +13,8 @@ class PointNeXtLightning(pl.LightningModule):
         self.n_classes = len(params["classes"])
         
         # Initialize the PointNext encoder and decoder
-        self.encoder = pointnext_s(in_dim=in_dim).cuda()  # Load the pointnext_s() as the encoder
-        self.backbone = PointNext(self.params["emb_dims"], encoder=self.encoder).cuda()
+        self.encoder = pointnext_s(in_dim=in_dim)  # Load the pointnext_s() as the encoder
+        self.backbone = PointNext(self.params["emb_dims"], encoder=self.encoder)
         
         self.norm = nn.BatchNorm1d(self.params["emb_dims"])
         self.act = nn.ReLU()
