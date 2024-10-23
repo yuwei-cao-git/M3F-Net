@@ -126,6 +126,7 @@ class AugmentPointCloudsInPickle(Dataset):
         target = target.split(",")
         target = [float(i) for i in target] # convert items in target to float
 
+        coords = torch.from_numpy(coords).float()
         xyz = torch.from_numpy(xyz).float()
         target = torch.from_numpy(np.array(target)).type(torch.FloatTensor)
         if xyz.shape[0] < 100:

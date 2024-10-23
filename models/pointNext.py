@@ -7,13 +7,13 @@ from pointnext import pointnext_s, PointNext
 from .loss import WeightedMSELoss
 
 class PointNeXtLightning(pl.LightningModule):
-    def __init__(self, params):
+    def __init__(self, params, in_dim=6):
         super(PointNeXtLightning, self).__init__()
         self.params = params
         self.n_classes = len(params["classes"])
         
         # Initialize the PointNext encoder and decoder
-        self.encoder = pointnext_s()  # Load the pointnext_s() as the encoder
+        self.encoder = pointnext_s(in_dim=in_dim)  # Load the pointnext_s() as the encoder
         self.backbone = PointNext(self.params["emb_dims"], encoder=self.encoder)
         
         self.norm = nn.BatchNorm1d(self.params["emb_dims"])

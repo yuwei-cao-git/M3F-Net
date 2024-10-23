@@ -98,6 +98,7 @@ class PointCloudsInPickle(Dataset):
         target = [float(i) for i in target]  # convert items in target to float
 
         coords = torch.from_numpy(coords).float()
+        xyz = torch.from_numpy(xyz).float()
         target = torch.from_numpy(np.array(target)).type(torch.FloatTensor)
         # target = torch.from_numpy(np.array(target)).half()
         if coords.shape[0] < 100:

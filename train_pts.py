@@ -5,9 +5,11 @@ import torch
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
-from pytorch_lightning.utilities.model_summary import ModelSummary
+from torchsummary import summary
+#from pytorch_lightning.utilities.model_summary import ModelSummary
 from models.pointNext import PointNeXtLightning
 from dataset.pts import PointCloudDataModule
+
 
 parser = argparse.ArgumentParser(description="pytorch-lightning parallel test")
 parser.add_argument("--lr", type=float, default=0.1, help="")
@@ -38,8 +40,10 @@ def main(params):
     data_module = PointCloudDataModule(params)
     
     # initialize model
-    model = PointNeXtLightning(params)
-    print(ModelSummary(model, max_depth=-1))  # Prints the full model summary
+    model = PointNeXtLightning(params, in_dim=6)
+    #print(ModelSummary(model, max_depth=-1))  # Prints the full model summary
+    # Use torchsummary to print the summary, input size should match your input data
+    summary(model, input_size=[(3, 7168), (3, 7168)])
     
     # Instantiate the Trainer
     trainer = Trainer(

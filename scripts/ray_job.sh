@@ -48,6 +48,7 @@ source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
 #pip install --no-index ray[all]
 pip install --no-index ray[tune] tensorboardX lightning pytorch_lightning torch torchaudio torchdata torcheval torchmetrics torchtext torchvision rasterio imageio wandb numpy pandas
+pip install --no-index seaborn scikit-learn
 pip install laspy[laszip]
 
 #Import pyarrow seperately
@@ -57,7 +58,7 @@ python -c "import pyarrow"
 export TORCH_NCCL_BLOCKING_WAIT=1  #Set this environment variable if you wish to use the NCCL backend for inter-GPU communication.
 export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MASTER_ADDR environment variable.
 
-export WANDB_API_KEY=df8a833b419940bc3a6d3e5e04857fe61bb72eef
+export WANDB_API_KEY=*
 wandb login
 #Run python script
 echo "Start runing model.................................................................................."
