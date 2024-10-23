@@ -5,8 +5,6 @@ import pytorch_lightning as pl
 import torchvision.transforms.v2 as transforms
 
 from .blocks import MF
-from .loss import MaskedMSELoss
-from .metrics import r2_score_torch
 from torchmetrics import R2Score
 
 from .unet import UNet
@@ -214,18 +212,21 @@ class Model(pl.LightningModule):
     def configure_optimizers(self):
         # Choose the optimizer based on input parameter
         if self.optimizer_type == "adam":
-            optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+            optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, 
+                                        lr=self.params['lr_c'],
+                                        betas=(0.9, 0.999), eps=1e-08)
         elif self.optimizer_type == "adamW":
             optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
         elif self.optimizer_type == "sgd":
-            optimizer = torch.optim.SGD(self.parameters(), lr=self.learning_rate, momentum=0.9)
+            optimizer = torch.optim.SGD(self.parameters(), lr=self.learning_rate, momentum=0.9, 
+                                        weight_decay=1e-4)
         else:
             raise ValueError(f"Unknown optimizer type: {self.optimizer_type}")
 
         # Configure the scheduler based on the input parameter
         if self.scheduler_type == "plateau":
             scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer, patience=3, factor=0.5
+                optimizer, patience=10, factor=0.5
             )
             return {
                 'optimizer': optimizer,
@@ -238,7 +239,7 @@ class Model(pl.LightningModule):
             return optimizer
         elif self.scheduler_type == "steplr":
             scheduler = torch.optim.lr_scheduler.StepLR(
-                optimizer, step_size=30
+                optimizer, step_size=20
             )
             return{
                 'optimizer': optimizer,

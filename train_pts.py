@@ -84,6 +84,7 @@ if __name__ == "__main__":
         "n_gpus": torch.cuda.device_count(),  # number of gpus
         "epochs": args.max_epochs,  # total epochs
         "optimizer_c": "adam",  # classifier optimizer
+        "scheduler": "steplr",  # classifier optimizer
         "lr_c": args.lr,  # classifier learning rate
         "adaptive_lr": True,  # adaptive learning rate
         "patience": 10,  # patience

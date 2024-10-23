@@ -8,7 +8,7 @@ git pull
 module purge
 module load python StdEnv gcc arrow
 
-$ salloc --time=1:0:0 --gpus=2 --mem-per-gpu=32G --ntasks=2
+$ salloc --time=2:0:0 --gpus=2 --mem-per-gpu=32G --ntasks=1
 # salloc --gres=gpu:1 --cpus-per-task=8 --mem=32000M --time=1:00:00
 source ~/env/bin/activate
 # Set environment variables
