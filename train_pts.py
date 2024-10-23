@@ -10,9 +10,9 @@ from models.pointNext import PointNeXtLightning
 from dataset.pts import PointCloudDataModule
 
 parser = argparse.ArgumentParser(description="pytorch-lightning parallel test")
-parser.add_argument("--lr", type=float, default=0.1, help="")
+parser.add_argument("--lr", type=float, default=0.001, help="")
 parser.add_argument("--max_epochs", type=int, default=4, help="")
-parser.add_argument("--batch_size", type=int, default=4, help="")
+parser.add_argument("--batch_size", type=int, default=16, help="")
 parser.add_argument("--num_workers", type=int, default=8, help="")
 
 
@@ -63,12 +63,12 @@ if __name__ == "__main__":
         "augmentor": True,
         "batch_size": args.batch_size,  # batch size
         "train_weights": class_weights,  # training weights
-        "train_path": r"/mnt/g/rmf/dgcnn_spl/rmf_laz/train",
-        "train_pickle": r"/mnt/g/rmf/dgcnn_spl/rmf_laz/train/plots_comp.pkl",
-        "val_path": r"/mnt/g/rmf/dgcnn_spl/rmf_laz/val",
-        "val_pickle": r"/mnt/g/rmf/dgcnn_spl/rmf_laz/val/plots_comp.pkl",
-        "test_path": r"/mnt/g/rmf/dgcnn_spl/rmf_laz/test",
-        "test_pickle": r"/mnt/g/rmf/dgcnn_spl/rmf_laz/test/plots_comp.pkl",
+        "train_path": r"./data/rmf_laz/train",
+        "train_pickle": r"./data/rmf_laz/train/plots_comp.pkl",
+        "val_path": r"./data/rmf_laz/val",
+        "val_pickle": r"./data/rmf_laz/val/plots_comp.pkl",
+        "test_path": r"./data/rmf_laz/test",
+        "test_pickle": "./data/rmf_laz/test/plots_comp.pkl",
         "augment": True,  # augment
         "n_augs": 2,  # number of augmentations
         "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
