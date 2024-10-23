@@ -152,7 +152,7 @@ class Model(pl.LightningModule):
         # Calculate R² score for valid pixels
         # **Rounding Outputs for R² Score**
         # Round outputs to two decimal place
-        valid_outputs=torch.round(valid_outputs, decimals=2)
+        valid_outputs=torch.round(valid_outputs, decimals=1)
         # Renormalize after rounding to ensure outputs sum to 1 #TODO: validate
         # rounded_outputs = rounded_outputs / rounded_outputs.sum(dim=1, keepdim=True).clamp(min=1e-6)
         #r2 = r2_score_torch(valid_targets, valid_outputs)

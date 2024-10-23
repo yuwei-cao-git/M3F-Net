@@ -84,7 +84,8 @@ class PointNeXtLightning(pl.LightningModule):
         # Calculate R² score for valid pixels
         # **Rounding Outputs for R² Score**
         # Round outputs to two decimal place
-        r2 = self.calc_r2(targets.flatten(), torch.round(preds.flatten(), decimals=2))
+        # r2 = r2_score_torch(targets, torch.round(preds, decimals=1))
+        r2 = self.calc_r2(torch.round(preds.flatten(), decimals=1), targets.flatten())
         
         # Compute RMSE
         rmse = torch.sqrt(loss)
