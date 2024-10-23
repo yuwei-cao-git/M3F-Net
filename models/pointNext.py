@@ -31,7 +31,7 @@ class PointNeXtLightning(pl.LightningModule):
         )
         
         # Loss function and other parameters
-        self.weights = self.params["train_weights"]
+        self.weights = self.params["train_weights"].cuda()
         self.criterion = WeightedMSELoss(self.weights)
 
     def forward(self, point_cloud, xyz):
@@ -61,7 +61,7 @@ class PointNeXtLightning(pl.LightningModule):
         loss = self.criterion(F.softmax(logits, dim=1), targets)
         
         # Log training loss
-        self.log('train_loss', loss)
+        self.log('train_loss', loss, sync_dist=True)
         
         return loss
 
@@ -74,7 +74,7 @@ class PointNeXtLightning(pl.LightningModule):
         loss = F.mse_loss(F.softmax(logits, dim=1), targets)
         
         # Log validation loss
-        self.log('val_loss', loss)
+        self.log('val_loss', loss, sync_dist=True)
         
         return loss
 
