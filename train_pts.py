@@ -16,6 +16,7 @@ parser.add_argument("--lr", type=float, default=0.001, help="")
 parser.add_argument("--max_epochs", type=int, default=4, help="")
 parser.add_argument("--batch_size", type=int, default=16, help="")
 parser.add_argument("--num_workers", type=int, default=8, help="")
+parser.add_argument("--data_dir", type=str, default='./data')
 
 
 def main(params):
@@ -40,7 +41,7 @@ def main(params):
     data_module = PointCloudDataModule(params)
     
     # initialize model
-    model = PointNeXtLightning(params, in_dim=6)
+    model = PointNeXtLightning(params, in_dim=3)
     #print(ModelSummary(model, max_depth=-1))  # Prints the full model summary
     # Use torchsummary to print the summary, input size should match your input data
     summary(model, input_size=[(3, 7168), (3, 7168)])
@@ -67,12 +68,12 @@ if __name__ == "__main__":
         "augmentor": True,
         "batch_size": args.batch_size,  # batch size
         "train_weights": class_weights,  # training weights
-        "train_path": r"./data/rmf_laz/train",
-        "train_pickle": r"./data/rmf_laz/train/plots_comp.pkl",
-        "val_path": r"./data/rmf_laz/val",
-        "val_pickle": r"./data/rmf_laz/val/plots_comp.pkl",
-        "test_path": r"./data/rmf_laz/test",
-        "test_pickle": "./data/rmf_laz/test/plots_comp.pkl",
+        "train_path": os.path.join(args.data_dir, "rmf_laz/train"),
+        "train_pickle": os.path.join(args.data_dir, "rmf_laz/train/plots_comp.pkl"),
+        "val_path": os.path.join(args.data_dir, "rmf_laz/val"),
+        "val_pickle": os.path.join(args.data_dir, "rmf_laz/val/plots_comp.pkl"),
+        "test_path": os.path.join(args.data_dir, "rmf_laz/test"),
+        "test_pickle": os.path.join(args.data_dir, "rmf_laz/test/plots_comp.pkl"),
         "augment": True,  # augment
         "n_augs": 2,  # number of augmentations
         "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
