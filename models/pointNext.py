@@ -44,7 +44,7 @@ class PointNeXtLightning(pl.LightningModule):
         Returns:
             logits: Class logits for each point (B, N, num_classes)
         """
-        out = self.norm(self.backbone(point_cloud, xyz))
+        out = self.norm(self.backbone(point_cloud, xyz).cuda())
         out = out.mean(dim=-1)
         out = self.act(out)
         logits = self.cls_head(out)
