@@ -6,7 +6,8 @@ from torch.optim import Adam, SGD, AdamW
 from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau, CosineAnnealingLR
 from pointnext import pointnext_s, PointNext
 from .loss import calc_loss
-from torchmetrics import R2Score
+# from torchmetrics import R2Score
+from .metrics import r2_score_torch
 
 class PointNeXtLightning(pl.LightningModule):
     def __init__(self, params, in_dim):
@@ -34,7 +35,6 @@ class PointNeXtLightning(pl.LightningModule):
         
         # Loss function and other parameters
         self.weights = self.params["train_weights"]  # Initialize on CPU
-        self.r2_calc = R2Score()
         
         # Initialize metric storage for different stages (e.g., 'val', 'train')
         self.val_loss = []
@@ -83,7 +83,7 @@ class PointNeXtLightning(pl.LightningModule):
         # **Rounding Outputs for R² Score**
         # Round outputs to two decimal place
         valid_outputs = torch.round(F.softmax(logits, dim=1), decimals=2)
-        r2 = self.r2_calc(valid_outputs.flatten(), targets.flatten())
+        r2 = r2_score_torch(targets, valid_outputs)
         
         # Compute RMSE
         rmse = torch.sqrt(loss)
