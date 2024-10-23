@@ -7,7 +7,7 @@ from pointnext import pointnext_s, PointNext
 from .loss import WeightedMSELoss
 
 class PointNeXtLightning(pl.LightningModule):
-    def __init__(self, params, in_dim=6):
+    def __init__(self, params, in_dim):
         super(PointNeXtLightning, self).__init__()
         self.params = params
         self.n_classes = len(params["classes"])
@@ -45,6 +45,7 @@ class PointNeXtLightning(pl.LightningModule):
             logits: Class logits for each point (B, N, num_classes)
         """
         out = self.norm(self.backbone(point_cloud, xyz))
+        print(f"backbone output: {out.shape}")  # Check the output
         out = out.mean(dim=-1)
         out = self.act(out)
         logits = self.cls_head(out)
