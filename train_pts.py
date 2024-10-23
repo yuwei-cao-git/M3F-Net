@@ -45,7 +45,7 @@ def main(params):
     model = PointNeXtLightning(params, in_dim=3)
     #print(ModelSummary(model, max_depth=-1))  # Prints the full model summary
     # Use torchsummary to print the summary, input size should match your input data
-    summary(model, input_size=[(7168,3 ), (7168, 3)])
+    # summary(model, input_size=[(3, 7168), (3, 7168)])
     
     # Instantiate the Trainer
     trainer = Trainer(
