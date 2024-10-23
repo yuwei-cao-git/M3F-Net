@@ -28,7 +28,7 @@ def main():
         "scheduler": "asha", # tune.choice(["plateau", "steplr", "cosine"]),
         "transforms": tune.choice([True, False]),
         "save_dir": save_dir,
-        "n_samples": 10
+        "n_samples": 20
     }
     try:
         #wandb.init(project='M3F-Net-ray')
@@ -40,7 +40,7 @@ def main():
         tuner = tune.Tuner(
             trainable_with_gpu,
             tune_config=tune.TuneConfig(
-                metric="val_r2_epoch",
+                metric="val_r2",
                 mode="max",
                 scheduler=scheduler,
                 num_samples=config["n_samples"],
@@ -60,7 +60,7 @@ def main():
             param_space=config
         )
         results = tuner.fit()
-        print("Best trial config: {}".format(results.get_best_result("val_r2_epoch","max").config))
+        print("Best trial config: {}".format(results.get_best_result("val_r2","max").config))
     except Exception as e:
         traceback.print_exc()
         raise e
