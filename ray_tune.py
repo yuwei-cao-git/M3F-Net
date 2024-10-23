@@ -51,7 +51,7 @@ def main():
                 callbacks=[
                     WandbLoggerCallback(
                         project="M3F-Net-ray",
-                        group='cedar',
+                        group='cedar_ray',
                         api_key=os.environ["WANDB_API_KEY"],
                         log_config=True,
                         save_checkpoints=True,
