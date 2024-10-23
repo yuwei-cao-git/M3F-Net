@@ -2,6 +2,7 @@ import argparse
 import os
 from pathlib import Path
 import torch
+import numpy as np
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
@@ -63,7 +64,7 @@ def main(params):
 if __name__ == "__main__":
     n_samples = [1944, 5358, 2250, 2630, 3982, 2034, 347, 9569, 397]
     class_weights = [1 / (100 * n / 11057) for n in n_samples]
-    class_weights = torch.from_numpy(class_weights).float()
+    class_weights = torch.from_numpy(np.array(class_weights)).float()
     args = parser.parse_args()
     params = {
         "exp_name": "pointNext_7168_WEIGHTS_AUG2",  # experiment name
