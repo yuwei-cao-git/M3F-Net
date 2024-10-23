@@ -32,7 +32,7 @@ class PointNeXtLightning(pl.LightningModule):
         
         # Loss function and other parameters
         self.weights = self.params["train_weights"]  # Initialize on CPU
-        self.criterion = WeightedMSELoss()
+        self.criterion = WeightedMSELoss(self.weights)
 
     def forward(self, point_cloud, xyz):
         """
@@ -61,7 +61,7 @@ class PointNeXtLightning(pl.LightningModule):
         self.weights = self.weights.to(logits.device)
         
         # Compute the loss with the WeightedMSELoss, which will handle the weights
-        loss = self.criterion(F.softmax(logits, dim=1), targets, self.weights)  # Pass weights directly
+        loss = self.criterion(F.softmax(logits, dim=1), targets)  # Pass weights directly
         
         # Log training loss
         self.log('train_loss', loss, sync_dist=True)
