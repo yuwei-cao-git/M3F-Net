@@ -5,9 +5,7 @@
 #SBATCH --tasks-per-node=4 # This is the number of model replicas we will place on the GPU.
 #SBATCH --mem=128G
 #SBATCH --job-name="test-multi-gpu"
-#SBATCH --time=03:00:00        # Specify run time 
-#SBATCH --mail-user=yuwei.cao@ubc.ca    # Request email notifications
-#SBATCH --mail-type=ALL
+#SBATCH --time=00:30:00        # Specify run time 
 
 next_output_dir=$(date +%Y%m%d%H%M%S)
 mkdir ~/scratch/output/${next_output_dir}
@@ -34,14 +32,17 @@ tar -xf $project/data/10m.tar -C ./data/10m
 echo "Data transfered"
 
 # Load python module, and additional required modules
-module purge 
-module load python/3.10 scipy-stack
+module purge
+module load python StdEnv gcc arrow
+# module load python/3.10 scipy-stack
+
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
-#pip install lightning torcheval --no-index
-pip install --no-index -r requirements.txt
+# pip install --no-index ray[all]
+pip install --no-index ray[tune] tensorboardX lightning pytorch_lightning torch torchaudio torchdata torcheval torchmetrics torchtext torchvision rasterio imageio wandb numpy pandas
 pip install laspy[laszip]
+
 echo "Virtual Env created!"
 
 # Set environment variables

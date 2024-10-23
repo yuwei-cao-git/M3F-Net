@@ -115,7 +115,6 @@ class Model(pl.LightningModule):
             # Apply softmax along the class dimension
             outputs = F.softmax(outputs, dim=1)
             expanded_mask = mask.unsqueeze(1).expand_as(outputs)  # Shape: (batch_size, num_classes, H, W)
-            print(expanded_mask.shape)
             num_classes = outputs.size(1)
         elif outputs.dim() == 3:  # Point cloud data
             outputs = F.softmax(outputs, dim=-1)

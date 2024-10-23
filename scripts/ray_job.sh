@@ -61,7 +61,7 @@ export WANDB_API_KEY=df8a833b419940bc3a6d3e5e04857fe61bb72eef
 wandb login
 #Run python script
 echo "Start runing model.................................................................................."
-srun python ray_tune.pypi
+srun python ray_tune.py
 #wandb sync ./logs/ray_results/wandb/*
 
 cd $SLURM_TMPDIR
