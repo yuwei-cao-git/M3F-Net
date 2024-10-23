@@ -44,7 +44,7 @@ def main(params):
     model = PointNeXtLightning(params, in_dim=3)
     #print(ModelSummary(model, max_depth=-1))  # Prints the full model summary
     # Use torchsummary to print the summary, input size should match your input data
-    #summary(model, input_size=[(3, 7168), (3, 7168)])
+    summary(model, input_size=[(7168,3 ), (7168, 3)])
     
     # Instantiate the Trainer
     trainer = Trainer(
@@ -63,6 +63,7 @@ def main(params):
 if __name__ == "__main__":
     n_samples = [1944, 5358, 2250, 2630, 3982, 2034, 347, 9569, 397]
     class_weights = [1 / (100 * n / 11057) for n in n_samples]
+    class_weights = torch.from_numpy(class_weights).float()
     args = parser.parse_args()
     params = {
         "exp_name": "pointNext_7168_WEIGHTS_AUG2",  # experiment name
