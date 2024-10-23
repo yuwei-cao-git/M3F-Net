@@ -43,7 +43,7 @@ def train(args):
         callbacks=[checkpoint_callback],
         devices=args["gpus"],
         num_nodes=1,
-        #strategy='ddp',
+        strategy='ddp',
     )
     # Train the model
     trainer.fit(model, data_module)

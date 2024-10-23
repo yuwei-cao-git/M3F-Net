@@ -53,7 +53,7 @@ def main(params):
         logger=[wandb_logger],  # csv_logger
         callbacks=[checkpoint_callback],
         devices=params["n_gpus"], 
-        accelerator="gpu"
+        strategy='ddp'
     )
     
     trainer.fit(model, data_module)
