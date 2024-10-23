@@ -28,7 +28,7 @@ echo "Source code cloned!"
 # data transfer
 mkdir -p data/rmf_laz
 # extract an archive to a different directory, the ‘-C’ option is followed by the destination path
-tar -xf $project/M3F-Net/data/rmf_laz.tar -C ./data/rmf_laz
+tar -xf $project/M3F-Net/data/rmf_laz.tar -C ./data
 echo "Data transfered"
 
 # Load python module, and additional required modules
@@ -41,7 +41,7 @@ source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
 # pip install --no-index ray[all]
 pip install --no-index ray[tune] tensorboardX lightning pytorch_lightning torch torchaudio torchdata torcheval torchmetrics torchtext torchvision rasterio imageio wandb numpy pandas
-pip install seaborn scikit-learn --no-index
+pip install seaborn scikit-learn torchsummary --no-index
 pip install pointnext==0.0.5
 pip install laspy[laszip]
 
