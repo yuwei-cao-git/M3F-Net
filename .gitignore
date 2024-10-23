@@ -8,7 +8,7 @@ data/processed/
 *.tif
 *.png
 *.yml
-data_utils/
+
 data_processing/
 *log.txt
 *logs
