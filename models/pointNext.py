@@ -96,8 +96,8 @@ class PointNeXtLightning(pl.LightningModule):
         # Log the loss and R² score
         sync_state = True
         self.log(f'{stage}_loss', loss, logger=True, sync_dist=sync_state)
-        self.log(f'{stage}_r2', r2, logger=True, prog_bar=True, on_epoch=True, sync_dist=sync_state)
-        self.log(f'{stage}_rmse', rmse, logger=True, prog_bar=True, on_epoch=True, sync_dist=sync_state)
+        self.log(f'{stage}_r2', r2, logger=True, prog_bar=True, sync_dist=sync_state)
+        self.log(f'{stage}_rmse', rmse, logger=True, prog_bar=True, sync_dist=sync_state)
         
         return loss
     
@@ -110,6 +110,19 @@ class PointNeXtLightning(pl.LightningModule):
         point_cloud, xyz, targets = batch  # Assuming batch contains (point_cloud, xyz, labels)
         
         return self.foward_compute_loss_and_metrics(point_cloud, xyz, targets, "val")
+    
+    def on_validation_epoch_end(self):
+        # Compute the average of loss and r2 for the validation stage
+        avg_loss = torch.stack(self.val_loss).mean()
+        avg_r2 = torch.stack(self.val_r2).mean()
+        
+        # Log averaged metrics
+        self.log("val_loss_epoch", avg_loss, sync_dist=True)
+        self.log("val_r2_epoch", avg_r2, sync_dist=True)
+        
+        # Clear the lists for the next epoch
+        self.val_loss.clear()
+        self.val_r2.clear()
     
     def test_step(self, batch, batch_idx):
         point_cloud, xyz, targets = batch  # Assuming batch contains (point_cloud, xyz, labels)

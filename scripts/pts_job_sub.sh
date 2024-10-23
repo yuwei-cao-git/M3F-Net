@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --nodes=1               # number of nodes
 #SBATCH --gpus-per-node=4            # number of gpus per node
-#SBATCH --cpus-per-task=32       # number of threads per task
+#SBATCH --cpus-per-task=8       # number of threads per task
 #SBATCH --tasks-per-node=4 # This is the number of model replicas we will place on the GPU.
 #SBATCH --mem=128G
 #SBATCH --job-name="test-multi-gpu"
