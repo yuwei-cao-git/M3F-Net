@@ -52,7 +52,7 @@ def main(params):
         max_epochs=params["epochs"],
         logger=[wandb_logger],  # csv_logger
         callbacks=[checkpoint_callback],
-        gpus=params["n_gpus"]
+        devices=params["n_gpus"]
     )
     
     trainer.fit(model, data_module)
