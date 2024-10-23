@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 from torch.optim.lr_scheduler import StepLR
 from pointnext import pointnext_s, PointNext
-from .loss import WeightedMSELoss
+from .loss import calc_loss
 
 class PointNeXtLightning(pl.LightningModule):
     def __init__(self, params, in_dim):
@@ -32,7 +32,6 @@ class PointNeXtLightning(pl.LightningModule):
         
         # Loss function and other parameters
         self.weights = self.params["train_weights"]  # Initialize on CPU
-        self.criterion = WeightedMSELoss(self.weights)
 
     def forward(self, point_cloud, xyz):
         """
@@ -61,7 +60,8 @@ class PointNeXtLightning(pl.LightningModule):
         self.weights = self.weights.to(logits.device)
         
         # Compute the loss with the WeightedMSELoss, which will handle the weights
-        loss = self.criterion(F.softmax(logits, dim=1), targets)  # Pass weights directly
+        #loss = self.criterion(F.softmax(logits, dim=1), targets)  # Pass weights directly
+        loss = calc_loss(targets, F.softmax(logits, dim=1), self.weights)
         
         # Log training loss
         self.log('train_loss', loss, sync_dist=True)
