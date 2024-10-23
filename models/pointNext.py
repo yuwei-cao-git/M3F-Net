@@ -6,7 +6,7 @@ from torch.optim import Adam, SGD, AdamW
 from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau, CosineAnnealingLR
 from pointnext import pointnext_s, PointNext
 from .loss import calc_loss
-# from torchmetrics import R2Score
+from torchmetrics import R2Score
 from .metrics import r2_score_torch
 
 class PointNeXtLightning(pl.LightningModule):
@@ -35,6 +35,7 @@ class PointNeXtLightning(pl.LightningModule):
         
         # Loss function and other parameters
         self.weights = self.params["train_weights"]  # Initialize on CPU
+        self.calc_r2 = R2Score()
         
         # Initialize metric storage for different stages (e.g., 'val', 'train')
         self.val_loss = []
@@ -69,21 +70,21 @@ class PointNeXtLightning(pl.LightningModule):
         point_cloud = point_cloud.permute(0, 2, 1)
         xyz = xyz.permute(0, 2, 1).float()
         logits = self.forward(point_cloud, xyz)
+        preds = F.softmax(logits, dim=1)
         
         # Move weights to the same device as logits
         self.weights = self.weights.to(logits.device)
         
         # Compute the loss with the WeightedMSELoss, which will handle the weights
         if stage == "train":
-            loss = calc_loss(targets, F.softmax(logits, dim=1), self.weights)
+            loss = calc_loss(targets, preds, self.weights)
         else:
-            loss = F.mse_loss(F.softmax(logits, dim=1), targets)
+            loss = F.mse_loss(preds, targets)
         
         # Calculate R² score for valid pixels
         # **Rounding Outputs for R² Score**
         # Round outputs to two decimal place
-        valid_outputs = torch.round(F.softmax(logits, dim=1), decimals=2)
-        r2 = r2_score_torch(targets, valid_outputs)
+        r2 = self.calc_r2(targets.flatten(), torch.round(preds.flatten(), decimals=2))
         
         # Compute RMSE
         rmse = torch.sqrt(loss)

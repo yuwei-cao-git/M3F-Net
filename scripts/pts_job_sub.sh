@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=8       # number of threads per task
 #SBATCH --tasks-per-node=4 # This is the number of model replicas we will place on the GPU.
 #SBATCH --mem=128G
-#SBATCH --job-name="test-multi-gpu"
+#SBATCH --job-name="distributed pts training"
 #SBATCH --time=00:30:00        # Specify run time 
 
 next_output_dir=$(date +%Y%m%d%H%M%S)
