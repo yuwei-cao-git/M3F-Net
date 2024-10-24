@@ -2,6 +2,7 @@ import argparse
 from utils.trainer import train
 import os
 import wandb
+import torch
 
 def main():
     # Create argument parser
@@ -23,7 +24,7 @@ def main():
     parser.add_argument('--use_mf', action='store_true', help="Use multi-fusion (set flag to enable)")
     parser.add_argument('--use_residual', action='store_true', help="Use residual connections (set flag to enable)")
     parser.add_argument('--transforms', action='store_true')
-    parser.add_argument('--gpus', type=int, default=1)
+    parser.add_argument('--gpus', type=int, default=torch.cuda.device_count())
 
     # Parse arguments
     configs = vars(parser.parse_args())

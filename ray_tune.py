@@ -5,6 +5,7 @@ from ray import tune, train
 from ray.tune.schedulers import ASHAScheduler
 from ray.air.integrations.wandb import WandbLoggerCallback
 import os
+import torch
 
 # local machine: wandb login --cloud --relogin
 
@@ -19,14 +20,14 @@ def main():
         "batch_size": tune.choice([32, 64, 128]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
         "epochs": 150,
-        "gpus": 4,
+        "gpus": torch.cuda.device_count(),
         "use_mf": tune.choice([True, False]),
         "use_residual": tune.choice([True, False]),
         "n_bands": 12,
         "n_classes": 9,
         "resolution": tune.choice([10, 20]),
         "scheduler": "asha", # tune.choice(["plateau", "steplr", "cosine"]),
-        "transforms": tune.choice([True, False]),
+        "transforms": tune.choice(["random", "compose"]),
         "save_dir": save_dir,
         "n_samples": 20
     }

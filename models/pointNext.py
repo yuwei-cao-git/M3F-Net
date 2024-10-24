@@ -6,8 +6,8 @@ from torch.optim import Adam, SGD, AdamW
 from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau, CosineAnnealingLR
 from pointnext import pointnext_s, PointNext
 from .loss import calc_loss
+# from .metrics import r2_score_torch
 from torchmetrics import R2Score
-from .metrics import r2_score_torch
 
 class PointNeXtLightning(pl.LightningModule):
     def __init__(self, params, in_dim):
@@ -83,9 +83,10 @@ class PointNeXtLightning(pl.LightningModule):
         
         # Calculate R² score for valid pixels
         # **Rounding Outputs for R² Score**
-        # Round outputs to two decimal place
+        # Round outputs to two decimal place/one
+        preds = torch.round(preds, decimals=2)
         # r2 = r2_score_torch(targets, torch.round(preds, decimals=1))
-        r2 = self.calc_r2(torch.round(preds.flatten(), decimals=1), targets.flatten())
+        r2 = self.calc_r2(preds.view(-1), targets.view(-1))
         
         # Compute RMSE
         rmse = torch.sqrt(loss)

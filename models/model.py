@@ -5,7 +5,9 @@ import pytorch_lightning as pl
 import torchvision.transforms.v2 as transforms
 
 from .blocks import MF
+# from .metrics import r2_score_torch
 from torchmetrics import R2Score
+from torcheval.metrics.functional import multiclass_f1_score
 
 from .unet import UNet
 from .ResUnet import ResUnet
@@ -95,7 +97,7 @@ class Model(pl.LightningModule):
 
         return self.model(fused_features)
     
-    def apply_mask(self, outputs, targets, mask):
+    def apply_mask(self, outputs, targets, mask, multi_class=True):
         """
         Applies the mask to outputs and targets to exclude invalid data points.
 
@@ -109,24 +111,16 @@ class Model(pl.LightningModule):
             valid_targets: Masked and reshaped targets.
         """
         # Expand the mask to match outputs and targets
-        if outputs.dim() == 4:  # Image data
-            # Apply softmax along the class dimension
-            outputs = F.softmax(outputs, dim=1)
-            expanded_mask = mask.unsqueeze(1).expand_as(outputs)  # Shape: (batch_size, num_classes, H, W)
-            num_classes = outputs.size(1)
-        elif outputs.dim() == 3:  # Point cloud data
-            outputs = F.softmax(outputs, dim=-1)
-            expanded_mask = mask.unsqueeze(-1).expand_as(outputs)  # Shape: (batch_size, num_points, num_classes)
-            num_classes = outputs.size(-1)
-        else:
-            raise ValueError("Unsupported output dimensions")
+        expanded_mask = mask.unsqueeze(1).expand_as(outputs)  # Shape: (batch_size, num_classes, H, W)
+        num_classes = outputs.size(1)
 
         # Apply mask to exclude invalid data points
         valid_outputs = outputs[~expanded_mask]
         valid_targets = targets[~expanded_mask]
         # Reshape to (-1, num_classes)
-        valid_outputs = valid_outputs.view(-1, num_classes)
-        valid_targets = valid_targets.view(-1, num_classes)
+        if multi_class:
+            valid_outputs = valid_outputs.view(-1, num_classes)
+            valid_targets = valid_targets.view(-1, num_classes)
 
         return valid_outputs, valid_targets
 
@@ -144,7 +138,9 @@ class Model(pl.LightningModule):
         Returns:
         - loss: The computed masked loss.
         """
-        valid_outputs, valid_targets = self.apply_mask(outputs, targets, masks)
+        outputs = F.softmax(outputs, dim=1)
+        
+        valid_outputs, valid_targets = self.apply_mask(outputs, targets, masks, multi_class=True)
         
         # Compute the masked loss
         loss = self.criterion(valid_outputs, valid_targets)
@@ -152,23 +148,25 @@ class Model(pl.LightningModule):
         # Calculate R² score for valid pixels
         # **Rounding Outputs for R² Score**
         # Round outputs to two decimal place
-        valid_outputs=torch.round(valid_outputs, decimals=1)
+        valid_outputs = torch.round(valid_outputs, decimals=1)
         # Renormalize after rounding to ensure outputs sum to 1 #TODO: validate
         # rounded_outputs = rounded_outputs / rounded_outputs.sum(dim=1, keepdim=True).clamp(min=1e-6)
         #r2 = r2_score_torch(valid_targets, valid_outputs)
-        r2 = self.r2_calc(valid_outputs, valid_targets, multioutput='uniform_average')
+        r2 = self.r2_calc(valid_outputs, valid_targets)
         
         # Compute RMSE
         rmse = torch.sqrt(loss)
+        
         # F1 Score Calculation
-        # Convert outputs and targets to class labels by taking argmax
-        #pred_labels = torch.argmax(valid_outputs, dim=1)
-        #true_labels = torch.argmax(valid_targets, dim=1)
-        #f1 = f1_score_torch(true_labels, pred_labels, num_classes)
+        # Convert outputs and targets to leading class labels by taking argmax
+        pred_labels = torch.argmax(outputs, dim=1)
+        true_labels = torch.argmax(targets, dim=1)
+        # Apply mask
+        valid_preds, valid_true = self.apply_mask(pred_labels, true_labels, masks, multi_class=False)
+        f1 = multiclass_f1_score(valid_preds, valid_true, num_classes=self.config["n_classes"])
         
         # Store metrics dynamically based on stage (e.g., val_loss, val_r2, val_rmse)
         if stage == "val":
-            getattr(self, f"{stage}_loss").append(loss)
             getattr(self, f"{stage}_r2").append(r2)
         
         # Log the loss and R² score
@@ -176,8 +174,9 @@ class Model(pl.LightningModule):
         self.log(f'{stage}_loss', loss, logger=True, sync_dist=sync_state)
         self.log(f'{stage}_r2', r2, logger=True, prog_bar=True, sync_dist=sync_state)
         self.log(f'{stage}_rmse', rmse, logger=True, sync_dist=sync_state)
+        self.log(f'{stage}_f1', f1, logger=True, sync_dist=sync_state)
 
-        return rmse
+        return loss
     
     def training_step(self, batch, batch_idx):
         inputs, targets, masks = batch
@@ -191,17 +190,17 @@ class Model(pl.LightningModule):
         return self.compute_loss_and_metrics(outputs, targets, masks, stage="val")
     
     def on_validation_epoch_end(self):
-        # Compute the average of loss and r2 for the validation stage
-        avg_loss = torch.stack(self.val_loss).mean()
+        # Compute the average of r2 for the validation stage
         avg_r2 = torch.stack(self.val_r2).mean()
+        sys_r2 = self.r2_calc.compute()
         
         # Log averaged metrics
-        self.log("val_loss_epoch", avg_loss, sync_dist=True)
         self.log("val_r2_epoch", avg_r2, sync_dist=True)
+        self.log("sys_r2", sys_r2, sync_dist=True)
         
         # Clear the lists for the next epoch
-        self.val_loss.clear()
         self.val_r2.clear()
+        self.r2_calc.reset()
     
     def test_step(self, batch, batch_idx):
         inputs, targets, masks = batch
@@ -213,7 +212,6 @@ class Model(pl.LightningModule):
         # Choose the optimizer based on input parameter
         if self.optimizer_type == "adam":
             optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, 
-                                        lr=self.params['lr_c'],
                                         betas=(0.9, 0.999), eps=1e-08)
         elif self.optimizer_type == "adamW":
             optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
