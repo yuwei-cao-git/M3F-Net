@@ -152,7 +152,7 @@ class Model(pl.LightningModule):
         # Renormalize after rounding to ensure outputs sum to 1 #TODO: validate
         # rounded_outputs = rounded_outputs / rounded_outputs.sum(dim=1, keepdim=True).clamp(min=1e-6)
         #r2 = r2_score_torch(valid_targets, valid_outputs)
-        r2 = self.r2_calc(valid_outputs, valid_targets)
+        r2 = self.r2_calc(valid_outputs.view(-1), valid_targets.view(-1))
         
         # Compute RMSE
         rmse = torch.sqrt(loss)
