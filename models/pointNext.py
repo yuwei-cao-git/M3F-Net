@@ -6,7 +6,7 @@ from torch.optim import Adam, SGD, AdamW
 from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau, CosineAnnealingLR
 from pointnext import pointnext_s, PointNext
 from .loss import calc_loss
-# from .metrics import r2_score_torch
+
 from torchmetrics import R2Score
 
 class PointNeXtLightning(pl.LightningModule):
@@ -72,6 +72,7 @@ class PointNeXtLightning(pl.LightningModule):
         logits = self.forward(point_cloud, xyz)
         preds = F.softmax(logits, dim=1)
         
+        '''
         # Move weights to the same device as logits
         self.weights = self.weights.to(logits.device)
         
@@ -80,27 +81,30 @@ class PointNeXtLightning(pl.LightningModule):
             loss = calc_loss(targets, preds, self.weights)
         else:
             loss = F.mse_loss(preds, targets)
+        '''
+        loss = F.mse_loss(preds, targets)
         
         # Calculate R² score for valid pixels
         # **Rounding Outputs for R² Score**
         # Round outputs to two decimal place/one
-        preds = torch.round(preds, decimals=2)
         # r2 = r2_score_torch(targets, torch.round(preds, decimals=1))
+        preds = torch.round(preds, decimals=2)
         r2 = self.calc_r2(preds.view(-1), targets.view(-1))
         
         # Compute RMSE
         rmse = torch.sqrt(loss)
         
         # Store metrics dynamically based on stage (e.g., val_loss, val_r2)
+        '''
         if stage == "val":
             getattr(self, f"{stage}_loss").append(loss)
             getattr(self, f"{stage}_r2").append(r2)
-        
+        '''
         # Log the loss and R² score
         sync_state = True
-        self.log(f'{stage}_loss', loss, logger=True, sync_dist=sync_state)
+        self.log(f'{stage}_loss', loss, logger=True, prog_bar=True, sync_dist=sync_state)
         self.log(f'{stage}_r2', r2, logger=True, prog_bar=True, sync_dist=sync_state)
-        self.log(f'{stage}_rmse', rmse, logger=True, prog_bar=True, sync_dist=sync_state)
+        self.log(f'{stage}_rmse', rmse, logger=True, sync_dist=sync_state)
         
         return loss
     
@@ -113,7 +117,7 @@ class PointNeXtLightning(pl.LightningModule):
         point_cloud, xyz, targets = batch  # Assuming batch contains (point_cloud, xyz, labels)
         
         return self.foward_compute_loss_and_metrics(point_cloud, xyz, targets, "val")
-    
+    '''
     def on_validation_epoch_end(self):
         # Compute the average of loss and r2 for the validation stage
         avg_loss = torch.stack(self.val_loss).mean()
@@ -121,12 +125,12 @@ class PointNeXtLightning(pl.LightningModule):
         
         # Log averaged metrics
         self.log("val_loss_epoch", avg_loss, sync_dist=True)
-        self.log("val_r2_epoch", avg_r2, sync_dist=True)
+        self.log("val_r2_epoch", avg_r2, prog_bar=True, sync_dist=True)
         
         # Clear the lists for the next epoch
         self.val_loss.clear()
         self.val_r2.clear()
-    
+    '''
     def test_step(self, batch, batch_idx):
         point_cloud, xyz, targets = batch  # Assuming batch contains (point_cloud, xyz, labels)
         
