@@ -111,8 +111,11 @@ class Model(pl.LightningModule):
             valid_targets: Masked and reshaped targets.
         """
         # Expand the mask to match outputs and targets
-        expanded_mask = mask.unsqueeze(1).expand_as(outputs)  # Shape: (batch_size, num_classes, H, W)
-        num_classes = outputs.size(1)
+        if multi_class:
+            expanded_mask = mask.unsqueeze(1).expand_as(outputs)  # Shape: (batch_size, num_classes, H, W)
+            num_classes = outputs.size(1)
+        else:
+            expanded_mask = mask
 
         # Apply mask to exclude invalid data points
         valid_outputs = outputs[~expanded_mask]

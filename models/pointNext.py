@@ -6,6 +6,7 @@ from torch.optim import Adam, SGD, AdamW
 from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau, CosineAnnealingLR
 from pointnext import pointnext_s, PointNext
 from .loss import calc_loss
+from sklearn.metrics import r2_score
 
 from torchmetrics import R2Score
 
@@ -38,7 +39,8 @@ class PointNeXtLightning(pl.LightningModule):
         self.calc_r2 = R2Score()
         
         # Initialize metric storage for different stages (e.g., 'val', 'train')
-        self.val_loss = []
+        self.val_preds = []
+        self.val_true = []
         self.val_r2 = []
 
     def forward(self, point_cloud, xyz):
@@ -95,11 +97,11 @@ class PointNeXtLightning(pl.LightningModule):
         rmse = torch.sqrt(loss)
         
         # Store metrics dynamically based on stage (e.g., val_loss, val_r2)
-        '''
         if stage == "val":
-            getattr(self, f"{stage}_loss").append(loss)
             getattr(self, f"{stage}_r2").append(r2)
-        '''
+            getattr(self, f"{stage}_preds").append(preds)
+            getattr(self, f"{stage}_true").append(targets)
+        
         # Log the loss and R² score
         sync_state = True
         self.log(f'{stage}_loss', loss, logger=True, prog_bar=True, sync_dist=sync_state)
@@ -117,20 +119,23 @@ class PointNeXtLightning(pl.LightningModule):
         point_cloud, xyz, targets = batch  # Assuming batch contains (point_cloud, xyz, labels)
         
         return self.foward_compute_loss_and_metrics(point_cloud, xyz, targets, "val")
-    '''
+    
     def on_validation_epoch_end(self):
         # Compute the average of loss and r2 for the validation stage
-        avg_loss = torch.stack(self.val_loss).mean()
         avg_r2 = torch.stack(self.val_r2).mean()
+        preds = torch.stack(self.val_preds).detach().cpu().numpy()
+        labels = torch.stack(self.val_true).detach().cpu().numpy()
+        np_r2 = r2_score(labels.flatten(), preds.flatten())
         
         # Log averaged metrics
-        self.log("val_loss_epoch", avg_loss, sync_dist=True)
         self.log("val_r2_epoch", avg_r2, prog_bar=True, sync_dist=True)
+        self.log("np_val_r2_epoch", np_r2, prog_bar=True, sync_dist=True)
         
         # Clear the lists for the next epoch
-        self.val_loss.clear()
+        self.val_preds.clear()
+        self.val_true.clear()
         self.val_r2.clear()
-    '''
+    
     def test_step(self, batch, batch_idx):
         point_cloud, xyz, targets = batch  # Assuming batch contains (point_cloud, xyz, labels)
         
