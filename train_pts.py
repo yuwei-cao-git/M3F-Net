@@ -27,8 +27,6 @@ def main(params):
     wandb_logger = WandbLogger(project="M3F-Net-pts")
     exp_name = params["exp_name"]
     exp_dirpath = os.path.join("checkpoints", exp_name)
-    output_dir = Path(os.path.join(exp_dirpath, "output"))
-    output_dir.mkdir(parents=True, exist_ok=True) 
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=os.path.join(exp_dirpath, "models"),  # Path to save checkpoints
