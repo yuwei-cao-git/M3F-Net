@@ -30,7 +30,7 @@ def main(args):
     config = {
         "data_dir": args.data_dir,
         "learning_rate": tune.loguniform(1e-5, 1e-1),
-        "batch_size": 4, #tune.choice([32, 64, 128]),
+        "batch_size": tune.choice([32, 64, 128]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
         "dropout": tune.choice([0.3, 0.5, 0.7]),  # dropout rate
         "epochs": args.max_epochs,

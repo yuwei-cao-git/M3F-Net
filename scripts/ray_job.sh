@@ -65,7 +65,6 @@ echo "Start runing model........................................................
 srun python ray_tune.py
 #wandb sync ./logs/ray_results/wandb/*
 
-cd $SLURM_TMPDIR
 tar -cf ~/scratch/ray_output/${next_output_dir}/tmp.tar /tmp/ray/*
 tar -cf ~/scratch/ray_output/${next_output_dir}/logs.tar ./logs/ray_results/*
 
