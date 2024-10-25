@@ -182,9 +182,9 @@ class Model(pl.LightningModule):
         # Log the loss and R² score
         sync_state = (self.config["gpus"] > 1)
         self.log(f'{stage}_loss', loss, logger=True, sync_dist=sync_state, on_step=True, on_epoch=False)
-        self.log(f'{stage}_rmse', rmse, logger=True, sync_dist=sync_state, on_step=True, on_epoch = (stage != "train"))
-        self.log(f'{stage}_r2', r2, logger=True, prog_bar=True, sync_dist=sync_state, on_step=True, on_epoch = (stage != "train"))
-        self.log(f'{stage}_f1', f1, logger=True, sync_dist=sync_state, on_step=True, on_epoch = (stage != "train"))
+        self.log(f'{stage}_rmse', rmse, logger=True, sync_dist=sync_state, on_step=True, on_epoch=True)
+        self.log(f'{stage}_r2', r2, logger=True, prog_bar=True, sync_dist=sync_state, on_step=True, on_epoch=True)
+        self.log(f'{stage}_f1', f1, logger=True, sync_dist=sync_state, on_step=True, on_epoch=True)
         
         return loss
     
