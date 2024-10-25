@@ -64,7 +64,7 @@ def main(args):
             max_t=1,
             grace_period=1,
             reduction_factor=2)
-        trainable_with_gpu = tune.with_resources(train_func, {"gpu": config.get("gpus", 1)})
+        trainable_with_gpu = tune.with_resources(train_func, {"gpu": config.get("n_gpus", 1)})
         tuner = tune.Tuner(
             trainable_with_gpu,
             tune_config=tune.TuneConfig(
