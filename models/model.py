@@ -6,8 +6,8 @@ import torchvision.transforms.v2 as transforms
 
 from .blocks import MF
 # from .metrics import r2_score_torch
-from torchmetrics import R2Score
-from torcheval.metrics.functional import multiclass_f1_score
+from torchmetrics.regression import R2Score
+from torchmetrics.classification import MulticlassF1Score
 
 from .unet import UNet
 from .ResUnet import ResUnet
@@ -69,13 +69,18 @@ class Model(pl.LightningModule):
                 transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75))
             ])
         
-        # Initialize metric storage for different stages (e.g., 'val', 'train')
-        self.val_loss = []
-        self.val_r2 = []
-        
         # Loss function
         self.criterion = nn.MSELoss()
-        self.r2_calc = R2Score()
+        
+        # Metrics
+        self.train_r2 = R2Score()
+        self.train_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
+        
+        self.val_r2 = R2Score()
+        self.val_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
+        
+        self.test_r2 = R2Score()
+        self.test_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
         
         # Optimizer and scheduler settings
         self.optimizer_type = self.config["optimizer"]
@@ -148,37 +153,39 @@ class Model(pl.LightningModule):
         # Compute the masked loss
         loss = self.criterion(valid_outputs, valid_targets)
 
-        # Calculate R² score for valid pixels
-        # **Rounding Outputs for R² Score**
         # Round outputs to two decimal place
         valid_outputs = torch.round(valid_outputs, decimals=1)
-        # Renormalize after rounding to ensure outputs sum to 1 #TODO: validate
-        # rounded_outputs = rounded_outputs / rounded_outputs.sum(dim=1, keepdim=True).clamp(min=1e-6)
-        #r2 = r2_score_torch(valid_targets, valid_outputs)
-        r2 = self.r2_calc(valid_outputs.view(-1), valid_targets.view(-1))
         
-        # Compute RMSE
-        rmse = torch.sqrt(loss)
-        
-        # F1 Score Calculation
         # Convert outputs and targets to leading class labels by taking argmax
         pred_labels = torch.argmax(outputs, dim=1)
         true_labels = torch.argmax(targets, dim=1)
         # Apply mask
         valid_preds, valid_true = self.apply_mask(pred_labels, true_labels, masks, multi_class=False)
-        f1 = multiclass_f1_score(valid_preds, valid_true, num_classes=self.config["n_classes"])
         
-        # Store metrics dynamically based on stage (e.g., val_loss, val_r2, val_rmse)
-        if stage == "val":
-            getattr(self, f"{stage}_r2").append(r2)
+        # Renormalize after rounding to ensure outputs sum to 1 #TODO: validate
+        # rounded_outputs = rounded_outputs / rounded_outputs.sum(dim=1, keepdim=True).clamp(min=1e-6)
+        
+        # Calculate R² and F1 score for valid pixels
+        if stage == "train":
+            r2 = self.train_r2(valid_outputs.view(-1), valid_targets.view(-1))
+            f1 = self.train_f1(valid_preds, valid_true)
+        elif stage == "val":
+            r2 = self.val_r2(valid_outputs.view(-1), valid_targets.view(-1))
+            f1 = self.val_f1(valid_preds, valid_true)
+        else:
+            r2 = self.test_r2(valid_outputs.view(-1), valid_targets.view(-1))
+            f1 = self.test_f1(valid_preds, valid_true)
+        
+        # Compute RMSE
+        rmse = torch.sqrt(loss)
         
         # Log the loss and R² score
-        sync_state = True
-        self.log(f'{stage}_loss', loss, logger=True, sync_dist=sync_state)
-        self.log(f'{stage}_r2', r2, logger=True, prog_bar=True, sync_dist=sync_state)
-        self.log(f'{stage}_rmse', rmse, logger=True, sync_dist=sync_state)
-        self.log(f'{stage}_f1', f1, logger=True, sync_dist=sync_state)
-
+        sync_state = (self.config["gpus"] > 1)
+        self.log(f'{stage}_loss', loss, logger=True, sync_dist=sync_state, on_step=True, on_epoch=False)
+        self.log(f'{stage}_rmse', rmse, logger=True, sync_dist=sync_state, on_step=True, on_epoch = (stage != "train"))
+        self.log(f'{stage}_r2', r2, logger=True, prog_bar=True, sync_dist=sync_state, on_step=True, on_epoch = (stage != "train"))
+        self.log(f'{stage}_f1', f1, logger=True, sync_dist=sync_state, on_step=True, on_epoch = (stage != "train"))
+        
         return loss
     
     def training_step(self, batch, batch_idx):
@@ -190,8 +197,10 @@ class Model(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         inputs, targets, masks = batch
         outputs = self(inputs)  # Forward pass
+        
         return self.compute_loss_and_metrics(outputs, targets, masks, stage="val")
     
+    '''
     def on_validation_epoch_end(self):
         # Compute the average of r2 for the validation stage
         avg_r2 = torch.stack(self.val_r2).mean()
@@ -204,6 +213,7 @@ class Model(pl.LightningModule):
         # Clear the lists for the next epoch
         self.val_r2.clear()
         self.r2_calc.reset()
+    '''
     
     def test_step(self, batch, batch_idx):
         inputs, targets, masks = batch

@@ -27,15 +27,16 @@ def main():
     parser.add_argument('--gpus', type=int, default=torch.cuda.device_count())
 
     # Parse arguments
-    configs = vars(parser.parse_args())
-    configs["data_dir"] = "/mnt/d/Sync/research/tree_species_estimation/tree_dataset/rmf/processed"
-    configs["save_dir"] = os.path.join(os.getcwd(), "logs", configs["log_name"])
-    if not os.path.exists(configs["save_dir"]):
-        os.makedirs(configs["save_dir"])
-    print(configs)
+    params = vars(parser.parse_args())
+    params["data_dir"] = "/mnt/d/Sync/research/tree_species_estimation/tree_dataset/rmf/processed"
+    params["save_dir"] = os.path.join(os.getcwd(), "logs", params["log_name"])
+    if not os.path.exists(params["save_dir"]):
+        os.makedirs(params["save_dir"])
+    print(params)
+    
     wandb.init(project='M3F-Net')
     # Call the train function with parsed arguments
-    train(configs)
+    train(params)
 
 if __name__ == "__main__":
     main()

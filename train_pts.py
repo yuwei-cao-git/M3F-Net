@@ -83,21 +83,19 @@ if __name__ == "__main__":
         "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
         "n_gpus": torch.cuda.device_count(),  # number of gpus
         "epochs": args.max_epochs,  # total epochs
-        "optimizer_c": "adam",  # classifier optimizer
+        "optimizer": "adam",  # classifier optimizer
         "scheduler": "steplr",  # classifier optimizer
-        "lr_c": args.lr,  # classifier learning rate
-        "adaptive_lr": True,  # adaptive learning rate
+        "learning_rate": args.lr,  # classifier learning rate
         "patience": 10,  # patience
         "step_size": 20,  # step size
         "momentum": 0.9,  # sgd momentum
         "num_points": 7168,  # number of points
         "dropout": 0.5,  # dropout rate
         "emb_dims": 1024,  # dimension of embeddings
-        "k": 20,  # k nearest points
-        "model_path": "",  # pretrained model path
-        "cuda": True,  # use cuda
+        "weighted_loss": False,  # pretrained model path
         "eval": False,  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu
+        "encoder": "l"
     }
 
     mn = params["exp_name"]

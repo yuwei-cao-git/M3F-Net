@@ -1,6 +1,5 @@
 from utils.tunner import train_func
 import traceback
-import ray
 from ray import tune, train
 from ray.tune.schedulers import ASHAScheduler
 from ray.air.integrations.wandb import WandbLoggerCallback
@@ -52,7 +51,7 @@ def main():
                 callbacks=[
                     WandbLoggerCallback(
                         project="M3F-Net-ray",
-                        group='cedar_ray',
+                        group='r2_torchmetric',
                         api_key=os.environ["WANDB_API_KEY"],
                         log_config=True,
                         save_checkpoints=True,

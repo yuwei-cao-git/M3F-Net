@@ -9,10 +9,11 @@ metric:
 parameters:
   batch_size:
     values:
-      - 48
+      - 32
       - 64
+      - 128
   epochs:
-    value: 100
+    value: 150
   learning_rate:
     distribution: uniform
     max: 0.1
@@ -20,7 +21,7 @@ parameters:
   mode:
     value: img
   n_bands:
-    value: 13
+    value: 12
   n_classes:
     value: 9
   optimizer:

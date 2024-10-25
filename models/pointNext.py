@@ -17,7 +17,18 @@ class PointNeXtLightning(pl.LightningModule):
         self.n_classes = len(params["classes"])
         
         # Initialize the PointNext encoder and decoder
-        self.encoder = pointnext_s(in_dim=in_dim)  # Load the pointnext_s() as the encoder
+        if params["encoder"] == "s":
+            self.encoder = pointnext_s(in_dim=in_dim)  # Load the pointnext_s() as the encoder
+        elif params["encoder"] == "b":
+            from pointnext import pointnext_b
+            self.encoder = pointnext_b(in_dim=in_dim)  # Load the pointnext_s() as the encoder
+        elif params["encoder"] == "l":
+            from pointnext import pointnext_l
+            self.encoder = pointnext_l(in_dim=in_dim)  # Load the pointnext_s() as the encoder
+        else:
+            from pointnext import pointnext_xl
+            self.encoder = pointnext_xl(in_dim=in_dim)  # Load the pointnext_s() as the encoder
+        
         self.backbone = PointNext(self.params["emb_dims"], encoder=self.encoder)
         
         self.norm = nn.BatchNorm1d(self.params["emb_dims"])
@@ -36,12 +47,14 @@ class PointNeXtLightning(pl.LightningModule):
         
         # Loss function and other parameters
         self.weights = self.params["train_weights"]  # Initialize on CPU
-        self.calc_r2 = R2Score()
+        self.train_r2 = R2Score()
+        
+        self.val_r2 = R2Score()
+        
+        self.test_r2 = R2Score()
         
         # Initialize metric storage for different stages (e.g., 'val', 'train')
-        self.val_preds = []
-        self.val_true = []
-        self.val_r2 = []
+        # self.val_r2 = []
 
     def forward(self, point_cloud, xyz):
         """
@@ -74,17 +87,13 @@ class PointNeXtLightning(pl.LightningModule):
         logits = self.forward(point_cloud, xyz)
         preds = F.softmax(logits, dim=1)
         
-        '''
-        # Move weights to the same device as logits
-        self.weights = self.weights.to(logits.device)
-        
         # Compute the loss with the WeightedMSELoss, which will handle the weights
-        if stage == "train":
+        if self.params["weighted_loss"] and stage == "train":
+            self.weights = self.weights.to(logits.device)
+            # Compute the loss with the WeightedMSELoss, which will handle the weights
             loss = calc_loss(targets, preds, self.weights)
         else:
             loss = F.mse_loss(preds, targets)
-        '''
-        loss = F.mse_loss(preds, targets)
         
         # Calculate R² score for valid pixels
         # **Rounding Outputs for R² Score**
@@ -92,21 +101,26 @@ class PointNeXtLightning(pl.LightningModule):
         # r2 = r2_score_torch(targets, torch.round(preds, decimals=1))
         preds = torch.round(preds, decimals=2)
         r2 = self.calc_r2(preds.view(-1), targets.view(-1))
+        # Calculate R² and F1 score for valid pixels
+        if stage == "train":
+            r2 = self.train_r2(preds.view(-1), targets.view(-1))
+        elif stage == "val":
+            r2 = self.val_r2(preds.view(-1), targets.view(-1))
+        else:
+            r2 = self.test_r2(preds.view(-1), targets.view(-1))
         
         # Compute RMSE
         rmse = torch.sqrt(loss)
         
         # Store metrics dynamically based on stage (e.g., val_loss, val_r2)
-        if stage == "val":
-            getattr(self, f"{stage}_r2").append(r2)
-            getattr(self, f"{stage}_preds").append(preds)
-            getattr(self, f"{stage}_true").append(targets)
+        #if stage == "val":
+            # getattr(self, f"{stage}_r2").append(r2)
         
         # Log the loss and R² score
         sync_state = True
-        self.log(f'{stage}_loss', loss, logger=True, prog_bar=True, sync_dist=sync_state)
-        self.log(f'{stage}_r2', r2, logger=True, prog_bar=True, sync_dist=sync_state)
-        self.log(f'{stage}_rmse', rmse, logger=True, sync_dist=sync_state)
+        self.log(f'{stage}_loss', loss, logger=True, prog_bar=True, sync_dist=sync_state, on_step=True, on_epoch=False)
+        self.log(f'{stage}_r2', r2, logger=True, prog_bar=True, sync_dist=sync_state, on_step=True, on_epoch=(stage != "train"))
+        self.log(f'{stage}_rmse', rmse, logger=True, sync_dist=sync_state, on_step=True, on_epoch=(stage != "train"))
         
         return loss
     
@@ -119,40 +133,32 @@ class PointNeXtLightning(pl.LightningModule):
         point_cloud, xyz, targets = batch  # Assuming batch contains (point_cloud, xyz, labels)
         
         return self.foward_compute_loss_and_metrics(point_cloud, xyz, targets, "val")
-    
+    '''
     def on_validation_epoch_end(self):
         # Compute the average of loss and r2 for the validation stage
         avg_r2 = torch.stack(self.val_r2).mean()
-        preds = torch.stack(self.val_preds).detach().cpu().numpy()
-        labels = torch.stack(self.val_true).detach().cpu().numpy()
-        np_r2 = r2_score(labels.flatten(), preds.flatten())
         
         # Log averaged metrics
         self.log("val_r2_epoch", avg_r2, prog_bar=True, sync_dist=True)
-        self.log("np_val_r2_epoch", np_r2, prog_bar=True, sync_dist=True)
         
         # Clear the lists for the next epoch
-        self.val_preds.clear()
-        self.val_true.clear()
         self.val_r2.clear()
-    
+    '''
     def test_step(self, batch, batch_idx):
         point_cloud, xyz, targets = batch  # Assuming batch contains (point_cloud, xyz, labels)
         
         return self.foward_compute_loss_and_metrics(point_cloud, xyz, targets, "test")
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.params["lr_c"])
-        scheduler = StepLR(optimizer, step_size=self.params["step_size"], gamma=0.5)  # Example scheduler
-        if self.params['optimizer_c'] == "Adam":
+        if self.params['optimizer'] == "Adam":
             optimizer = Adam(self.parameters(),
-                                        lr=self.params['lr_c'],
+                                        lr=self.params['learning_rate'],
                                         betas=(0.9, 0.999), eps=1e-08)
-        if self.params['optimizer_c'] == "AdamW":
-            optimizer = AdamW(self.parameters(), lr=self.params['lr_c'])
+        if self.params['optimizer'] == "AdamW":
+            optimizer = AdamW(self.parameters(), lr=self.params['learning_rate'])
         else:
             optimizer = SGD(params=self.parameters(),
-                                        lr=self.params['lr_c'],
+                                        lr=self.params['learning_rate'],
                                         momentum=self.params["momentum"],
                                         weight_decay=1e-4)
 
