@@ -54,7 +54,7 @@ def main(args):
         "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
         "eval": False,  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu
-        "gpus": torch.cuda.device_count(),
+        "n_gpus": torch.cuda.device_count(),
         "train_weights": class_weights,  # training weights
         "encoder": tune.choice(["s", "b", "l", 'xl']),
         "weighted_loss": tune.choice([True, False])

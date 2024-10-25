@@ -6,9 +6,9 @@ from torch.optim import Adam, SGD, AdamW
 from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau, CosineAnnealingLR
 from pointnext import pointnext_s, PointNext
 from .loss import calc_loss
-from sklearn.metrics import r2_score
+#from sklearn.metrics import r2_score
 
-from torchmetrics import R2Score
+from torchmetrics.regression import R2Score
 
 class PointNeXtLightning(pl.LightningModule):
     def __init__(self, params, in_dim):
