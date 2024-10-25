@@ -59,7 +59,7 @@ export TORCH_NCCL_BLOCKING_WAIT=1  #Set this environment variable if you wish to
 export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MASTER_ADDR environment variable.
 
 # Log experiment variables
-export WANDB_API_KEY=df8a833b419940bc3a6d3e5e04857fe61bb72eef
+export WANDB_API_KEY=*
 wandb login
 
 #Run python script
