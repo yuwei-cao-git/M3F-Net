@@ -115,9 +115,10 @@ class AugmentPointCloudsInPickle(Dataset):
 
         # Augmentation
         n = random.randint(round(len(xyz)* 0.9), len(xyz))
-        aug_coords, x = point_removal(xyz, n)
-        aug_coords, x = random_noise(aug_coords, n=(len(xyz)-n))
-        xyz = rotate_points(aug_coords)
+        aug_xyz, aug_coords = point_removal(xyz, n, coords)
+        aug_xyz, aug_coords = random_noise(aug_xyz, n=(len(xyz)-n))
+        xyz = rotate_points(aug_xyz, x=coords)
+        coords = rotate_points(aug_coords)
 
         # Get Target
         target = pickle_idx["perc_specs"].item()

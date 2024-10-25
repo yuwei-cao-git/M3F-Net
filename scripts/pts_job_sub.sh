@@ -26,7 +26,7 @@ cd M3F-Net
 echo "Source code cloned!"
 
 # data transfer
-mkdir -p data/rmf_laz
+mkdir data
 # extract an archive to a different directory, the ‘-C’ option is followed by the destination path
 tar -xf $project/M3F-Net/data/rmf_laz.tar -C ./data
 echo "Data transfered"
