@@ -100,7 +100,7 @@ class PointNeXtLightning(pl.LightningModule):
         # Round outputs to two decimal place/one
         # r2 = r2_score_torch(targets, torch.round(preds, decimals=1))
         preds = torch.round(preds, decimals=2)
-        r2 = self.calc_r2(preds.view(-1), targets.view(-1))
+        
         # Calculate R² and F1 score for valid pixels
         if stage == "train":
             r2 = self.train_r2(preds.view(-1), targets.view(-1))
@@ -118,7 +118,7 @@ class PointNeXtLightning(pl.LightningModule):
         
         # Log the loss and R² score
         sync_state = True
-        self.log(f'{stage}_loss', loss, logger=True, prog_bar=True, sync_dist=sync_state, on_step=True, on_epoch=False)
+        self.log(f'{stage}_loss', loss, logger=True, sync_dist=sync_state, on_step=True, on_epoch = (stage == "val"))
         self.log(f'{stage}_r2', r2, logger=True, prog_bar=True, sync_dist=sync_state, on_step=True, on_epoch=(stage != "train"))
         self.log(f'{stage}_rmse', rmse, logger=True, sync_dist=sync_state, on_step=True, on_epoch=(stage != "train"))
         
