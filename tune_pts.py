@@ -26,9 +26,9 @@ def main(args):
     n_samples = [1944, 5358, 2250, 2630, 3982, 2034, 347, 9569, 397]
     class_weights = [1 / (100 * n / 11057) for n in n_samples]
     class_weights = torch.from_numpy(np.array(class_weights)).float()
+    data_dir = args.data_dir if args.data_dir is not None else os.path.join(os.getcwd(), "data"),
     
     config = {
-        "data_dir": args.data_dir if args.data_dir is not None else os.path.join(os.getcwd(), "data"),
         "learning_rate": tune.loguniform(1e-5, 1e-1),
         "batch_size": tune.choice([32, 64, 128]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
@@ -45,12 +45,12 @@ def main(args):
         "n_samples": 20,
         "num_points": 7168,  # number of points
         "emb_dims": tune.choice([512, 768, 1024]),   # dimension of embeddings
-        "train_path": os.path.join(args.data_dir, "rmf_laz/train"),
-        "train_pickle": os.path.join(args.data_dir, "rmf_laz/train/plots_comp.pkl"),
-        "val_path": os.path.join(args.data_dir, "rmf_laz/val"),
-        "val_pickle": os.path.join(args.data_dir, "rmf_laz/val/plots_comp.pkl"),
-        "test_path": os.path.join(args.data_dir, "rmf_laz/test"),
-        "test_pickle": os.path.join(args.data_dir, "rmf_laz/test/plots_comp.pkl"),
+        "train_path": os.path.join(data_dir, "rmf_laz/train"),
+        "train_pickle": os.path.join(data_dir, "rmf_laz/train/plots_comp.pkl"),
+        "val_path": os.path.join(data_dir, "rmf_laz/val"),
+        "val_pickle": os.path.join(data_dir, "rmf_laz/val/plots_comp.pkl"),
+        "test_path": os.path.join(data_dir, "rmf_laz/test"),
+        "test_pickle": os.path.join(data_dir, "rmf_laz/test/plots_comp.pkl"),
         "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
         "eval": False,  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu
