@@ -7,8 +7,8 @@ from .blocks import Stem, ResidualBlock, ConvBlock, UpSampleConcat
 class ResUnet(nn.Module):
     def __init__(self, n_channels=52, n_classes=9):
         super(ResUnet, self).__init__()
-        f = [16, 32, 64, 128, 256]  # Filter sizes
-        
+        #f = [16, 32, 64, 128, 256]  # Filter sizes
+        f = [64, 128, 256, 512, 1024]
         # Encoder
         self.stem = Stem(n_channels, f[0])
         self.residual_block1 = ResidualBlock(f[0], f[1], stride=2)

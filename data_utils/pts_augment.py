@@ -8,7 +8,7 @@ from .common import read_las
 from torch.utils.data import Dataset
 
 
-def rotate_points(coords):
+def rotate_points(coords, x=None):
     rotation = np.random.uniform(-180, 180)
     # Convert rotation values to radians
     rotation = np.radians(rotation)
@@ -23,8 +23,10 @@ def rotate_points(coords):
     )
 
     aug_coords = coords
+    aug_xyz = x
     aug_coords[:, :3] = np.matmul(aug_coords[:, :3], rot_mat)
-    return aug_coords
+    aug_xyz[:, :3] = np.matmul(aug_xyz[:, :3], rot_mat)
+    return aug_coords, aug_xyz
 
 def point_removal(coords, n, x=None):
     # Get list of ids
@@ -117,8 +119,7 @@ class AugmentPointCloudsInPickle(Dataset):
         n = random.randint(round(len(xyz)* 0.9), len(xyz))
         aug_xyz, aug_coords = point_removal(xyz, n, coords)
         aug_xyz, aug_coords = random_noise(aug_xyz, n=(len(xyz)-n))
-        xyz = rotate_points(aug_xyz, x=coords)
-        coords = rotate_points(aug_coords)
+        xyz, coords = rotate_points(aug_xyz, x=aug_coords)
 
         # Get Target
         target = pickle_idx["perc_specs"].item()
