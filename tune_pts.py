@@ -15,7 +15,7 @@ parser = argparse.ArgumentParser(description="Train model with given parameters"
 # Add arguments
 parser.add_argument('--mode', type=str, choices=['img', 'pts', 'both'], default='pts', 
                     help="Mode to run the model: 'img', 'pts', or 'both'")
-parser.add_argument('--data_dir', type=str, default='./data', help="path to data dir")
+parser.add_argument('--data_dir', type=str, default=None, help="path to data dir")
 parser.add_argument('--max_epochs', type=int, default=10, help="Number of epochs to train the model")
 parser.add_argument("--num_workers", type=int, default=8, help="")
 
@@ -28,7 +28,7 @@ def main(args):
     class_weights = torch.from_numpy(np.array(class_weights)).float()
     
     config = {
-        "data_dir": args.data_dir,
+        "data_dir": args.data_dir if args.data_dir is not None else os.path.join(os.getcwd(), "data"),
         "learning_rate": tune.loguniform(1e-5, 1e-1),
         "batch_size": tune.choice([32, 64, 128]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
