@@ -93,7 +93,7 @@ if __name__ == "__main__":
         "weighted_loss": False,  # pretrained model path
         "eval": False,  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu
-        "encoder": "l"
+        "encoder": "s"
     }
 
     mn = params["exp_name"]

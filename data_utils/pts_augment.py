@@ -21,12 +21,15 @@ def rotate_points(coords, x=None):
             [0, 0, 1],
         ]
     )
-
     aug_coords = coords
-    aug_xyz = x
     aug_coords[:, :3] = np.matmul(aug_coords[:, :3], rot_mat)
-    aug_xyz[:, :3] = np.matmul(aug_xyz[:, :3], rot_mat)
-    return aug_coords, aug_xyz
+    if x is None:
+        aug_x = None
+    else:
+        aug_x = x
+        aug_x[:, :3] = np.matmul(aug_x[:, :3], rot_mat)
+
+    return aug_coords, aug_x
 
 def point_removal(coords, n, x=None):
     # Get list of ids
@@ -117,8 +120,8 @@ class AugmentPointCloudsInPickle(Dataset):
 
         # Augmentation
         n = random.randint(round(len(xyz)* 0.9), len(xyz))
-        aug_xyz, aug_coords = point_removal(xyz, n, coords)
-        aug_xyz, aug_coords = random_noise(aug_xyz, n=(len(xyz)-n))
+        aug_xyz, aug_coords = point_removal(xyz, n, x=coords)
+        aug_xyz, aug_coords = random_noise(aug_xyz, n=(len(xyz)-n), x=aug_coords)
         xyz, coords = rotate_points(aug_xyz, x=aug_coords)
 
         # Get Target
