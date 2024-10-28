@@ -26,7 +26,7 @@ def main(args):
     n_samples = [1944, 5358, 2250, 2630, 3982, 2034, 347, 9569, 397]
     class_weights = [1 / (100 * n / 11057) for n in n_samples]
     class_weights = torch.from_numpy(np.array(class_weights)).float()
-    data_dir = args.data_dir if args.data_dir is not None else os.path.join(os.getcwd(), "data"),
+    data_dir = args.data_dir if args.data_dir is not None else os.path.join(os.getcwd(), "data")
     
     config = {
         "learning_rate": tune.loguniform(1e-5, 1e-1),
