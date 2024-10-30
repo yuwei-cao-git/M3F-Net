@@ -1,14 +1,12 @@
-import glob
 import os
 from pathlib import Path
 from itertools import cycle, islice
-
+import torch
+from torch_scatter import scatter_mean
 import laspy
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
-import torch
 #from plyer import notification
 from sklearn.metrics import confusion_matrix, mean_squared_error, r2_score
 from torch.utils.data import DataLoader, Dataset
@@ -360,3 +358,56 @@ def plot_stats(
     if save_fig is True:
         plt.savefig(os.path.join(root_dir, f"{model}_rmse.png"))
     plt.close()
+    
+
+def aggregate_predictions(per_pixel_predictions, superpixel_mask):
+    """
+    Aggregates per-pixel predictions to superpixel-level predictions.
+    
+    Args:
+        per_pixel_predictions: Tensor of shape (batch_size, num_classes, height, width)
+        superpixel_mask: Tensor of shape (batch_size, height, width)
+        
+    Returns:
+        superpixel_predictions: List of tensors, each of shape (num_superpixels, num_classes)
+        superpixel_ids_list: List of tensors containing superpixel IDs for each batch element
+    """
+    batch_size, num_classes, height, width = per_pixel_predictions.size()
+    superpixel_predictions = []
+    superpixel_ids_list = []
+    
+    for b in range(batch_size):
+        preds = per_pixel_predictions[b].view(num_classes, -1)  # Shape: (num_classes, height * width)
+        sp_mask = superpixel_mask[b].view(-1)  # Shape: (height * width)
+        
+        # Get valid pixels (exclude background)
+        valid_indices = sp_mask != 0
+        sp_ids = sp_mask[valid_indices]
+        pixel_preds = preds[:, valid_indices]  # Shape: (num_classes, num_valid_pixels)
+        
+        # Convert sp_ids to long tensor if necessary
+        sp_ids = sp_ids.long()
+        
+        # Aggregate predictions using scatter_mean
+        # Need to transpose pixel_preds to shape (num_valid_pixels, num_classes)
+        pixel_preds_t = pixel_preds.permute(1, 0)  # Shape: (num_valid_pixels, num_classes)
+        
+        sp_ids_unique = torch.unique(sp_ids)
+        num_superpixels = sp_ids_unique.size(0)
+        
+        # Prepare to aggregate
+        sp_preds = scatter_mean(pixel_preds_t, sp_ids, dim=0)  # Shape: (max_sp_id + 1, num_classes)
+        
+        # sp_preds index corresponds to sp_id
+        # Extract predictions for actual superpixel IDs
+        sp_preds = sp_preds[sp_ids_unique]
+        
+        superpixel_predictions.append(sp_preds)  # Shape: (num_superpixels, num_classes)
+        superpixel_ids_list.append(sp_ids_unique)
+    
+    return superpixel_predictions, superpixel_ids_list
+
+def extract_polyids_from_mask(superpixel_mask):
+    polyids = np.unique(superpixel_mask)
+    polyids = polyids[polyids != 0]  # Exclude background (0)
+    return polyids

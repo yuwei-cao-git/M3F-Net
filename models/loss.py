@@ -67,3 +67,28 @@ class RMSELoss(nn.Module):
         return torch.sqrt(self.mse(outputs, targets, mask))
     
 
+def compute_superpixel_loss(superpixel_predictions, point_cloud_predictions, superpixel_ids_list):
+    total_loss = 0.0
+    batch_size = len(superpixel_predictions)
+    
+    for b in range(batch_size):
+        sp_preds = superpixel_predictions[b]  # Shape: (num_superpixels, num_classes)
+        sp_ids = superpixel_ids_list[b]       # Shape: (num_superpixels,)
+        pc_preds = point_cloud_predictions[b]  # Assuming it's a dict with sp_id keys
+        
+        # Align predictions based on superpixel IDs
+        aligned_pc_preds = []
+        for sp_id in sp_ids:
+            if sp_id.item() in pc_preds:
+                aligned_pc_preds.append(pc_preds[sp_id.item()])
+            else:
+                # Handle missing predictions (e.g., set to zero or skip)
+                aligned_pc_preds.append(torch.zeros(num_classes))
+        
+        aligned_pc_preds = torch.stack(aligned_pc_preds)  # Shape: (num_superpixels, num_classes)
+        
+        # Compute loss
+        loss = loss_function(sp_preds, aligned_pc_preds)
+        total_loss += loss
+    
+    return total_loss / batch_size
