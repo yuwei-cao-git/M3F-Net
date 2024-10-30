@@ -20,7 +20,7 @@ parser.add_argument('--max_epochs', type=int, default=10, help="Number of epochs
 parser.add_argument("--num_workers", type=int, default=8, help="")
 
 def main(args):
-    save_dir = os.path.join(os.getcwd(), "pts_logs", "ray_results")
+    save_dir = os.path.join(os.getcwd(), "pts_tune_logs", "ray_results")
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     n_samples = [1944, 5358, 2250, 2630, 3982, 2034, 347, 9569, 397]

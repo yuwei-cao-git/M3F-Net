@@ -10,7 +10,7 @@
 #SBATCH --mem=128G
 
 next_output_dir=$(date +%Y%m%d%H%M%S)
-mkdir -p ~/scratch/pts_logs/${next_output_dir}
+mkdir -p ~/scratch/pts_tune_logs/${next_output_dir}
 echo "created output dir"
 
 # Trap the exit status of the job
@@ -38,8 +38,8 @@ virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip                                                                        
 #pip install --no-index ray[all]
-pip install --no-index ray[tune] tensorboardX lightning pytorch_lightning torch torchaudio torchdata torcheval torchmetrics torchtext torchvision rasterio imageio wandb numpy pandas
-pip install seaborn scikit-learn torchsummary --no-index
+pip install --no-index ray[tune] tensorboardX lightning pytorch_lightning torch torch-scatter torchaudio torchdata torcheval torchmetrics torchtext torchvision rasterio imageio wandb numpy pandas
+pip install seaborn scikit-learn torchsummary geopandas --no-index
 pip install pointnext==0.0.5
 pip install laspy[laszip]
 
@@ -58,8 +58,8 @@ echo "Start runing model........................................................
 srun python tune_pts.py --max_epochs 200
 #wandb sync ./logs/ray_results/wandb/*
 
-tar -cf ~/scratch/pts_logs/${next_output_dir}/tmp.tar /tmp/ray/*
-tar -cf ~/scratch/pts_logs/${next_output_dir}/logs.tar ./pts_logs/ray_results/*
+tar -cf ~/scratch/pts_tune_logs/${next_output_dir}/tmp.tar /tmp/ray/*
+tar -cf ~/scratch/pts_tune_logs/${next_output_dir}/logs.tar ./pts_tune_logs/ray_results/*
 
 # Check the exit status
 if [ $job_failed -ne 0 ]; then
