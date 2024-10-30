@@ -8,11 +8,11 @@
 #SBATCH --time=00:30:00        # Specify run time 
 
 next_output_dir=$(date +%Y%m%d%H%M%S)
-mkdir -p ~/scratch/pts_output/${next_output_dir}
+mkdir -p ~/scratch/pts_train_output/${next_output_dir}
 echo "created output dir"
 
-#SBATCH --output=~/scratch/pts_output/${next_output_dir}/pts_train_%j.out
-#SBATCH --error=~/scratch/pts_output/${next_output_dir}/pts_train_%j.err
+#SBATCH --output=~/scratch/pts_train_output/${next_output_dir}/pts_train_%j.out
+#SBATCH --error=~/scratch/pts_train_output/${next_output_dir}/pts_train_%j.err
 
 # Trap the exit status of the job
 trap 'job_failed=$?' EXIT
@@ -59,8 +59,8 @@ wandb login *
 echo "Start runing model.................................................................................."
 srun python train_pts.py --data_dir './data' --max_epoch 200 --batch_size 32
 
-tar -cf ~/scratch/pts_output/${next_output_dir}/ckps.tar ./checkpoints/*
-tar -cf ~/scratch/pts_output/${next_output_dir}/wandb.tar ./wandb/*
+tar -cf ~/scratch/pts_train_output/${next_output_dir}/ckps.tar ./checkpoints/*
+tar -cf ~/scratch/pts_train_output/${next_output_dir}/wandb.tar ./wandb/*
 
 # Check the exit status
 if [ $job_failed -ne 0 ]; then

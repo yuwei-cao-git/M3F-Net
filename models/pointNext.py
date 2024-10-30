@@ -4,9 +4,9 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 from torch.optim import Adam, SGD, AdamW
 from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau, CosineAnnealingLR
-from pointnext import pointnext_s, PointNext
+from pointnext import pointnext_s, PointNext, pointnext_b, pointnext_l, pointnext_xl
 from .loss import calc_loss
-#from sklearn.metrics import r2_score
+# from sklearn.metrics import r2_score
 
 from torchmetrics.regression import R2Score
 
@@ -20,13 +20,10 @@ class PointNeXtLightning(pl.LightningModule):
         if params["encoder"] == "s":
             self.encoder = pointnext_s(in_dim=in_dim)  # Load the pointnext_s() as the encoder
         elif params["encoder"] == "b":
-            from pointnext import pointnext_b
             self.encoder = pointnext_b(in_dim=in_dim)  # Load the pointnext_s() as the encoder
         elif params["encoder"] == "l":
-            from pointnext import pointnext_l
             self.encoder = pointnext_l(in_dim=in_dim)  # Load the pointnext_s() as the encoder
         else:
-            from pointnext import pointnext_xl
             self.encoder = pointnext_xl(in_dim=in_dim)  # Load the pointnext_s() as the encoder
         
         self.backbone = PointNext(self.params["emb_dims"], encoder=self.encoder)
