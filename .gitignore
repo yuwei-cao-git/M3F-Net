@@ -9,7 +9,10 @@ data/processed/
 *.png
 *.yml
 
-data_processing/
+data_processing/ref
+data_processing/downlading
+checkpoints/
+
 *log.txt
 *logs
 *.log
@@ -25,3 +28,6 @@ paper.quarto_ipynb
 paper_files/*
 
 imagery_classification_sample.ipynb
+data_processing/OutputImage.vrt
+data_processing/temp.ipynb
+data_processing/temp2.ipynb
