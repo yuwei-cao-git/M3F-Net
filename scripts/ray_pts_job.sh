@@ -10,7 +10,7 @@
 #SBATCH --mem=128G
 
 next_output_dir=$(date +%Y%m%d%H%M%S)
-mkdir -p ~/scratch/pts_tune_logs/${next_output_dir}
+mkdir -p ~/scratch/pts_tune_log/${next_output_dir}
 echo "created output dir"
 
 # Trap the exit status of the job
@@ -58,8 +58,8 @@ echo "Start runing model........................................................
 srun python tune_pts.py --max_epochs 200
 #wandb sync ./logs/ray_results/wandb/*
 
-tar -cf ~/scratch/pts_tune_logs/${next_output_dir}/tmp.tar /tmp/ray/*
-tar -cf ~/scratch/pts_tune_logs/${next_output_dir}/logs.tar ./pts_tune_logs/ray_results/*
+tar -cf ~/scratch/pts_tune_log/${next_output_dir}/tmp.tar /tmp/ray/*
+tar -cf ~/scratch/pts_tune_log/${next_output_dir}/logs.tar ./pts_tune_logs/ray_results/*
 
 # Check the exit status
 if [ $job_failed -ne 0 ]; then
