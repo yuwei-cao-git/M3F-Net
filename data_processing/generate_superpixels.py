@@ -9,30 +9,28 @@ from tqdm import tqdm
 from joblib import Parallel, delayed
 import json
 
-import geopandas as gpd
-
 def filter_fri_shapefile(fri_shapefile_path, output_shapefile_path, pids_to_keep):
     # Load the FRI shapefile
     fri_gdf = gpd.read_file(fri_shapefile_path)
-
-    # Ensure 'POLYID' is of integer type
     fri_gdf['POLYID'] = fri_gdf['POLYID'].astype(int)
-
+    
     # Filter the GeoDataFrame
     filtered_gdf = fri_gdf[fri_gdf['POLYID'].isin(pids_to_keep)]
-
+    
     # Save the filtered shapefile
     filtered_gdf.to_file(output_shapefile_path, driver='ESRI Shapefile')
-
+    
     print(f"Filtered shapefile saved to {output_shapefile_path}")
-
-def generate_superpixels(tile_dir):
+    
+def generate_superpixels(tile_dir, season, resolution, size_threshold):
     
     shapefile = r"/mnt/d/Sync/research/tree_species_estimation/tree_dataset/rmf/rmf_fri/fri_rmf_cleaned_9class.gpkg"
-    output_dir = r"/mnt/d/Sync/research/tree_species_estimation/tree_dataset/rmf/processed/10m/rmf_s2/fall/superpixel"  # Update this path
+    output_dir = f"/mnt/d/Sync/research/tree_species_estimation/tree_dataset/rmf/processed/{resolution}/rmf_s2/{season}/superpixel"  # Update this path
     out_shapefile = r"/mnt/d/Sync/research/tree_species_estimation/tree_dataset/rmf/rmf_fri/superpixel.shp"
+    
     # Ensure the output directory exists
     os.makedirs(output_dir, exist_ok=True)
+    
     # List to collect all 'pid's used (optional)
     all_pids = set()
     
@@ -57,6 +55,8 @@ def generate_superpixels(tile_dir):
         tile_name = os.path.splitext(os.path.basename(tile_path))[0]
         output_file = os.path.join(output_dir, f"{tile_name}.npz")
 
+        print(f"\nProcessing tile: {tile_name}")
+
         # Load the tile image
         with rasterio.open(tile_path) as src:
             tile_image = src.read()  # Shape: (bands, height, width)
@@ -65,6 +65,7 @@ def generate_superpixels(tile_dir):
             tile_bounds = src.bounds
             tile_height, tile_width = src.height, src.width
             nodata_value = src.nodata
+            print(f"Nodata value for tile {tile_name}: {nodata_value}")
 
         # Identify no-data pixels
         if nodata_value is not None:
@@ -85,7 +86,7 @@ def generate_superpixels(tile_dir):
             print(f"No polygons intersect with tile {tile_name}. Excluding this tile.")
             continue  # Skip this tile
 
-        # print(f"Found {len(intersecting_polygons)} intersecting polygons.")
+        print(f"Found {len(intersecting_polygons)} intersecting polygons.")
 
         # Adjust geometries to the tile's coordinate space
         intersecting_polygons['geometry'] = intersecting_polygons.geometry.map(lambda geom: geom.intersection(tile_bbox))
@@ -116,8 +117,12 @@ def generate_superpixels(tile_dir):
 
         # Get unique superpixel IDs (excluding background)
         superpixel_ids, counts = np.unique(superpixel_mask, return_counts=True)
-        superpixel_ids = superpixel_ids[superpixel_ids != 0]  # Exclude background (0)
-        counts = counts[superpixel_ids != 0]
+        
+        # Create a boolean mask to exclude background (0)
+        mask = superpixel_ids != 0  # Exclude background (0)
+        # Apply the mask to superpixel_ids and counts
+        superpixel_ids = superpixel_ids[mask]
+        counts = counts[mask]
         
         # Create a dictionary of superpixel sizes
         superpixel_sizes = dict(zip(superpixel_ids, counts))
@@ -135,7 +140,7 @@ def generate_superpixels(tile_dir):
         
         # Record the 'pid's of intersecting polygons (from superpixel_ids)
         pids_to_record = superpixel_ids.tolist()
-        # Collect all 'pid's in a set
+        
         all_pids.update(pids_to_record)
 
         for sp_id in superpixel_ids:
@@ -162,18 +167,21 @@ def generate_superpixels(tile_dir):
             nodata_mask=nodata_mask
         )
         
-        print(f"Total unique pids collected: {len(all_pids)}")
         filter_fri_shapefile(shapefile, out_shapefile, all_pids)
-
+        print(f"Total unique pids collected: {len(all_pids)}")
         print(f"Saved preprocessed data to {output_file}")
 
 if __name__ == "__main__":
-    tile_dir = r'/mnt/d/Sync/research/tree_species_estimation/tree_dataset/rmf/processed/20m/rmf_s2/fall/tiles_128'  # Update this path
-    
-    tile_paths = glob.glob(os.path.join(tile_dir, '*.tif'))
-    print("in total of " + str(len(tile_paths)) + " tiles")
-    # Parallel(n_jobs=-1)(delayed(generate_superpixels)(tile_path) for tile_path in tqdm(tile_paths))
-    generate_superpixels(tile_dir)
+    seasons = ["spring"]
+    resolutions = ["20m"]
+    for resolution in resolutions:
+        for season in seasons:
+            tile_dir = f'/mnt/d/Sync/research/tree_species_estimation/tree_dataset/rmf/processed/{resolution}/rmf_s2/{season}/tiles_128'  # Update this path
+            tile_paths = glob.glob(os.path.join(tile_dir, '*.tif'))
+            size_threshold = 25 # 10000 m2
+            print("in total of " + str(len(tile_paths)) + " tiles")
+            # Parallel(n_jobs=-1)(delayed(generate_superpixels)(tile_path) for tile_path in tqdm(tile_paths))
+            generate_superpixels(tile_dir, season, resolution, size_threshold)
 
     '''
     python generate_superpixels.py --tile_dir path/to/tiles/ \
