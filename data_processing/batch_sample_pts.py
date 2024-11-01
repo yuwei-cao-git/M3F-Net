@@ -77,7 +77,7 @@ def sample_pts(polygons_file_path, las_files_directory, output_folder, max_pts):
     output_folder = Path(output_folder)
     os.makedirs(output_folder, exist_ok=True)
 
-    gdf_polygons = gpd.read_file(Path(polygons_file_path))[184360:]
+    gdf_polygons = gpd.read_file(Path(polygons_file_path))
 
     num_cores = min(32, cpu_count())
     print(f"Using {num_cores} cores for parallel processing.")

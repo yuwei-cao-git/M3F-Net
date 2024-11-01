@@ -84,6 +84,7 @@ def generate_superpixels(tile_dir, season, resolution, size_threshold):
 
         if intersecting_polygons.empty:
             print(f"No polygons intersect with tile {tile_name}. Excluding this tile.")
+            # os.remove(tile_path)
             continue  # Skip this tile
 
         print(f"Found {len(intersecting_polygons)} intersecting polygons.")
