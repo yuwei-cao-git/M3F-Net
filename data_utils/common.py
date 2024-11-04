@@ -7,9 +7,25 @@ import laspy
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-#from plyer import notification
+
+# from plyer import notification
 from sklearn.metrics import confusion_matrix, mean_squared_error, r2_score
 from torch.utils.data import DataLoader, Dataset
+
+
+def load_tile_names(file_path):
+    """
+    Load tile names from a .txt file.
+
+    Args:
+        file_path (str): Path to the .txt file.
+
+    Returns:
+        tile_names (list): List of tile names.
+    """
+    with open(file_path, "r") as f:
+        tile_names = f.read().splitlines()
+    return tile_names
 
 
 def read_las(pointcloudfile, get_attributes=False, useevery=1):
@@ -135,7 +151,8 @@ def write_las(outpoints, outfilepath, attribute_dict={}):
             las[key] = vals
 
     las.write(outfilepath)
-    
+
+
 class IOStream:
     # Adapted from https://github.com/vinits5/learning3d/blob/master/examples/train_pointnet.py
     def __init__(self, path):
@@ -164,8 +181,8 @@ def _init_(model_name):
         os.makedirs("checkpoints/" + model_name + "/output")
     if not os.path.exists("checkpoints/" + model_name + "/output/laz"):
         os.makedirs("checkpoints/" + model_name + "/output/laz")
-    
-   
+
+
 def check_multi_gpu(n_gpus):
     # Check if multiple GPUs are available
     if torch.cuda.device_count() > 1 and n_gpus > 1:
@@ -173,7 +190,7 @@ def check_multi_gpu(n_gpus):
         print("Using Multiple GPUs")
     else:
         multi_gpu = False
-        
+
     return multi_gpu
 
 
@@ -196,7 +213,7 @@ def create_empty_df():
 def variable_df(variables, col_names):
     # Create a dataframe from list of variables
     df = pd.DataFrame([variables], columns=col_names)
-    
+
     return df
 
 
@@ -205,23 +222,24 @@ def concat_df(df_list):
     df = pd.concat(df_list, ignore_index=True)
     return df
 
-'''
+
+"""
 def notifi(title, message):
     # Creates a pop-up notification
     notification.notify(title=title, message=message, timeout=10)
-'''
-    
-    
+"""
+
+
 def create_comp_csv(y_true, y_pred, classes, filepath):
     # Create a CSV of the true and predicted species proportions
-    classes = cycle(classes) # cycle classes
-    df = pd.DataFrame({"y_true": y_true, "y_pred": y_pred}) # create dataframe
-    df["SpeciesName"] = list(islice(classes, len(df))) # repeat list of classes
-    species = df.pop("SpeciesName") # remove species name
-    df.insert(0, "SpeciesName", species) # add species name
-    df.to_csv(filepath, index=False) # save to csv
-    
-    
+    classes = cycle(classes)  # cycle classes
+    df = pd.DataFrame({"y_true": y_true, "y_pred": y_pred})  # create dataframe
+    df["SpeciesName"] = list(islice(classes, len(df)))  # repeat list of classes
+    species = df.pop("SpeciesName")  # remove species name
+    df.insert(0, "SpeciesName", species)  # add species name
+    df.to_csv(filepath, index=False)  # save to csv
+
+
 def get_stats(df):
     # Get stats
     r2 = r2_score(df["y_true"], df["y_pred"])  # r2
@@ -358,16 +376,16 @@ def plot_stats(
     if save_fig is True:
         plt.savefig(os.path.join(root_dir, f"{model}_rmse.png"))
     plt.close()
-    
+
 
 def aggregate_predictions(per_pixel_predictions, superpixel_mask):
     """
     Aggregates per-pixel predictions to superpixel-level predictions.
-    
+
     Args:
         per_pixel_predictions: Tensor of shape (batch_size, num_classes, height, width)
         superpixel_mask: Tensor of shape (batch_size, height, width)
-        
+
     Returns:
         superpixel_predictions: List of tensors, each of shape (num_superpixels, num_classes)
         superpixel_ids_list: List of tensors containing superpixel IDs for each batch element
@@ -375,37 +393,44 @@ def aggregate_predictions(per_pixel_predictions, superpixel_mask):
     batch_size, num_classes, height, width = per_pixel_predictions.size()
     superpixel_predictions = []
     superpixel_ids_list = []
-    
+
     for b in range(batch_size):
-        preds = per_pixel_predictions[b].view(num_classes, -1)  # Shape: (num_classes, height * width)
+        preds = per_pixel_predictions[b].view(
+            num_classes, -1
+        )  # Shape: (num_classes, height * width)
         sp_mask = superpixel_mask[b].view(-1)  # Shape: (height * width)
-        
+
         # Get valid pixels (exclude background)
         valid_indices = sp_mask != 0
         sp_ids = sp_mask[valid_indices]
         pixel_preds = preds[:, valid_indices]  # Shape: (num_classes, num_valid_pixels)
-        
+
         # Convert sp_ids to long tensor if necessary
         sp_ids = sp_ids.long()
-        
+
         # Aggregate predictions using scatter_mean
         # Need to transpose pixel_preds to shape (num_valid_pixels, num_classes)
-        pixel_preds_t = pixel_preds.permute(1, 0)  # Shape: (num_valid_pixels, num_classes)
-        
+        pixel_preds_t = pixel_preds.permute(
+            1, 0
+        )  # Shape: (num_valid_pixels, num_classes)
+
         sp_ids_unique = torch.unique(sp_ids)
         num_superpixels = sp_ids_unique.size(0)
-        
+
         # Prepare to aggregate
-        sp_preds = scatter_mean(pixel_preds_t, sp_ids, dim=0)  # Shape: (max_sp_id + 1, num_classes)
-        
+        sp_preds = scatter_mean(
+            pixel_preds_t, sp_ids, dim=0
+        )  # Shape: (max_sp_id + 1, num_classes)
+
         # sp_preds index corresponds to sp_id
         # Extract predictions for actual superpixel IDs
         sp_preds = sp_preds[sp_ids_unique]
-        
+
         superpixel_predictions.append(sp_preds)  # Shape: (num_superpixels, num_classes)
         superpixel_ids_list.append(sp_ids_unique)
-    
+
     return superpixel_predictions, superpixel_ids_list
+
 
 def extract_polyids_from_mask(superpixel_mask):
     polyids = np.unique(superpixel_mask)
