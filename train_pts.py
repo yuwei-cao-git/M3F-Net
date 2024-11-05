@@ -6,9 +6,10 @@ import numpy as np
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
+
 # from torchsummary import summary
 # from pytorch_lightning.utilities.model_summary import ModelSummary
-from models.pointNext import PointNeXtLightning
+from models.pc_model import PointNeXtLightning
 from dataset.pts import PointCloudDataModule
 
 
@@ -17,7 +18,7 @@ parser.add_argument("--lr", type=float, default=0.001, help="")
 parser.add_argument("--max_epochs", type=int, default=4, help="")
 parser.add_argument("--batch_size", type=int, default=16, help="")
 parser.add_argument("--num_workers", type=int, default=8, help="")
-parser.add_argument("--data_dir", type=str, default='./data')
+parser.add_argument("--data_dir", type=str, default="./data")
 
 
 def main(params):
@@ -35,29 +36,29 @@ def main(params):
         mode="min",  # Save model with the lowest "val_loss" (change to "max" for maximizing metrics)
         save_top_k=1,  # Save only the single best model based on the monitored metric
     )
-    
+
     # Initialize the DataModule
     data_module = PointCloudDataModule(params)
-    
+
     # initialize model
     model = PointNeXtLightning(params, in_dim=3)
     # print(ModelSummary(model, max_depth=-1))  # Prints the full model summary
     # Use torchsummary to print the summary, input size should match your input data
     # summary(model, input_size=[(3, 7168), (3, 7168)])
-    
+
     # Instantiate the Trainer
     trainer = Trainer(
         max_epochs=params["epochs"],
         logger=[wandb_logger],  # csv_logger
         callbacks=[checkpoint_callback],
-        devices=params["n_gpus"], 
-        strategy='ddp'
+        devices=params["n_gpus"],
+        strategy="ddp",
     )
-    
+
     trainer.fit(model, data_module)
 
     if params["eval"]:
-        trainer.test(model, data_module) 
+        trainer.test(model, data_module)
 
 
 if __name__ == "__main__":
@@ -93,7 +94,7 @@ if __name__ == "__main__":
         "weighted_loss": False,  # pretrained model path
         "eval": False,  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu
-        "encoder": "l"
+        "encoder": "l",
     }
 
     mn = params["exp_name"]

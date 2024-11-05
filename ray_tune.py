@@ -1,4 +1,4 @@
-from utils.tunner import train_func
+from utils.tunner_img import train_func
 import traceback
 from ray import tune, train
 from ray.tune.schedulers import ASHAScheduler
@@ -7,6 +7,7 @@ import os
 import torch
 
 # local machine: wandb login --cloud --relogin
+
 
 def main():
     data_dir = os.path.join(os.getcwd(), "data")
@@ -25,18 +26,17 @@ def main():
         "n_bands": 12,
         "n_classes": 9,
         "resolution": tune.choice([10, 20]),
-        "scheduler": "asha", # tune.choice(["plateau", "steplr", "cosine"]),
+        "scheduler": "asha",  # tune.choice(["plateau", "steplr", "cosine"]),
         "transforms": tune.choice(["random", "compose"]),
         "save_dir": save_dir,
-        "n_samples": 20
+        "n_samples": 20,
     }
     try:
-        #wandb.init(project='M3F-Net-ray')
-        scheduler = ASHAScheduler(
-            max_t=1,
-            grace_period=1,
-            reduction_factor=2)
-        trainable_with_gpu = tune.with_resources(train_func, {"gpu": config.get("gpus", 1)})
+        # wandb.init(project='M3F-Net-ray')
+        scheduler = ASHAScheduler(max_t=1, grace_period=1, reduction_factor=2)
+        trainable_with_gpu = tune.with_resources(
+            train_func, {"gpu": config.get("gpus", 1)}
+        )
         tuner = tune.Tuner(
             trainable_with_gpu,
             tune_config=tune.TuneConfig(
@@ -51,22 +51,28 @@ def main():
                 callbacks=[
                     WandbLoggerCallback(
                         project="M3F-Net-ray",
-                        group='r2_torchmetric',
+                        group="r2_torchmetric",
                         api_key=os.environ["WANDB_API_KEY"],
                         log_config=True,
                         save_checkpoints=True,
-                    )],
+                    )
+                ],
             ),
-            param_space=config
+            param_space=config,
         )
         results = tuner.fit()
-        print("Best trial config: {}".format(results.get_best_result("val_r2","max").config))
+        print(
+            "Best trial config: {}".format(
+                results.get_best_result("val_r2", "max").config
+            )
+        )
     except Exception as e:
         traceback.print_exc()
         raise e
 
-if __name__ == '__main__':
-    '''
+
+if __name__ == "__main__":
+    """
     mock_api = True
     if mock_api:
         os.environ.setdefault("WANDB_MODE", "disabled")
@@ -74,5 +80,5 @@ if __name__ == '__main__':
         ray.init(
             runtime_env={"env_vars": {"WANDB_MODE": "disabled", "WANDB_API_KEY": "abcd"}}
         )
-    '''
+    """
     main()

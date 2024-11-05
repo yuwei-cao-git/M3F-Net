@@ -31,6 +31,7 @@ def rotate_points(coords, x=None):
 
     return aug_coords, aug_x
 
+
 def point_removal(coords, n, x=None):
     # Get list of ids
     idx = list(range(np.shape(coords)[0]))
@@ -76,7 +77,11 @@ def random_noise(coords, n, dim=1, x=None):
             )  # added [0] and dim
 
     # Randomly choose up to 10% of augmented noise points
-    use_idx = np.random.choice(aug_coords.shape[0], n, replace=False,)
+    use_idx = np.random.choice(
+        aug_coords.shape[0],
+        n,
+        replace=False,
+    )
     aug_coords = aug_coords[use_idx, :]  # get random points
     aug_coords = np.append(coords, aug_coords, axis=0)  # add points
     if x is None:
@@ -86,6 +91,7 @@ def random_noise(coords, n, dim=1, x=None):
         aug_x = np.append(x, aug_x, axis=0)  # add random point values # ADDED axis=0
 
     return aug_coords, aug_x
+
 
 class AugmentPointCloudsInPickle(Dataset):
     """Point cloud dataset where one data point is a file."""
@@ -109,7 +115,7 @@ class AugmentPointCloudsInPickle(Dataset):
         # Get Filename
         pickle_idx = self.pickle.iloc[idx : idx + 1]
         filename = pickle_idx["FileName"].item()
-        
+
         # Get file path
         file = os.path.join(self.filepath, filename)
 
@@ -119,9 +125,9 @@ class AugmentPointCloudsInPickle(Dataset):
         xyz = coords - np.mean(coords, axis=0)  # centralize coordinates
 
         # Augmentation
-        n = random.randint(round(len(xyz)* 0.9), len(xyz))
+        n = random.randint(round(len(xyz) * 0.9), len(xyz))
         aug_xyz, aug_coords = point_removal(xyz, n, x=coords)
-        aug_xyz, aug_coords = random_noise(aug_xyz, n=(len(xyz)-n), x=aug_coords)
+        aug_xyz, aug_coords = random_noise(aug_xyz, n=(len(xyz) - n), x=aug_coords)
         xyz, coords = rotate_points(aug_xyz, x=aug_coords)
 
         # Get Target
@@ -129,11 +135,33 @@ class AugmentPointCloudsInPickle(Dataset):
         target = target.replace("[", "")
         target = target.replace("]", "")
         target = target.split(",")
-        target = [float(i) for i in target] # convert items in target to float
+        target = [float(i) for i in target]  # convert items in target to float
 
         coords = torch.from_numpy(coords).float()
         xyz = torch.from_numpy(xyz).float()
         target = torch.from_numpy(np.array(target)).type(torch.FloatTensor)
         if xyz.shape[0] < 100:
             return None
+        return coords, xyz, target
+
+
+class PointCloudTransform:
+    def __init__(self, min_percentage=0.9, sigma=0.01, clip=0.05):
+        self.min_percentage = min_percentage
+        self.sigma = sigma
+        self.clip = clip
+
+    def __call__(self, xyz, coords, target):
+        # Point Removal
+        n = random.randint(round(len(xyz) * 0.9), len(xyz))
+        aug_xyz, aug_coords = point_removal(xyz, n, x=coords)
+        aug_xyz, aug_coords = random_noise(aug_xyz, n=(len(xyz) - n), x=aug_coords)
+        xyz, coords = rotate_points(aug_xyz, x=aug_coords)
+
+        # Get Target
+        target = target.replace("[", "")
+        target = target.replace("]", "")
+        target = target.split(",")
+        target = [float(i) for i in target]  # convert items in target to float
+
         return coords, xyz, target
