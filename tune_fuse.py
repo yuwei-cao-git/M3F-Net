@@ -66,6 +66,7 @@ def main(args):
             [[1024, 256], [512, 128], [256, 128], [256, 64]]
         ),
         "fuse_feature": tune.choice([True, False]),
+        "mamba_fuse": tune.choice([True, False]),
         "resolution": 20,  # tune.choice([10, 20]),
         "use_mf": tune.choice([True, False]),
         "use_residual": tune.choice([True, False]),
