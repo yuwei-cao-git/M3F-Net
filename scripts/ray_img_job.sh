@@ -62,7 +62,7 @@ export WANDB_API_KEY=*
 wandb login
 #Run python script
 echo "Start runing model.................................................................................."
-srun python ray_tune.py
+srun python ray_img_tune.py
 #wandb sync ./logs/ray_results/wandb/*
 
 tar -cf ~/scratch/ray_output/${next_output_dir}/tmp.tar /tmp/ray/*

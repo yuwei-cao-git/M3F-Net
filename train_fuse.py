@@ -62,16 +62,13 @@ def main():
         action="store_true",
         help="Use residual connections (set flag to enable)",
     )
-    parser.add_argument("--img_transforms", action="store_true")
+    parser.add_argument("--img_transforms", default=None)
     parser.add_argument("--pc_transforms", action="store_true")
     parser.add_argument("--gpus", type=int, default=torch.cuda.device_count())
     parser.add_argument("--num_workers", type=int, default=4)
 
     # Parse arguments
     params = vars(parser.parse_args())
-    params["data_dir"] = os.path.join(
-        params["data_dir"], f"{params['resolution']}m", "fusion"
-    )
     params["save_dir"] = os.path.join(os.getcwd(), "logs")
     if not os.path.exists(params["save_dir"]):
         os.makedirs(params["save_dir"])

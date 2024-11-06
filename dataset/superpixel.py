@@ -7,6 +7,7 @@ from pytorch_lightning import LightningDataModule
 from torch.utils.data import Subset, DataLoader
 from os.path import join
 import torchvision.transforms.v2 as transforms
+from data_utils.pts_augment import pointCloudTransform
 
 
 class SuperpixelDataset(Dataset):
@@ -79,9 +80,9 @@ class SuperpixelDataset(Dataset):
 
         # Apply point cloud transforms if any
         if self.point_cloud_transform:
-            pc_feat, xyz, label = self.point_cloud_transform(xyz, pc_feat, label)
+            coords, xyz, label = pointCloudTransform(xyz, coords, label)
         # After applying transforms
-        pc_feat = torch.from_numpy(coords).float()  # Shape: (7168, 3)
+        coords = torch.from_numpy(coords).float()  # Shape: (7168, 3)
         xyz = torch.from_numpy(xyz).float()  # Shape: (7168, 3)
         label = torch.from_numpy(label).float()  # Shape: (num_classes,)
 
@@ -90,7 +91,7 @@ class SuperpixelDataset(Dataset):
             "nodata_mask": nodata_mask,  # Padded masks of shape [num_seasons, 128, 128]
             "per_pixel_labels": per_pixel_labels,  # Tensor: (num_classes, 128, 128)
             "point_cloud": xyz,
-            "pc_feat": pc_feat,
+            "pc_feat": coords,
             "label": label,
         }
         return sample
@@ -106,9 +107,27 @@ class SuperpixelDataModule(LightningDataModule):
         self.point_cloud_transform = config["pc_transforms"]
 
         self.data_dirs = {
-            "train": join(config["data_dir"], "train", "superpixel"),
-            "val": join(config["data_dir"], "val", "superpixel"),
-            "test": join(config["data_dir"], "test", "superpixel"),
+            "train": join(
+                config["data_dir"],
+                f"{config['resolution']}m",
+                "fusion",
+                "train",
+                "superpixel",
+            ),
+            "val": join(
+                config["data_dir"],
+                f"{config['resolution']}m",
+                "fusion",
+                "val",
+                "superpixel",
+            ),
+            "test": join(
+                config["data_dir"],
+                f"{config['resolution']}m",
+                "fusion",
+                "test",
+                "superpixel",
+            ),
         }
 
     def setup(self, stage=None):

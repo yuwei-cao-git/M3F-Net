@@ -34,9 +34,7 @@ def get_tilename(plots):
     plots_joined_att = plots_joined_att[plots_joined_att["Tilename"].notna()]
     # Drop unnecessary columns
     plots_joined_att = plots_joined_att.drop(columns=["index_right"], errors="ignore")
-    plots_joined_att.to_file(
-        r"/mnt/d/Sync/research/tree_species_estimation/tree_dataset/rmf/rmf_plots/fusion/superpixel_plots_10m_Tilename.gpkg"
-    )
+    # plots_joined_att.to_file(r"/mnt/d/Sync/research/tree_species_estimation/tree_dataset/rmf/rmf_plots/fusion/superpixel_plots_10m_Tilename.gpkg")
     return plots_joined_att
 
 

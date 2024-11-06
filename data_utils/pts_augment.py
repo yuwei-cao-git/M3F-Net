@@ -145,23 +145,13 @@ class AugmentPointCloudsInPickle(Dataset):
         return coords, xyz, target
 
 
-class PointCloudTransform:
-    def __init__(self, min_percentage=0.9, sigma=0.01, clip=0.05):
-        self.min_percentage = min_percentage
-        self.sigma = sigma
-        self.clip = clip
+def pointCloudTransform(xyz, coords, target):
+    # Point Removal
+    n = random.randint(round(len(xyz) * 0.9), len(xyz))
+    aug_xyz, aug_coords = point_removal(xyz, n, x=coords)
+    aug_xyz, aug_coords = random_noise(aug_xyz, n=(len(xyz) - n), x=aug_coords)
+    xyz, coords = rotate_points(aug_xyz, x=aug_coords)
 
-    def __call__(self, xyz, coords, target):
-        # Point Removal
-        n = random.randint(round(len(xyz) * 0.9), len(xyz))
-        aug_xyz, aug_coords = point_removal(xyz, n, x=coords)
-        aug_xyz, aug_coords = random_noise(aug_xyz, n=(len(xyz) - n), x=aug_coords)
-        xyz, coords = rotate_points(aug_xyz, x=aug_coords)
+    target = target
 
-        # Get Target
-        target = target.replace("[", "")
-        target = target.replace("]", "")
-        target = target.split(",")
-        target = [float(i) for i in target]  # convert items in target to float
-
-        return coords, xyz, target
+    return coords, xyz, target
