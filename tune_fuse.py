@@ -39,7 +39,7 @@ def main(args):
     config = {
         "mode": "fuse",  # tune.choice(["img", "pc", "fuse"]),
         "learning_rate": tune.loguniform(1e-5, 1e-1),
-        "batch_size": 4,  # tune.choice([32, 64, 128]),
+        "batch_size": tune.choice([16, 32, 64, 128]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
         "dropout": tune.choice([0.3, 0.5, 0.7]),  # dropout rate
         "weighted_loss": tune.choice([True, False]),
@@ -73,7 +73,7 @@ def main(args):
         "eval": False,  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu
         "gpus": torch.cuda.device_count(),
-        "n_samples": 2,  # 20
+        "n_samples": 20,  # 20
         "data_dir": data_dir,
     }
     try:

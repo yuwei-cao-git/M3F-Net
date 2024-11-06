@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=ray_pts_tune_pts
-#SBATCH --output=ray_pts_tune_%j.out
-#SBATCH --error=ray_tune_%j.err
+#SBATCH --job-name=ray_fuse_tune
+#SBATCH --output=ray_fuse_tune_%j.out
+#SBATCH --error=ray_fuse_tune_%j.err
 #SBATCH --time=05:30:00        # Specify run time 
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -26,10 +26,10 @@ echo "Source code cloned!"
 
 echo "Start transfer data..."
 # mkdir -p data/10m/fusion
-mkdir -p data/20m/fusion
+mkdir -p data/20m
 # extract an archive to a different directory, the ‘-C’ option is followed by the destination path
 # tar -xf $project/data/10m/fusion.tar -C ./data/10m/fusion
-tar -xf $project/data/20m/fusion.tar -C ./data/20m/fusion
+tar -xf $project/data/20m/fusion.tar -C ./data/20m
 echo "Data transfered"
 
 # Load python module, and additional required modules

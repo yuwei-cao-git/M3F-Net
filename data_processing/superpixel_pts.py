@@ -34,7 +34,9 @@ def get_tilename(plots):
     plots_joined_att = plots_joined_att[plots_joined_att["Tilename"].notna()]
     # Drop unnecessary columns
     plots_joined_att = plots_joined_att.drop(columns=["index_right"], errors="ignore")
-    # plots_joined_att.to_file(r"/mnt/d/Sync/research/tree_species_estimation/tree_dataset/rmf/rmf_plots/fusion/superpixel_plots_10m_Tilename.gpkg")
+    plots_joined_att.to_file(
+        r"/mnt/d/Sync/research/tree_species_estimation/tree_dataset/rmf/rmf_plots/fusion/superpixel_plots_10m_Tilename.gpkg"
+    )
     return plots_joined_att
 
 
@@ -60,7 +62,7 @@ def resample_points_within_polygon(
 
 
 def sample_points_within_polygon(
-    las_file_path, polygon, max_pts, output_folder, polyid, get_attributes=False
+    las_file_path, polygon, max_pts, output_las_file_path, polyid, get_attributes=False
 ):
     try:
         extracted_points = []
@@ -83,7 +85,6 @@ def sample_points_within_polygon(
                 extracted_points.append(point)
         extracted_points = np.array(extracted_points)
 
-        output_las_file_path = os.path.join(output_folder, f"{polyid}.laz")
         output_las = laspy.create(
             point_format=inFile.header.point_format, file_version=inFile.header.version
         )
@@ -113,9 +114,18 @@ def process_polygon(polygon_row, las_files_directory, output_folder, max_pts):
     las_file_path = os.path.join(las_files_directory, f"{tilename}.laz")
 
     if os.path.exists(las_file_path):
-        sample_points_within_polygon(
-            las_file_path, polygon, max_pts, output_folder, poly_id, get_attributes=True
-        )
+        output_las_file_path = os.path.join(output_folder, f"{poly_id}.laz")
+        if os.path.exists(output_las_file_path):
+            print(f"Saved sampled points for {poly_id} to {output_las_file_path}")
+        else:
+            sample_points_within_polygon(
+                las_file_path,
+                polygon,
+                max_pts,
+                output_las_file_path,
+                poly_id,
+                get_attributes=True,
+            )
     else:
         print(f"LAS file for {tilename} not found.")
 
