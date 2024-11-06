@@ -44,8 +44,8 @@ class PointNextModel(nn.Module):
         )
 
     def forward(self, point_cloud, xyz):
-        out = self.norm(self.backbone(point_cloud, xyz))
-        out = out.mean(dim=-1)
+        pc_feats = self.norm(self.backbone(point_cloud, xyz))
+        out = pc_feats.mean(dim=-1)
         out = self.act(out)
         logits = self.cls_head(out)
-        return logits
+        return logits, pc_feats

@@ -28,43 +28,33 @@ class MaskedMSELoss(nn.Module):
     def __init__(self):
         super(MaskedMSELoss, self).__init__()
 
-    def forward(self, outputs, targets, mask):
+    def forward(self, output, target, nodata_mask):
         """
-        Custom MSE loss function that ignores NoData pixels.
-
-        Args:
-        - outputs: Predicted values (batch_size, num_channels, H, W)
-        - targets: Ground truth values (batch_size, num_channels, H, W)
-        - mask: Boolean mask indicating NoData pixels (batch_size, H, W)
-
-        Returns:
-        - loss: Mean squared error computed only for valid pixels.
+        Computes per-pixel loss, masking out the nodata regions.
         """
-        # Expand mask to match the shape of outputs and targets
-        expanded_mask = mask.unsqueeze(1).expand_as(
-            outputs
-        )  # Shape: (batch_size, num_channels, H, W)
+        # output: Shape (batch_size, num_classes, height, width)
+        # target: Shape (batch_size, num_classes, height, width)
+        # nodata_mask: Shape (batch_size, height, width)
 
-        # Compute squared differences, applying mask to ignore invalid pixels
-        diff = (outputs - targets) ** 2
-        valid_diff = diff * (
-            ~expanded_mask
-        )  # Keep only valid pixels (where mask is False)
+        # Apply the nodata mask to ignore invalid pixels
+        valid_mask = ~nodata_mask.unsqueeze(1)  # Shape: (batch_size, 1, height, width)
+        valid_mask = valid_mask.expand_as(
+            output
+        )  # Shape: (batch_size, num_classes, height, width)
 
-        # Sum over the channel and spatial dimensions (H, W)
-        loss = valid_diff.sum(dim=(1, 2, 3))
+        # Compute loss per pixel
+        loss = F.mse_loss(
+            output * valid_mask.float(), target * valid_mask.float(), reduction="sum"
+        )
 
-        # Count the number of valid pixels per batch (sum of ~mask)
-        num_valid_pixels = (~expanded_mask).sum(dim=(1, 2, 3)).float()
+        # Compute the average loss over valid pixels
+        num_valid_pixels = valid_mask.float().sum()
+        if num_valid_pixels > 0:
+            loss = loss / num_valid_pixels
+        else:
+            loss = torch.tensor(0.0, requires_grad=True).to(output.device)
 
-        # Prevent division by zero (if all pixels are NoData)
-        num_valid_pixels = torch.clamp(num_valid_pixels, min=1.0)
-
-        # Compute mean squared error per valid pixel
-        loss = loss / num_valid_pixels
-
-        # Return the average loss over the batch
-        return loss.mean()
+        return loss
 
 
 # create a nn class (just-for-fun choice :-)

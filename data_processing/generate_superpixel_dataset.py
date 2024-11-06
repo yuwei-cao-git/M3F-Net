@@ -49,17 +49,19 @@ def save_superpixel_data(
     polyid,
     superpixel_images,
     point_cloud,
-    superpixel_label,
+    label,
     per_pixel_labels,
+    nodata_mask,
     output_dir,
 ):
     output_file_path = os.path.join(output_dir, f"{polyid}.npz")
     np.savez_compressed(
         output_file_path,
-        superpixel_images=superpixel_images,  # List of images from all seasons (each padded to 128x128)
+        superpixel_images=superpixel_images,  # Shape: (num_seasons, num_channels, 128, 128)
         point_cloud=point_cloud,  # Shape: (7168, 3)
-        label=superpixel_label,  # Shape: (9,)
+        label=label,  # Shape: (num_classes,)
         per_pixel_labels=per_pixel_labels,  # Shape: (num_classes, 128, 128)
+        nodata_mask=nodata_mask,  # Shape: (128, 128)
     )
     print(f"Superpixel data saved to {output_file_path}")
 
@@ -111,23 +113,60 @@ def generate_combined_data_for_split(
             # Create a mask for the current superpixel
             superpixel_mask_binary = superpixel_mask == polyid
 
-            # Extract image patches or masked images for each season and pad to (128, 128)
-            padded_superpixel_images = []
-            for season_image in tile_images:
-                # Create a blank padded image of shape (num_channels, 128, 128)
-                num_channels = season_image.shape[0]
-                padded_image = np.zeros(
-                    (num_channels, 128, 128), dtype=season_image.dtype
-                )
+            # Handle NoData pixels and create combined mask
+            # combined_mask is True for valid pixels (belongs to superpixel and not NoData)
+            combined_mask = superpixel_mask_binary & (~nodata_mask)
 
-                # Assign the superpixel values to their respective locations in the padded image
+            # Initialize padded images and masks
+            num_channels = tile_images[0].shape[0]
+            num_seasons = len(tile_images)
+            padded_image_shape = (num_seasons, num_channels, 128, 128)
+            padded_label_shape = (label_array.shape[0], 128, 128)
+            padded_nodata_mask = np.ones(
+                (128, 128), dtype=bool
+            )  # Start with all True (NoData)
+
+            # Update the NoData mask: set valid pixels to False (i.e., not NoData)
+            padded_nodata_mask[combined_mask] = False
+
+            # Initialize arrays for superpixel images
+            superpixel_images = np.zeros(padded_image_shape, dtype=tile_images[0].dtype)
+
+            # Extract and pad images for each season
+            for season_idx, season_image in enumerate(tile_images):
+                # For each channel
                 for channel_idx in range(num_channels):
-                    padded_image[channel_idx][superpixel_mask_binary] = season_image[
-                        channel_idx
-                    ][superpixel_mask_binary]
+                    # Initialize padded channel image
+                    padded_channel_image = np.zeros(
+                        (128, 128), dtype=season_image.dtype
+                    )
 
-                # Add the padded image to the list of superpixel images
-                padded_superpixel_images.append(padded_image)
+                    # Assign pixel values for valid pixels
+                    padded_channel_image[combined_mask] = season_image[channel_idx][
+                        combined_mask
+                    ]
+
+                    # Assign to superpixel_images array
+                    superpixel_images[season_idx, channel_idx, :, :] = (
+                        padded_channel_image
+                    )
+
+            # Initialize per-pixel labels
+            num_classes = label_array.shape[0]
+            per_pixel_labels = np.zeros(padded_label_shape, dtype=label_array.dtype)
+
+            # Assign per-pixel labels for valid pixels
+            for class_idx in range(num_classes):
+                # Initialize padded label image
+                padded_label_image = np.zeros((128, 128), dtype=label_array.dtype)
+
+                # Assign label values for valid pixels
+                padded_label_image[combined_mask] = label_array[class_idx][
+                    combined_mask
+                ]
+
+                # Assign to per_pixel_labels array
+                per_pixel_labels[class_idx, :, :] = padded_label_image
 
             # Load point cloud data corresponding to the POLYID
             laz_file_path = os.path.join(point_cloud_dir, f"{polyid}.laz")
@@ -147,25 +186,14 @@ def generate_combined_data_for_split(
                 print(f"Label for POLYID {polyid} not found in polygon file.")
                 continue  # Skip if label not found
 
-            # Create a blank padded per-pixel label array of shape (num_classes, 128, 128)
-            num_classes = label_array.shape[0]
-            padded_per_pixel_labels = np.zeros(
-                (num_classes, 128, 128), dtype=label_array.dtype
-            )
-
-            # Assign the superpixel values to their respective locations in the padded per-pixel label array
-            for class_idx in range(num_classes):
-                padded_per_pixel_labels[class_idx][superpixel_mask_binary] = (
-                    label_array[class_idx][superpixel_mask_binary]
-                )
-
             # Save the superpixel data
             save_superpixel_data(
                 polyid,
-                padded_superpixel_images,
+                superpixel_images,
                 point_cloud,
                 superpixel_label,
-                padded_per_pixel_labels,
+                per_pixel_labels,
+                padded_nodata_mask,
                 output_superpixel_dir,
             )
 

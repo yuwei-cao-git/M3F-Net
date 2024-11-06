@@ -43,14 +43,27 @@ class SuperpixelModel(pl.LightningModule):
             self.s2_model = ResUnet(
                 n_channels=total_input_channels, n_classes=self.config["n_classes"]
             )
+            out_channels = 1024
         else:
             # Using standard UNet
             self.s2_model = UNet(
                 n_channels=total_input_channels, n_classes=self.config["n_classes"]
             )
+            out_channels = 512
 
         # Initialize point cloud stream model
         self.pointnext = PointNextModel(self.config, in_dim=3)
+
+        # Fusion and classification layers with additional linear layer
+        self.fc1 = nn.Linear(out_channels + self.config["emb_dims"], 512)
+        self.bn1 = nn.BatchNorm1d(512)
+        self.dropout1 = nn.Dropout(p=0.5)
+
+        self.fc2 = nn.Linear(512, 128)
+        self.bn2 = nn.BatchNorm1d(128)
+        self.dropout2 = nn.Dropout(p=0.5)
+
+        self.fc3 = nn.Linear(128, self.config["n_classes"])
 
         # Define loss functions
         self.criterion = nn.MSELoss()
@@ -77,18 +90,42 @@ class SuperpixelModel(pl.LightningModule):
             fused_features = self.mf_module(images)
         else:
             # Concatenate all seasons directly if no MF module
-            batch_size, num_seasons, num_channels, pixels = images.shape
+            batch_size, num_seasons, num_channels, width, height = images.shape
 
             # Reshape images to merge `num_seasons` and `num_channels` by concatenating along channels
-            fused_features = images.view(batch_size, num_seasons * num_channels, pixels)
-            print(fused_features.shape)  # Expected shape: [4, 36, 462]
-        image_outputs = self.s2_model(fused_features)
+            fused_features = images.view(
+                batch_size, num_seasons * num_channels, width, height
+            )  # torch.Size([4, 36, 128, 128])
+        image_outputs, img_emb = self.s2_model(
+            fused_features
+        )  # torch.Size([4, 9, 128, 128])
         # Forward pass through PointNet
-        point_outputs = self.pointnext(pc_feat, xyz)
-        return image_outputs, point_outputs
+        point_outputs, pc_emb = self.pointnext(pc_feat, xyz)  # torch.Size([4, 9])
+        # Flatten image features for fusion
+        image_features_pooled = F.adaptive_avg_pool2d(img_emb, (1, 1)).view(
+            batch_size, -1
+        )  # Shape: (batch_size, feature_dim)
+
+        # Pool over points
+        point_cloud_features = torch.max(pc_emb, dim=2)[
+            0
+        ]  # Shape: (batch_size, feature_dim)
+        # Concatenate features
+        combined_features = torch.cat(
+            (image_features_pooled, point_cloud_features), dim=1
+        )
+
+        # Fusion and classification with additional layers and regularization
+        x = F.relu(self.bn1(self.fc1(combined_features)))  # [batch_size, 512]
+        x = self.dropout1(x)
+        x = F.relu(self.bn2(self.fc2(x)))  # [batch_size, 128]
+        x = self.dropout2(x)
+        class_output = self.fc3(x)  # [batch_size, num_classes]
+
+        return image_outputs, point_outputs, class_output
 
     def foward_and_metrics(
-        self, images, img_masks, pc_feat, point_clouds, labels, stage
+        self, images, img_masks, pc_feat, point_clouds, labels, pixel_labels, stage
     ):
         """
         Forward operations, computes the masked loss, R² score, and logs the metrics.
@@ -101,48 +138,56 @@ class SuperpixelModel(pl.LightningModule):
         """
         pc_feat = pc_feat.permute(0, 2, 1)
         point_clouds = point_clouds.permute(0, 2, 1)
-        img_logits, pc_logits = self.forward(images, pc_feat, point_clouds)
+        pixel_logits, pc_logits, fuse_logits = self.forward(
+            images, pc_feat, point_clouds
+        )
         pc_preds = F.softmax(pc_logits, dim=1)
-        img_preds = F.softmax(img_logits, dim=1)
-        print(pc_preds.shape)
-        print(img_preds.shape)
+        pixel_preds = F.softmax(pixel_logits, dim=1)
+        fuse_preds = F.softmax(fuse_logits, dim=1)
         # Convert preds and labels to leading class labels by taking argmax
         pred_pc_labels = torch.argmax(pc_preds, dim=1)
-        pred_img_labels = torch.argmax(img_preds, dim=1)
+        pred_lead_pixel_labels = torch.argmax(pixel_preds, dim=1)
         true_labels = torch.argmax(labels, dim=1)
+        true_lead_pixel_labels = torch.argmax(pixel_labels, dim=1)
 
-        valid_img_preds, valid_labels = apply_mask(img_preds, labels, img_masks)
-        print(valid_img_preds.shape)
-        print(valid_labels.shape)
+        valid_pixel_preds, valid_labels = apply_mask(
+            pixel_preds, pixel_labels, img_masks
+        )
+        valid_pixel_labels, valid_true_labels = apply_mask(
+            pred_lead_pixel_labels, true_lead_pixel_labels, img_masks, multi_class=False
+        )
 
         # Compute loss
-        loss_image = self.criterion(valid_img_preds, valid_labels)
+        loss_pixel = self.criterion(valid_pixel_preds, valid_labels)
         loss_point = self.criterion(pc_preds, labels)
-        loss = loss_image + loss_point  # Adjust weights as needed
+        loss_image = self.criterion(fuse_preds, labels)
+        loss = loss_image + loss_point + loss_pixel  # Adjust weights as needed
 
         # Compute RMSE
         rmse = torch.sqrt(loss)
 
         # Compute R² score & f1 score of leading species
         pc_preds = torch.round(pc_preds, decimals=1)
-        img_preds = torch.round(img_preds, decimals=1)
+        fuse_preds = torch.round(fuse_preds, decimals=1)
+        valid_pixel_preds = torch.round(valid_pixel_preds, decimals=1)
         if stage == "train":
             pc_r2 = self.train_r2(pc_preds.view(-1), labels.view(-1))
-            img_r2 = self.train_r2(img_preds.view(-1), labels.view(-1))
+            pixel_r2 = self.train_r2(valid_pixel_preds.view(-1), valid_labels.view(-1))
+            fuse_r2 = self.train_r2(fuse_preds.view(-1), labels.view(-1))
             pc_f1 = self.train_f1(pred_pc_labels, true_labels)
-            img_f1 = self.train_f1(pred_img_labels, true_labels)
+            img_f1 = self.train_f1(valid_pixel_labels, valid_true_labels)
         elif stage == "val":
             pc_r2 = self.val_r2(pc_preds.view(-1), labels.view(-1))
-            img_r2 = self.val_r2(img_preds.view(-1), labels.view(-1))
-
+            pixel_r2 = self.val_r2(valid_pixel_preds.view(-1), valid_labels.view(-1))
+            fuse_r2 = self.val_r2(fuse_preds.view(-1), labels.view(-1))
             pc_f1 = self.val_f1(pred_pc_labels, true_labels)
-            img_f1 = self.val_f1(pred_img_labels, true_labels)
+            img_f1 = self.val_f1(valid_pixel_labels, valid_true_labels)
         else:
             pc_r2 = self.test_r2(pc_preds.view(-1), labels.view(-1))
-            img_r2 = self.test_r2(img_preds.view(-1), labels.view(-1))
-
+            pixel_r2 = self.test_r2(valid_pixel_preds.view(-1), valid_labels.view(-1))
+            fuse_r2 = self.test_r2(fuse_preds.view(-1), labels.view(-1))
             pc_f1 = self.test_f1(pred_pc_labels, true_labels)
-            img_f1 = self.test_f1(pred_img_labels, true_labels)
+            img_f1 = self.test_f1(valid_pixel_labels, valid_true_labels)
 
         # Log and return loss
         # Log the loss and R² score
@@ -173,8 +218,17 @@ class SuperpixelModel(pl.LightningModule):
             on_epoch=(stage != "train"),
         )
         self.log(
+            f"fuse_{stage}_r2",
+            fuse_r2,
+            logger=True,
+            prog_bar=True,
+            sync_dist=sync_state,
+            on_step=True,
+            on_epoch=(stage != "train"),
+        )
+        self.log(
             f"img_{stage}_r2",
-            img_r2,
+            pixel_r2,
             logger=True,
             prog_bar=True,
             sync_dist=sync_state,
@@ -203,45 +257,71 @@ class SuperpixelModel(pl.LightningModule):
         return loss
 
     def training_step(self, batch, batch_idx):
-        images = batch["images"]  # Shape: [batch_size, num_images, C, max_length]
-        image_masks = batch[
-            "image_masks"
-        ]  # Shape: [batch_size, num_images, max_length]
+        images = batch[
+            "images"
+        ]  # Shape: (batch_size, num_seasons, num_channels, 128, 128)
+        point_clouds = batch["point_cloud"]  # Shape: (batch_size, num_points, 3)
+        labels = batch["label"]  # Shape: (batch_size, num_classes)
+        per_pixel_labels = batch[
+            "per_pixel_labels"
+        ]  # Shape: (batch_size, num_classes, 128, 128)
+        image_masks = batch["nodata_mask"]
         pc_feat = batch["pc_feat"]  # Shape: [batch_size, num_points, 3]
-        point_clouds = batch["point_cloud"]  # Shape: [batch_size, num_points, 3]
-        labels = batch["label"]  # Shape: [batch_size, num_classes]
 
         loss = self.foward_and_metrics(
-            images, image_masks, pc_feat, point_clouds, labels, stage="train"
+            images,
+            image_masks,
+            pc_feat,
+            point_clouds,
+            labels,
+            per_pixel_labels,
+            stage="train",
         )
         return loss
 
     def validation_step(self, batch, batch_idx):
-        images = batch["images"]
-        print(images.shape)
-        image_masks = batch[
-            "image_masks"
-        ]  # Shape: [batch_size, num_images, max_length]
-        pc_feat = batch["pc_feat"]
-        point_clouds = batch["point_cloud"]
-        labels = batch["label"]
+        images = batch[
+            "images"
+        ]  # Shape: (batch_size, num_seasons, num_channels, 128, 128)
+        point_clouds = batch["point_cloud"]  # Shape: (batch_size, num_points, 3)
+        labels = batch["label"]  # Shape: (batch_size, num_classes)
+        per_pixel_labels = batch[
+            "per_pixel_labels"
+        ]  # Shape: (batch_size, num_classes, 128, 128)
+        image_masks = batch["nodata_mask"]
+        pc_feat = batch["pc_feat"]  # Shape: [batch_size, num_points, 3]
 
         loss = self.foward_and_metrics(
-            images, image_masks, pc_feat, point_clouds, labels, stage="val"
+            images,
+            image_masks,
+            pc_feat,
+            point_clouds,
+            labels,
+            per_pixel_labels,
+            stage="val",
         )
         return loss
 
     def test_step(self, batch, batch_idx):
-        images = batch["images"]
-        image_masks = batch[
-            "image_masks"
-        ]  # Shape: [batch_size, num_images, max_length]
-        pc_feat = batch["pc_feat"]
-        point_clouds = batch["point_cloud"]
-        labels = batch["label"]
+        images = batch[
+            "images"
+        ]  # Shape: (batch_size, num_seasons, num_channels, 128, 128)
+        point_clouds = batch["point_cloud"]  # Shape: (batch_size, num_points, 3)
+        labels = batch["label"]  # Shape: (batch_size, num_classes)
+        per_pixel_labels = batch[
+            "per_pixel_labels"
+        ]  # Shape: (batch_size, num_classes, 128, 128)
+        image_masks = batch["nodata_mask"]
+        pc_feat = batch["pc_feat"]  # Shape: [batch_size, num_points, 3]
 
         loss = self.foward_and_metrics(
-            images, image_masks, pc_feat, point_clouds, labels, stage="test"
+            images,
+            image_masks,
+            pc_feat,
+            point_clouds,
+            labels,
+            per_pixel_labels,
+            stage="test",
         )
         return loss
 

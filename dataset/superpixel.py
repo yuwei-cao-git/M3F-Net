@@ -1,22 +1,19 @@
 import torch
+import torch.nn.functional as F
 from torch.utils.data import Dataset
 import numpy as np
 import os
 from pytorch_lightning import LightningDataModule
-from torch.utils.data import DataLoader
+from torch.utils.data import Subset, DataLoader
 from os.path import join
 import torchvision.transforms.v2 as transforms
 
 
 class SuperpixelDataset(Dataset):
     def __init__(
-        self, superpixel_data_dir, image_transform=None, point_cloud_transform=None
+        self, superpixel_files, image_transform=None, point_cloud_transform=None
     ):
-        self.superpixel_files = [
-            os.path.join(superpixel_data_dir, f)
-            for f in os.listdir(superpixel_data_dir)
-            if f.endswith(".npz")
-        ]
+        self.superpixel_files = superpixel_files
         self.image_transform = image_transform
         self.point_cloud_transform = point_cloud_transform
 
@@ -25,35 +22,28 @@ class SuperpixelDataset(Dataset):
 
     def __getitem__(self, idx):
         data = np.load(self.superpixel_files[idx], allow_pickle=True)
+        # Load data from the .npz file
         superpixel_images = data[
             "superpixel_images"
-        ]  # List of images from different seasons
-        coords = data["point_cloud"]
+        ]  # Shape: (num_seasons, num_channels, 128, 128)
+        coords = data["point_cloud"]  # Shape: (7168, 3)
+        label = data["label"]  # Shape: (num_classes,)
+        per_pixel_labels = data["per_pixel_labels"]  # Shape: (num_classes, 128, 128)
+        nodata_mask = data["nodata_mask"]  # Shape: (128, 128)
         xyz = coords - np.mean(coords, axis=0)
-        label = data["label"]
+
+        superpixel_images = torch.from_numpy(
+            superpixel_images
+        ).float()  # Shape: (num_seasons, num_channels, 128, 128)
+        per_pixel_labels = torch.from_numpy(
+            per_pixel_labels
+        ).float()  # Shape: (num_classes, 128, 128)
+        nodata_mask = torch.from_numpy(nodata_mask).bool()
 
         # Apply transforms if needed
-        if self.image_transform:
-            if self.aug == "random":
-                self.transform = transforms.RandomApply(
-                    torch.nn.ModuleList(
-                        [
-                            transforms.RandomCrop(size=(128, 128)),
-                            transforms.RandomHorizontalFlip(p=0.5),
-                            transforms.ToDtype(torch.float32, scale=True),
-                            transforms.RandomPerspective(distortion_scale=0.6, p=1.0),
-                            transforms.RandomRotation(degrees=(0, 180)),
-                            transforms.RandomAffine(
-                                degrees=(30, 70),
-                                translate=(0.1, 0.3),
-                                scale=(0.5, 0.75),
-                            ),
-                        ]
-                    ),
-                    p=0.3,
-                )
-            else:
-                self.transform = transforms.Compose(
+        if self.image_transform == "random":
+            self.transform = transforms.RandomApply(
+                torch.nn.ModuleList(
                     [
                         transforms.RandomCrop(size=(128, 128)),
                         transforms.RandomHorizontalFlip(p=0.5),
@@ -61,70 +51,44 @@ class SuperpixelDataset(Dataset):
                         transforms.RandomPerspective(distortion_scale=0.6, p=1.0),
                         transforms.RandomRotation(degrees=(0, 180)),
                         transforms.RandomAffine(
-                            degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75)
+                            degrees=(30, 70),
+                            translate=(0.1, 0.3),
+                            scale=(0.5, 0.75),
                         ),
                     ]
-                )
+                ),
+                p=0.3,
+            )
+        elif self.image_transform == "compose":
+            self.transform = transforms.Compose(
+                [
+                    transforms.RandomCrop(size=(128, 128)),
+                    transforms.RandomHorizontalFlip(p=0.5),
+                    transforms.ToDtype(torch.float32, scale=True),
+                    transforms.RandomPerspective(distortion_scale=0.6, p=1.0),
+                    transforms.RandomRotation(degrees=(0, 180)),
+                    transforms.RandomAffine(
+                        degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75)
+                    ),
+                ]
+            )
+        else:
+            self.transform = None
+        if self.transform:
+            superpixel_images = self.transform(superpixel_images)
 
         # Apply point cloud transforms if any
         if self.point_cloud_transform:
-            coords, xyz, label = self.point_cloud_transform(xyz, coords, label)
-
+            pc_feat, xyz, label = self.point_cloud_transform(xyz, pc_feat, label)
         # After applying transforms
-        pc_feat = torch.from_numpy(coords).float()
-        xyz = torch.from_numpy(xyz).float()
-        label = torch.tensor(label, dtype=torch.float32)
-        # Process and pad images
-        processed_images = []
-        processed_masks = []
-        for img in superpixel_images:
-            img = torch.from_numpy(
-                img
-            ).float()  # Convert image to tensor with shape [num_channels, height, width]
-
-            # Create a nodata mask from the label array where the value indicates no-data (e.g., -1)
-            nodata_mask = torch.from_numpy(
-                label_img == -1
-            ).bool()  # True where there's no data
-
-            # Calculate padding to reach (128, 128)
-            _, original_height, original_width = img.shape
-            pad_height = self.target_size[0] - original_height
-            pad_width = self.target_size[1] - original_width
-
-            # Ensure padding is non-negative
-            if pad_height < 0 or pad_width < 0:
-                raise ValueError(
-                    "Superpixel image is larger than the target size of 128x128."
-                )
-
-            # Pad symmetrically to reach the target size
-            padding = (
-                pad_width // 2,
-                pad_width - pad_width // 2,
-                pad_height // 2,
-                pad_height - pad_height // 2,
-            )
-
-            img_padded = F.pad(img, padding, mode="constant", value=0)  # Pad the image
-            mask_padded = F.pad(
-                nodata_mask, padding, mode="constant", value=True
-            )  # Pad the mask with True for NoData
-
-            processed_images.append(img_padded)
-            processed_masks.append(mask_padded)
-
-        # Stack all seasonal images and masks along a new dimension
-        images_tensor = torch.stack(
-            processed_images, dim=0
-        )  # Shape: [num_seasons, num_channels, 128, 128]
-        masks_tensor = torch.stack(
-            processed_masks, dim=0
-        )  # Shape: [num_seasons, 128, 128]
+        pc_feat = torch.from_numpy(coords).float()  # Shape: (7168, 3)
+        xyz = torch.from_numpy(xyz).float()  # Shape: (7168, 3)
+        label = torch.from_numpy(label).float()  # Shape: (num_classes,)
 
         sample = {
-            "images": images_tensor,  # Padded images of shape [num_seasons, num_channels, 128, 128]
-            "nodata_mask": masks_tensor,  # Padded masks of shape [num_seasons, 128, 128]
+            "images": superpixel_images,  # Padded images of shape [num_seasons, num_channels, 128, 128]
+            "nodata_mask": nodata_mask,  # Padded masks of shape [num_seasons, 128, 128]
+            "per_pixel_labels": per_pixel_labels,  # Tensor: (num_classes, 128, 128)
             "point_cloud": xyz,
             "pc_feat": pc_feat,
             "label": label,
@@ -137,107 +101,94 @@ class SuperpixelDataModule(LightningDataModule):
         super().__init__()
         self.config = config
         self.batch_size = config["batch_size"]
+        self.num_workers = config["num_workers"]
         self.image_transform = config["img_transforms"]
         self.point_cloud_transform = config["pc_transforms"]
 
-        self.processed_dir = config["data_dir"]
-        self.data_dir = {
-            "train": join(self.processed_dir, "train/superpixel"),
-            "val": join(self.processed_dir, "val/superpixel"),
-            "test": join(self.processed_dir, "test/superpixel"),
+        self.data_dirs = {
+            "train": join(config["data_dir"], "train", "superpixel"),
+            "val": join(config["data_dir"], "val", "superpixel"),
+            "test": join(config["data_dir"], "test", "superpixel"),
         }
 
     def setup(self, stage=None):
         # Create datasets for train, validation, and test
-        self.train_dataset = SuperpixelDataset(
-            self.data_dir["train"],
-            image_transform=self.image_transform,
-            point_cloud_transform=self.point_cloud_transform,
-        )
-        self.val_dataset = SuperpixelDataset(
-            self.data_dir["val"], image_transform=None, point_cloud_transform=None
-        )
-        self.test_dataset = SuperpixelDataset(
-            self.data_dir["test"], image_transform=None, point_cloud_transform=None
-        )
+        self.datasets = {}
+        for split in ["train", "val", "test"]:
+            data_dir = self.data_dirs[split]
+            superpixel_files = [
+                os.path.join(data_dir, f)
+                for f in os.listdir(data_dir)
+                if f.endswith(".npz")
+            ]
+            self.datasets[split] = SuperpixelDataset(
+                superpixel_files,
+                image_transform=(self.image_transform if split == "train" else None),
+                point_cloud_transform=(
+                    self.point_cloud_transform if split == "train" else None
+                ),
+            )
+        trainset_idx = list(range(len(self.datasets["train"])))
+        rem = len(trainset_idx) % self.batch_size
+        if rem <= 3:
+            trainset_idx = trainset_idx[: len(trainset_idx) - rem]
+            self.datasets["train"] = Subset(self.datasets["train"], trainset_idx)
 
     def train_dataloader(self):
         return DataLoader(
-            self.train_dataset,
+            self.datasets["train"],
             batch_size=self.batch_size,
             shuffle=True,
-            num_workers=self.config["num_workers"],
-            collate_fn=custom_collate_fn,
+            num_workers=self.num_workers,
+            collate_fn=self.collate_fn,
         )
 
     def val_dataloader(self):
         return DataLoader(
-            self.val_dataset,
-            batch_size=self.config["batch_size"],
+            self.datasets["val"],
+            batch_size=self.batch_size,
             shuffle=False,
-            num_workers=self.config["num_workers"],
-            collate_fn=custom_collate_fn,
+            num_workers=self.num_workers,
+            collate_fn=self.collate_fn,
         )
 
     def test_dataloader(self):
         return DataLoader(
-            self.test_dataset,
-            batch_size=self.config["batch_size"],
+            self.datasets["test"],
+            batch_size=self.batch_size,
             shuffle=False,
-            num_workers=self.config["num_workers"],
-            collate_fn=custom_collate_fn,
+            num_workers=self.num_workers,
+            collate_fn=self.collate_fn,
         )
 
+    def collate_fn(self, batch):
+        # Implement custom collate function if necessary
+        batch = [b for b in batch if b is not None]  # Remove None samples if any
 
-def custom_collate_fn(batch):
-    batch = [b for b in batch if b is not None]  # Remove None samples
+        images = torch.stack(
+            [item["images"] for item in batch]
+        )  # Shape: (batch_size, num_seasons, num_channels, 128, 128)
+        point_clouds = torch.stack(
+            [item["point_cloud"] for item in batch]
+        )  # Shape: (batch_size, num_points, 3)
+        pc_feats = torch.stack(
+            [item["pc_feat"] for item in batch]
+        )  # Shape: (batch_size, num_points, 3)
+        labels = torch.stack(
+            [item["label"] for item in batch]
+        )  # Shape: (batch_size, num_classes)
+        per_pixel_labels = torch.stack(
+            [item["per_pixel_labels"] for item in batch]
+        )  # Shape: (batch_size, num_classes, 128, 128)
+        nodata_masks = torch.stack(
+            [item["nodata_mask"] for item in batch]
+        )  # Shape: (batch_size, 128, 128)
 
-    # Extract data from batch
-    images_list = [item["images"] for item in batch]  # List of lists of images
-    point_clouds = [item["point_cloud"] for item in batch]
-    pc_feats = [item["pc_feat"] for item in batch]
-    labels = [item["label"] for item in batch]
-
-    # Handle images
-    images_batch = []
-    masks_batch = []
-    max_length = max(
-        img.shape[-1] for images in images_list for img in images
-    )  # Assuming shape [C, N]
-
-    padded_images_batch = []
-    for images in images_list:
-        padded_images = []
-        masks = []
-        for img in images:
-            length = img.shape[-1]
-            pad_size = max_length - length
-            if pad_size > 0:
-                padding = torch.zeros((img.shape[0], pad_size), dtype=img.dtype)
-                img_padded = torch.cat([img, padding], dim=-1)
-            else:
-                img_padded = img
-            padded_images.append(img_padded)
-            mask = torch.cat([torch.ones(length), torch.zeros(pad_size)])
-            masks.append(mask)
-        images_tensor = torch.stack(padded_images)  # Shape: [num_images, C, max_length]
-        masks_tensor = torch.stack(masks)  # Shape: [num_images, max_length]
-        images_batch.append(images_tensor)
-        masks_batch.append(masks_tensor)
-    images_batch = torch.stack(
-        images_batch
-    )  # Shape: [batch_size, num_images, C, max_length]
-    masks_batch = torch.stack(masks_batch)
-
-    # Handle point clouds (assuming fixed size)
-    point_clouds = torch.stack(point_clouds)
-    pc_feats = torch.stack(pc_feats)
-    labels = torch.stack(labels)
-
-    return {
-        "images": images_batch,
-        "image_masks": masks_batch,
-        "point_cloud": point_clouds,
-        "pc_feat": pc_feats,
-        "label": labels,
-    }
+        return {
+            "images": images,
+            "point_cloud": point_clouds,
+            "pc_feat": pc_feats,
+            "label": labels,
+            "per_pixel_labels": per_pixel_labels,
+            "nodata_mask": nodata_masks,
+        }

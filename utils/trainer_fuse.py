@@ -4,6 +4,7 @@ from lightning.pytorch.loggers import WandbLogger
 from pytorch_lightning.utilities.model_summary import ModelSummary
 from models.fuse_model import SuperpixelModel
 from dataset.superpixel import SuperpixelDataModule
+from pytorch_lightning.callbacks import EarlyStopping
 import os
 
 
@@ -27,6 +28,12 @@ def train(config):
         save_top_k=1,  # Only save the best model
         mode="min",  # We want to minimize the validation loss
     )
+    early_stopping = EarlyStopping(
+        monitor="val_loss",  # Metric to monitor
+        patience=10,  # Number of epochs with no improvement after which training will be stopped
+        mode="min",  # Set "min" for validation loss
+        verbose=True,
+    )
     if config["use_residual"]:
         log_name = "Fuse_pointnext_ResUnet_"
     else:
@@ -43,7 +50,7 @@ def train(config):
     trainer = Trainer(
         max_epochs=config["epochs"],
         logger=[wandb_logger],
-        callbacks=[checkpoint_callback],
+        callbacks=[early_stopping, checkpoint_callback],
         devices=config["gpus"],
         num_nodes=1,
         strategy="ddp",

@@ -119,8 +119,8 @@ class Model(pl.LightningModule):
         else:
             # Concatenate all seasons directly if no MF module
             fused_features = torch.cat(inputs, dim=1)
-
-        return self.model(fused_features)
+        logits, _ = self.model(fused_features)
+        return logits
 
     def apply_mask(self, outputs, targets, mask, multi_class=True):
         """

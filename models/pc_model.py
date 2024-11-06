@@ -39,7 +39,7 @@ class PointNeXtLightning(pl.LightningModule):
         Returns:
             logits: Class logits for each point (B, N, num_classes)
         """
-        logits = self.model(point_cloud, xyz)
+        logits, _ = self.model(point_cloud, xyz)
         return logits
 
     def foward_compute_loss_and_metrics(self, point_cloud, xyz, targets, stage="val"):
