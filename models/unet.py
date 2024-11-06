@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .blocks import DoubleConv, Down, Up, OutConv
 
+
 class UNet(nn.Module):
     def __init__(self, n_channels=52, n_classes=9, bilinear=True):
         super(UNet, self).__init__()
@@ -22,14 +23,14 @@ class UNet(nn.Module):
         self.outc = OutConv(64, n_classes)
 
     def forward(self, x):
-        x1 = self.inc(x)      # Initial convolution
-        x2 = self.down1(x1)   # Down 1
-        x3 = self.down2(x2)   # Down 2
-        x4 = self.down3(x3)   # Down 3
-        x5 = self.down4(x4)   # Down 4
+        x1 = self.inc(x)  # Initial convolution
+        x2 = self.down1(x1)  # Down 1
+        x3 = self.down2(x2)  # Down 2
+        x4 = self.down3(x3)  # Down 3
+        x5 = self.down4(x4)  # Down 4
         x = self.up1(x5, x4)  # Up 1
-        x = self.up2(x, x3)   # Up 2
-        x = self.up3(x, x2)   # Up 3
-        x = self.up4(x, x1)   # Up 4
-        logits = self.outc(x) # Output layer
+        x = self.up2(x, x3)  # Up 2
+        x = self.up3(x, x2)  # Up 3
+        x = self.up4(x, x1)  # Up 4
+        logits = self.outc(x)  # Output layer
         return logits

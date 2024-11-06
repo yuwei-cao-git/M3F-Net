@@ -65,18 +65,66 @@ class SuperpixelDataset(Dataset):
                         ),
                     ]
                 )
-            superpixel_images = [self.transform(img) for img in superpixel_images]
+
         # Apply point cloud transforms if any
         if self.point_cloud_transform:
             coords, xyz, label = self.point_cloud_transform(xyz, coords, label)
+
         # After applying transforms
-        superpixel_images = [torch.from_numpy(img) for img in superpixel_images]
         pc_feat = torch.from_numpy(coords).float()
         xyz = torch.from_numpy(xyz).float()
         label = torch.tensor(label, dtype=torch.float32)
+        # Process and pad images
+        processed_images = []
+        processed_masks = []
+        for img in superpixel_images:
+            img = torch.from_numpy(
+                img
+            ).float()  # Convert image to tensor with shape [num_channels, height, width]
+
+            # Create a nodata mask from the label array where the value indicates no-data (e.g., -1)
+            nodata_mask = torch.from_numpy(
+                label_img == -1
+            ).bool()  # True where there's no data
+
+            # Calculate padding to reach (128, 128)
+            _, original_height, original_width = img.shape
+            pad_height = self.target_size[0] - original_height
+            pad_width = self.target_size[1] - original_width
+
+            # Ensure padding is non-negative
+            if pad_height < 0 or pad_width < 0:
+                raise ValueError(
+                    "Superpixel image is larger than the target size of 128x128."
+                )
+
+            # Pad symmetrically to reach the target size
+            padding = (
+                pad_width // 2,
+                pad_width - pad_width // 2,
+                pad_height // 2,
+                pad_height - pad_height // 2,
+            )
+
+            img_padded = F.pad(img, padding, mode="constant", value=0)  # Pad the image
+            mask_padded = F.pad(
+                nodata_mask, padding, mode="constant", value=True
+            )  # Pad the mask with True for NoData
+
+            processed_images.append(img_padded)
+            processed_masks.append(mask_padded)
+
+        # Stack all seasonal images and masks along a new dimension
+        images_tensor = torch.stack(
+            processed_images, dim=0
+        )  # Shape: [num_seasons, num_channels, 128, 128]
+        masks_tensor = torch.stack(
+            processed_masks, dim=0
+        )  # Shape: [num_seasons, 128, 128]
 
         sample = {
-            "images": superpixel_images,
+            "images": images_tensor,  # Padded images of shape [num_seasons, num_channels, 128, 128]
+            "nodata_mask": masks_tensor,  # Padded masks of shape [num_seasons, 128, 128]
             "point_cloud": xyz,
             "pc_feat": pc_feat,
             "label": label,
@@ -89,10 +137,10 @@ class SuperpixelDataModule(LightningDataModule):
         super().__init__()
         self.config = config
         self.batch_size = config["batch_size"]
-        self.image_transform = config["imag_transforms"]
+        self.image_transform = config["img_transforms"]
         self.point_cloud_transform = config["pc_transforms"]
 
-        self.processed_dir = join(config["data_dir"], f'{self.config["resolution"]}m')
+        self.processed_dir = config["data_dir"]
         self.data_dir = {
             "train": join(self.processed_dir, "train/superpixel"),
             "val": join(self.processed_dir, "val/superpixel"),
@@ -103,7 +151,7 @@ class SuperpixelDataModule(LightningDataModule):
         # Create datasets for train, validation, and test
         self.train_dataset = SuperpixelDataset(
             self.data_dir["train"],
-            transform=self.image_transform,
+            image_transform=self.image_transform,
             point_cloud_transform=self.point_cloud_transform,
         )
         self.val_dataset = SuperpixelDataset(
@@ -119,6 +167,7 @@ class SuperpixelDataModule(LightningDataModule):
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.config["num_workers"],
+            collate_fn=custom_collate_fn,
         )
 
     def val_dataloader(self):
@@ -127,6 +176,7 @@ class SuperpixelDataModule(LightningDataModule):
             batch_size=self.config["batch_size"],
             shuffle=False,
             num_workers=self.config["num_workers"],
+            collate_fn=custom_collate_fn,
         )
 
     def test_dataloader(self):
@@ -135,4 +185,59 @@ class SuperpixelDataModule(LightningDataModule):
             batch_size=self.config["batch_size"],
             shuffle=False,
             num_workers=self.config["num_workers"],
+            collate_fn=custom_collate_fn,
         )
+
+
+def custom_collate_fn(batch):
+    batch = [b for b in batch if b is not None]  # Remove None samples
+
+    # Extract data from batch
+    images_list = [item["images"] for item in batch]  # List of lists of images
+    point_clouds = [item["point_cloud"] for item in batch]
+    pc_feats = [item["pc_feat"] for item in batch]
+    labels = [item["label"] for item in batch]
+
+    # Handle images
+    images_batch = []
+    masks_batch = []
+    max_length = max(
+        img.shape[-1] for images in images_list for img in images
+    )  # Assuming shape [C, N]
+
+    padded_images_batch = []
+    for images in images_list:
+        padded_images = []
+        masks = []
+        for img in images:
+            length = img.shape[-1]
+            pad_size = max_length - length
+            if pad_size > 0:
+                padding = torch.zeros((img.shape[0], pad_size), dtype=img.dtype)
+                img_padded = torch.cat([img, padding], dim=-1)
+            else:
+                img_padded = img
+            padded_images.append(img_padded)
+            mask = torch.cat([torch.ones(length), torch.zeros(pad_size)])
+            masks.append(mask)
+        images_tensor = torch.stack(padded_images)  # Shape: [num_images, C, max_length]
+        masks_tensor = torch.stack(masks)  # Shape: [num_images, max_length]
+        images_batch.append(images_tensor)
+        masks_batch.append(masks_tensor)
+    images_batch = torch.stack(
+        images_batch
+    )  # Shape: [batch_size, num_images, C, max_length]
+    masks_batch = torch.stack(masks_batch)
+
+    # Handle point clouds (assuming fixed size)
+    point_clouds = torch.stack(point_clouds)
+    pc_feats = torch.stack(pc_feats)
+    labels = torch.stack(labels)
+
+    return {
+        "images": images_batch,
+        "image_masks": masks_batch,
+        "point_cloud": point_clouds,
+        "pc_feat": pc_feats,
+        "label": labels,
+    }

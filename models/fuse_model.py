@@ -6,10 +6,11 @@ import pytorch_lightning as pl
 from .blocks import MF
 from .unet import UNet
 from .ResUnet import ResUnet
-from .pointNext import PointNext
+from .pointNext import PointNextModel
 
 from torchmetrics.regression import R2Score
 from torchmetrics.classification import MulticlassF1Score
+from .loss import MaskedMSELoss, apply_mask
 
 
 class SuperpixelModel(pl.LightningModule):
@@ -49,10 +50,11 @@ class SuperpixelModel(pl.LightningModule):
             )
 
         # Initialize point cloud stream model
-        self.pointnext = PointNext(self.config, in_dim=3)
+        self.pointnext = PointNextModel(self.config, in_dim=3)
 
         # Define loss functions
         self.criterion = nn.MSELoss()
+        self.img_criterion = MaskedMSELoss()
 
         # Metrics
         self.train_r2 = R2Score()
@@ -70,12 +72,24 @@ class SuperpixelModel(pl.LightningModule):
 
     def forward(self, images, pc_feat, xyz):
         # Forward pass through UNet
-        image_outputs = self.s2_model(images)
+        if self.use_mf:
+            # Apply the MF module first to extract features from input
+            fused_features = self.mf_module(images)
+        else:
+            # Concatenate all seasons directly if no MF module
+            batch_size, num_seasons, num_channels, pixels = images.shape
+
+            # Reshape images to merge `num_seasons` and `num_channels` by concatenating along channels
+            fused_features = images.view(batch_size, num_seasons * num_channels, pixels)
+            print(fused_features.shape)  # Expected shape: [4, 36, 462]
+        image_outputs = self.s2_model(fused_features)
         # Forward pass through PointNet
         point_outputs = self.pointnext(pc_feat, xyz)
         return image_outputs, point_outputs
 
-    def foward_and_metrics(self, images, pc_feat, point_clouds, labels, stage):
+    def foward_and_metrics(
+        self, images, img_masks, pc_feat, point_clouds, labels, stage
+    ):
         """
         Forward operations, computes the masked loss, R² score, and logs the metrics.
 
@@ -85,18 +99,24 @@ class SuperpixelModel(pl.LightningModule):
         Returns:
         - loss: The computed loss.
         """
-        point_cloud = point_cloud.permute(0, 2, 1)
-        xyz = xyz.permute(0, 2, 1).float()
+        pc_feat = pc_feat.permute(0, 2, 1)
+        point_clouds = point_clouds.permute(0, 2, 1)
         img_logits, pc_logits = self.forward(images, pc_feat, point_clouds)
         pc_preds = F.softmax(pc_logits, dim=1)
         img_preds = F.softmax(img_logits, dim=1)
+        print(pc_preds.shape)
+        print(img_preds.shape)
         # Convert preds and labels to leading class labels by taking argmax
         pred_pc_labels = torch.argmax(pc_preds, dim=1)
         pred_img_labels = torch.argmax(img_preds, dim=1)
         true_labels = torch.argmax(labels, dim=1)
 
+        valid_img_preds, valid_labels = apply_mask(img_preds, labels, img_masks)
+        print(valid_img_preds.shape)
+        print(valid_labels.shape)
+
         # Compute loss
-        loss_image = self.criterion(img_preds, labels)
+        loss_image = self.criterion(valid_img_preds, valid_labels)
         loss_point = self.criterion(pc_preds, labels)
         loss = loss_image + loss_point  # Adjust weights as needed
 
@@ -183,35 +203,45 @@ class SuperpixelModel(pl.LightningModule):
         return loss
 
     def training_step(self, batch, batch_idx):
-        images = batch["images"]
-        pc_feat = batch["pc_feat"]
-        point_clouds = batch["point_cloud"]
-        labels = batch["label"]
+        images = batch["images"]  # Shape: [batch_size, num_images, C, max_length]
+        image_masks = batch[
+            "image_masks"
+        ]  # Shape: [batch_size, num_images, max_length]
+        pc_feat = batch["pc_feat"]  # Shape: [batch_size, num_points, 3]
+        point_clouds = batch["point_cloud"]  # Shape: [batch_size, num_points, 3]
+        labels = batch["label"]  # Shape: [batch_size, num_classes]
 
         loss = self.foward_and_metrics(
-            images, pc_feat, point_clouds, labels, stage="train"
+            images, image_masks, pc_feat, point_clouds, labels, stage="train"
         )
         return loss
 
     def validation_step(self, batch, batch_idx):
         images = batch["images"]
+        print(images.shape)
+        image_masks = batch[
+            "image_masks"
+        ]  # Shape: [batch_size, num_images, max_length]
         pc_feat = batch["pc_feat"]
         point_clouds = batch["point_cloud"]
         labels = batch["label"]
 
         loss = self.foward_and_metrics(
-            images, pc_feat, point_clouds, labels, stage="val"
+            images, image_masks, pc_feat, point_clouds, labels, stage="val"
         )
         return loss
 
     def test_step(self, batch, batch_idx):
         images = batch["images"]
+        image_masks = batch[
+            "image_masks"
+        ]  # Shape: [batch_size, num_images, max_length]
         pc_feat = batch["pc_feat"]
         point_clouds = batch["point_cloud"]
         labels = batch["label"]
 
         loss = self.foward_and_metrics(
-            images, pc_feat, point_clouds, labels, stage="test"
+            images, image_masks, pc_feat, point_clouds, labels, stage="test"
         )
         return loss
 

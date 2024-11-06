@@ -35,11 +35,9 @@ def train(config):
         log_name += "MF_"
     log_name += str(config["resolution"])
 
-    config["save_dir"] = os.path.join(os.getcwd(), "logs", config["log_name"])
-    if not os.path.exists(config["save_dir"]):
-        os.makedirs(config["save_dir"])
-
-    wandb_logger = WandbLogger(project="M3F-Net-fusion", name=log_name)
+    wandb_logger = WandbLogger(
+        project="M3F-Net-fusion", name=log_name, save_dir=config["save_dir"]
+    )
 
     # Create a PyTorch Lightning Trainer
     trainer = Trainer(

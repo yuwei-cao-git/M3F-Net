@@ -3,11 +3,11 @@ import torch.nn.functional as F
 from pointnext import pointnext_s, PointNext, pointnext_b, pointnext_l, pointnext_xl
 
 
-class PointNext(nn.Module):
+class PointNextModel(nn.Module):
     def __init__(self, config, in_dim):
-        super(PointNext, self).__init__()
+        super(PointNextModel, self).__init__()
         self.config = config
-        self.n_classes = len(config["n_classes"])
+        self.n_classes = config["n_classes"]
 
         # Initialize the PointNext encoder and decoder
         if config["encoder"] == "s":

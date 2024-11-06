@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 from torch.optim import Adam, SGD, AdamW
 from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau, CosineAnnealingLR
-from .pointNext import PointNext
+from .pointNext import PointNextModel
 from .loss import calc_loss
 
 # from sklearn.metrics import r2_score
@@ -16,7 +16,7 @@ class PointNeXtLightning(pl.LightningModule):
     def __init__(self, params, in_dim):
         super(PointNeXtLightning, self).__init__()
         self.params = params
-        self.model = PointNext(self.params, in_dim)
+        self.model = PointNextModel(self.params, in_dim)
 
         # Loss function and other parameters
         self.weights = self.params["train_weights"]  # Initialize on CPU
