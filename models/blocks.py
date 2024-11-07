@@ -4,7 +4,9 @@ import torch.nn.functional as F
 from mamba_ssm import Mamba
 from einops import rearrange, repeat
 
-""" Parts of the U-Net model """
+# -----------------------------------------------------------------------------------
+# Parts of the season fusion module
+# -----------------------------------------------------------------------------------
 
 
 # fusion s2 data
@@ -82,7 +84,9 @@ class MF(nn.Module):  # Multi-Feature (MF) module for seasonal attention-based f
         return out
 
 
-""" Parts of the U-Net model """
+# -----------------------------------------------------------------------------------
+# Parts of the U-Net model
+# -----------------------------------------------------------------------------------
 
 
 class DoubleConv(nn.Module):
@@ -157,7 +161,9 @@ class OutConv(nn.Module):
         return self.conv(x)
 
 
-""" Parts of the ResU-Net model """
+# -----------------------------------------------------------------------------------
+# Parts of the ResU-Net model
+# -----------------------------------------------------------------------------------
 
 
 class BNAct(nn.Module):
@@ -253,68 +259,145 @@ class UpSampleConcat(nn.Module):
         return x
 
 
-class ConvFFN(nn.Module):
-    def __init__(self, in_ch=128, hidden_ch=512, out_ch=128, drop=0.0):
-        super(ConvFFN, self).__init__()
-        self.conv = ConvBlock(in_ch, in_ch, kernel_size=3)
-        self.fc1 = OutConv(in_ch, hidden_ch, kernel_size=1)
-        self.act = nn.GELU()
-        self.fc2 = OutConv(hidden_ch, out_ch, kernel_size=1)
-        self.drop = nn.Dropout(drop)
+# -----------------------------------------------------------------------------------
+# Fusion blocks
+# -----------------------------------------------------------------------------------
 
-    def forward(self, x):
-        x = self.conv(x)
-        x = self.fc1(x)
-        x = self.act(x)
-        x = self.drop(x)
-        x = self.fc2(x)
-        x = self.drop(x)
 
-        return x
+class MLPBlock(nn.Module):
+    def __init__(self, config, in_ch, hidden_ch):
+        super(MLPBlock, self).__init__()
+        self.fc1 = nn.Linear(in_ch, hidden_ch[0])
+        self.bn1 = nn.BatchNorm1d(hidden_ch[0])
+        self.dropout1 = nn.Dropout(p=config["dropout"])
+
+        self.fc2 = nn.Linear(hidden_ch[0], hidden_ch[1])
+        self.bn2 = nn.BatchNorm1d(f[1])
+        self.dropout2 = nn.Dropout(p=0.5)
+
+        self.fc3 = nn.Linear(hidden_ch[1], self.config["n_classes"])
+
+    def forward(self, img_emb, pc_emb):
+        image_features_pooled = F.adaptive_avg_pool2d(img_emb, (1, 1)).view(
+            img_emb.shape[0], -1
+        )  # Shape: (batch_size, feature_dim)
+
+        # Pool over points
+        point_cloud_features = torch.max(pc_emb, dim=2)[
+            0
+        ]  # Shape: (batch_size, feature_dim)
+        # Concatenate features
+        combined_features = torch.cat(
+            (image_features_pooled, point_cloud_features), dim=1
+        )
+
+        # Fusion and classification with additional layers and regularization
+        x = F.relu(self.bn1(self.fc1(combined_features)))  # [batch_size, 512]
+        x = self.dropout1(x)
+        x = F.relu(self.bn2(self.fc2(x)))  # [batch_size, 128]
+        x = self.dropout2(x)
+        class_output = self.fc3(x)  # [batch_size, num_classes]
+
+        return class_output
+
+
+class ConvBNReLU(nn.Sequential):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size=3,
+        dilation=1,
+        stride=1,
+        norm_layer=nn.BatchNorm2d,
+        bias=False,
+    ):
+        super(ConvBNReLU, self).__init__(
+            nn.Conv2d(
+                in_channels,
+                out_channels,
+                kernel_size=kernel_size,
+                bias=bias,
+                dilation=dilation,
+                stride=stride,
+                padding=((stride - 1) + dilation * (kernel_size - 1)) // 2,
+            ),
+            norm_layer(out_channels),
+            nn.ReLU6(),
+        )
 
 
 class MambaLayer(nn.Module):
     def __init__(
-        self, in_chs=512, dim=128, d_state=16, d_conv=4, expand=2, last_feat_size=16
+        self,
+        in_img_chs,  # Input channels for image
+        in_pc_chs,  # Input channels for point cloud
+        dim=128,
+        d_state=16,
+        d_conv=4,
+        expand=2,
+        last_feat_size=16,
     ):
         super().__init__()
+
+        # Pooling scales for the pooling layers
         pool_scales = self.generate_arithmetic_sequence(
             1, last_feat_size, last_feat_size // 4
         )
         self.pool_len = len(pool_scales)
+
+        # Calculate the combined input channels
+        combined_in_chs = in_img_chs + in_pc_chs
+
+        # Initialize pooling layers
         self.pool_layers = nn.ModuleList()
+
+        # First pooling layer with 1x1 convolution and adaptive average pool
         self.pool_layers.append(
             nn.Sequential(
-                ConvBlock(in_chs, dim, kernel_size=1), nn.AdaptiveAvgPool2d(1)
+                ConvBlock(combined_in_chs, dim, kernel_size=1), nn.AdaptiveAvgPool2d(1)
             )
         )
+
+        # Add the rest of the pooling layers based on the pooling scales
         for pool_scale in pool_scales[1:]:
             self.pool_layers.append(
                 nn.Sequential(
                     nn.AdaptiveAvgPool2d(pool_scale),
-                    ConvBlock(in_chs, dim, kernel_size=1),
+                    ConvBlock(combined_in_chs, dim, kernel_size=1),
                 )
             )
+
+        # Mamba module
         self.mamba = Mamba(
-            d_model=dim * self.pool_len + in_chs,  # Model dimension d_model
-            d_state=d_state,  # SSM state expansion factor
-            d_conv=d_conv,  # Local convolution width
-            expand=expand,  # Block expansion factor
+            d_model=dim*self.pool_len+combined_in_chs,  # Model dimension, to be set dynamically in forward
+            d_state=d_state,
+            d_conv=d_conv,
+            expand=expand,
         )
 
-    def forward(self, x):  # B, C, H, W
-        res = x
-        B, C, H, W = res.shape
+    def forward(self, x, point_cloud):
+        # Pool over points (max pooling over point cloud features)
+        B, C, H, W = x.shape
+        pc_emb = torch.max(point_cloud, dim=2)[0]  # Shape: (batch_size, feature_dim)
+        # Expand point cloud features to (B, C_point, H, W)
+        point_cloud_expanded = pc_emb.unsqueeze(-1).unsqueeze(-1)
+        point_cloud_expanded = point_cloud_expanded.expand(-1, -1, H, W)
+
+        # Concatenate image and point cloud features
+        combined_features = torch.cat([x, point_cloud_expanded], dim=1)
+
+        # Pooling and Mamba layers
+        res = combined_features
+
         ppm_out = [res]
         for p in self.pool_layers:
-            pool_out = p(x)
-            pool_out = F.interpolate(
-                pool_out, (H, W), mode="bilinear", align_corners=False
-            )
+            pool_out = p(combined_features)
+            pool_out = F.interpolate(pool_out, (H, W), mode='bilinear', align_corners=False)
             ppm_out.append(pool_out)
         x = torch.cat(ppm_out, dim=1)
         _, chs, _, _ = x.shape
-        x = rearrange(x, "b c h w -> b (h w) c", b=B, c=chs, h=H, w=W)
+        x = rearrange(x, 'b c h w -> b (h w) c', b=B, c=chs, h=H, w=W)
         x = self.mamba(x)
         x = x.transpose(2, 1).view(B, chs, H, W)
         return x
@@ -326,37 +409,66 @@ class MambaLayer(nn.Module):
         return sequence
 
 
+class MLP(nn.Module):
+    def __init__(
+        self, in_ch=1024, hidden_ch=[128, 128], num_classes=9, dropout_prob=0.1
+    ):
+        super(MLP, self).__init__()
+        self.conv = ConvBNReLU(in_ch, in_ch, kernel_size=3)
+        self.pooling = nn.AdaptiveAvgPool2d(1)
+        self.fc1 = nn.Linear(in_ch, hidden_ch[0])
+        self.bn1 = nn.BatchNorm1d(hidden_ch[0])
+        self.dropout1 = nn.Dropout(dropout_prob)
+        self.fc2 = nn.Linear(hidden_ch[0], hidden_ch[1])
+        self.bn2 = nn.BatchNorm1d(hidden_ch[1])
+        self.dropout2 = nn.Dropout(dropout_prob)
+        self.fc3 = nn.Linear(hidden_ch[1], num_classes)  # Output layer
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.pooling(x).squeeze()  # Global pooling to (B, in_ch)
+        x = F.relu(self.bn1(self.fc1(x)))
+        x = self.dropout1(x)
+        x = F.relu(self.bn2(self.fc2(x)))
+        x = self.dropout2(x)
+        x = self.fc3(x)  # Shape: (B, num_classes)
+        return x
+
+
 class MambaFusionBlock(nn.Module):
     def __init__(
         self,
-        in_chs=512,
+        in_img_chs,  # Input channels for image
+        in_pc_chs,  # Input channels for point cloud
         dim=128,
-        hidden_ch=512,
-        out_ch=128,
+        hidden_ch=[128, 128],
+        num_classes=9,
         drop=0.1,
-        d_state=16,
+        d_state=8,
         d_conv=4,
         expand=2,
-        last_feat_size=16,
+        last_feat_size=8,
     ):
         super(MambaFusionBlock, self).__init__()
         self.mamba = MambaLayer(
-            in_chs=in_chs,
+            in_img_chs,  # Input channels for image
+            in_pc_chs,
             dim=dim,
             d_state=d_state,
             d_conv=d_conv,
             expand=expand,
             last_feat_size=last_feat_size,
         )
-        self.conv_ffn = ConvFFN(
-            in_ch=dim * self.mamba.pool_len + in_chs,
+        # Initialize MLPBlock (now it takes output channels as num_classes)
+        self.mlp_block = MLP(
+            in_ch=dim * self.mamba.pool_len
+            + in_img_chs + in_pc_chs,  # Adjusted input channels after fusion
             hidden_ch=hidden_ch,
-            out_ch=out_ch,
-            drop=drop,
+            num_classes=num_classes,
+            dropout_prob=drop,
         )
 
-    def forward(self, x):
-        x = self.mamba(x)
-        x = self.conv_ffn(x)
-
-        return x
+    def forward(self, img_emb, pc_emb):
+        x = self.mamba(img_emb, pc_emb)
+        class_output = self.mlp_block(x)  # Class output of shape (B, num_classes)
+        return class_output

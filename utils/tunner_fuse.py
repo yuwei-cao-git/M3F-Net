@@ -45,7 +45,7 @@ def train_func(config):
     data_module = SuperpixelDataModule(config)
 
     model = SuperpixelModel(config)
-    print(ModelSummary(model, max_depth=-1))  # Prints the full model summary
+    # 1print(ModelSummary(model, max_depth=-1))  # Prints the full model summary
 
     # Create a PyTorch Lightning Trainer
     trainer = Trainer(

@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 
-from .blocks import MF
+from .blocks import MF, MLPBlock, MambaFusionBlock
 from .unet import UNet
 from .ResUnet import ResUnet
 from .pointNext import PointNextModel
@@ -20,6 +20,7 @@ class SuperpixelModel(pl.LightningModule):
         self.config = config
         self.use_mf = self.config["use_mf"]
         self.use_residual = self.config["use_residual"]
+        self.use_mamba_fuse = self.config["mamba_fuse"]
         f = self.config["linear_layers_dims"]  # f = [512, 128]
         # Initialize s2 model
         if self.config["resolution"] == 10:
@@ -44,31 +45,33 @@ class SuperpixelModel(pl.LightningModule):
             self.s2_model = ResUnet(
                 n_channels=total_input_channels, n_classes=self.config["n_classes"]
             )
-            out_channels = 1024
         else:
             # Using standard UNet
             self.s2_model = UNet(
                 n_channels=total_input_channels, n_classes=self.config["n_classes"]
             )
-            out_channels = 512
+
+        # Fusion and classification layers with additional linear layer
+        if self.config["fuse_feature"]:
+            if self.use_mamba_fuse:
+                self.MLP = MambaFusionBlock(
+                    in_img_chs=512,
+                    in_pc_chs=self.config["emb_dims"],
+                    dim=self.config["fusion_dim"],
+                    hidden_ch=self.config["linear_layers_dims"],
+                    num_classes=self.config["n_classes"],
+                    drop=self.config["dropout"],
+                )
+            else:
+                in_ch = 512 + self.config["emb_dims"]
+                hidden_ch = self.config["linear_layers_dims"]
+                self.MLP = MLPBlock(in_ch, hidden_ch)
 
         # Initialize point cloud stream model
         self.pointnext = PointNextModel(self.config, in_dim=3)
 
-        # Fusion and classification layers with additional linear layer
-        self.fc1 = nn.Linear(out_channels + self.config["emb_dims"], f[0])
-        self.bn1 = nn.BatchNorm1d(f[0])
-        self.dropout1 = nn.Dropout(p=0.5)
-
-        self.fc2 = nn.Linear(f[0], f[1])
-        self.bn2 = nn.BatchNorm1d(f[1])
-        self.dropout2 = nn.Dropout(p=0.5)
-
-        self.fc3 = nn.Linear(f[1], self.config["n_classes"])
-
         # Define loss functions
         self.criterion = nn.MSELoss()
-        self.img_criterion = MaskedMSELoss()
 
         # Metrics
         self.train_r2 = R2Score()
@@ -102,28 +105,12 @@ class SuperpixelModel(pl.LightningModule):
         )  # torch.Size([4, 9, 128, 128])
         # Forward pass through PointNet
         point_outputs, pc_emb = self.pointnext(pc_feat, xyz)  # torch.Size([4, 9])
-        # Flatten image features for fusion
-        image_features_pooled = F.adaptive_avg_pool2d(img_emb, (1, 1)).view(
-            images.shape[0], -1
-        )  # Shape: (batch_size, feature_dim)
 
-        # Pool over points
-        point_cloud_features = torch.max(pc_emb, dim=2)[
-            0
-        ]  # Shape: (batch_size, feature_dim)
-        # Concatenate features
-        combined_features = torch.cat(
-            (image_features_pooled, point_cloud_features), dim=1
-        )
-
-        # Fusion and classification with additional layers and regularization
-        x = F.relu(self.bn1(self.fc1(combined_features)))  # [batch_size, 512]
-        x = self.dropout1(x)
-        x = F.relu(self.bn2(self.fc2(x)))  # [batch_size, 128]
-        x = self.dropout2(x)
-        class_output = self.fc3(x)  # [batch_size, num_classes]
-
-        return image_outputs, point_outputs, class_output
+        if self.config["fuse_feature"]:
+            class_output = self.MLP(img_emb, pc_emb)
+            return image_outputs, point_outputs, class_output
+        else:
+            return image_outputs, point_outputs
 
     def foward_and_metrics(
         self, images, img_masks, pc_feat, point_clouds, labels, pixel_labels, stage
@@ -145,7 +132,8 @@ class SuperpixelModel(pl.LightningModule):
 
         pc_preds = F.softmax(pc_logits, dim=1)
         pixel_preds = F.softmax(pixel_logits, dim=1)
-        fuse_preds = F.softmax(fuse_logits, dim=1)
+        if self.config["fuse_feature"]:
+            fuse_preds = F.softmax(fuse_logits, dim=1)
 
         # Convert preds and labels to leading class labels by taking argmax
         pred_pc_labels = torch.argmax(pc_preds, dim=1)
@@ -166,10 +154,10 @@ class SuperpixelModel(pl.LightningModule):
         )  # pixel-level loss
         loss_point = self.criterion(pc_preds, labels)  # point cloud class-level loss
         if self.config["fuse_feature"]:
-            loss_image = self.criterion(
+            loss_fuse = self.criterion(
                 fuse_preds, labels
             )  # superpixel class-level loss
-            loss = loss_image + loss_point + loss_pixel  # Adjust weights as needed
+            loss = loss_fuse + loss_point + loss_pixel  # Adjust weights as needed
         else:
             loss = loss_pixel + loss_point
 
