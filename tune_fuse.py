@@ -97,7 +97,7 @@ def main(args):
                 callbacks=[
                     WandbLoggerCallback(
                         project="M3F-Net-fuse",
-                        group="tune",
+                        group="tune_v2",
                         api_key=os.environ["WANDB_API_KEY"],
                         log_config=True,
                         save_checkpoints=True,
