@@ -147,11 +147,11 @@ class SuperpixelDataModule(LightningDataModule):
                     self.point_cloud_transform if split == "train" else None
                 ),
             )
-        trainset_idx = list(range(len(self.datasets["train"])))
-        rem = len(trainset_idx) % self.batch_size
-        if rem <= 3:
-            trainset_idx = trainset_idx[: len(trainset_idx) - rem]
-            self.datasets["train"] = Subset(self.datasets["train"], trainset_idx)
+            trainset_idx = list(range(len(self.datasets[split])))
+            rem = len(trainset_idx) % self.batch_size
+            if rem <= 3:
+                trainset_idx = trainset_idx[: len(trainset_idx) - rem]
+                self.datasets[split] = Subset(self.datasets[split], trainset_idx)
 
     def train_dataloader(self):
         return DataLoader(
