@@ -43,7 +43,7 @@ def main(args):
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
         "dropout": tune.choice([0.3, 0.5, 0.7]),  # dropout rate
         "weighted_loss": tune.choice([True, False]),
-        "img_transforms": tune.choice([None, "Random", "Compose"]),  # augment
+        "img_transforms": tune.choice([None, "random", "compose"]),  # augment
         "pc_transforms": tune.choice([True, False]),  # number of augmentations
         "scheduler": "asha",  # tune.choice(["plateau", "steplr", "cosine"]),
         "patience": 10,  # patience
