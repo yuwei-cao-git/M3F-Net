@@ -12,7 +12,11 @@ from data_utils.pts_augment import pointCloudTransform, image_transform
 
 class SuperpixelDataset(Dataset):
     def __init__(
-        self, superpixel_files, rotate, image_transform=None, point_cloud_transform=None
+        self,
+        superpixel_files,
+        rotate=None,
+        image_transform=None,
+        point_cloud_transform=None,
     ):
         self.superpixel_files = superpixel_files
         self.image_transform = image_transform
@@ -34,26 +38,31 @@ class SuperpixelDataset(Dataset):
         nodata_mask = data["nodata_mask"]  # Shape: (128, 128)
         xyz = coords - np.mean(coords, axis=0)
 
-        superpixel_images = torch.from_numpy(superpixel_images).float()  # Shape: (num_seasons, num_channels, 128, 128)
-        per_pixel_labels = torch.from_numpy(per_pixel_labels).float()  # Shape: (num_classes, 128, 128)
+        superpixel_images = torch.from_numpy(
+            superpixel_images
+        ).float()  # Shape: (num_seasons, num_channels, 128, 128)
+        per_pixel_labels = torch.from_numpy(
+            per_pixel_labels
+        ).float()  # Shape: (num_classes, 128, 128)
         nodata_mask = torch.from_numpy(nodata_mask).bool()
 
         # Apply transforms if needed
         if self.image_transform:
-            superpixel_images = self.transform(superpixel_images, self.image_transform)
+            superpixel_images = image_transform(superpixel_images, self.image_transform)
 
         # Apply point cloud transforms if any
         if self.point_cloud_transform:
-            xyz, coords, label = pointCloudTransform(xyz, coords, label, rot=self.rotate)
-        
-            
+            xyz, coords, label = pointCloudTransform(
+                xyz, coords, label, rot=self.rotate
+            )
+
         # After applying transforms
         coords = torch.from_numpy(coords).float()  # Shape: (7168, 3)
         xyz = torch.from_numpy(xyz).float()  # Shape: (7168, 3)
         label = torch.from_numpy(label).float()  # Shape: (num_classes,)
 
         sample = {
-            "images": superpixel_images, # Padded images of shape [num_seasons, num_channels, 128, 128]
+            "images": superpixel_images,  # Padded images of shape [num_seasons, num_channels, 128, 128]
             "nodata_mask": nodata_mask,  # Padded masks of shape [num_seasons, 128, 128]
             "per_pixel_labels": per_pixel_labels,  # Tensor: (num_classes, 128, 128)
             "point_cloud": xyz,
@@ -109,23 +118,28 @@ class SuperpixelDataModule(LightningDataModule):
             ]
             self.datasets[split] = SuperpixelDataset(
                 superpixel_files,
+                rotate=None,
                 image_transform=None,
                 point_cloud_transform=None,
             )
             if split == "train":
-                if not (self.image_transform is None and self.point_cloud_transform is False):
+                if not (
+                    self.image_transform is None and self.point_cloud_transform is False
+                ):
                     aug_dataset = SuperpixelDataset(
                         superpixel_files,
                         rotate=self.aug_rotate,
                         image_transform=self.image_transform,
-                        point_cloud_transform=self.point_cloud_transform
+                        point_cloud_transform=self.point_cloud_transform,
                     )
-                    self.datasets["train"] = torch.utils.data.ConcatDataset([self.datasets["train"], aug_dataset])
-            #trainset_idx = list(range(len(self.datasets[split])))
-            #rem = len(trainset_idx) % self.batch_size
-            #if rem <= 3:
-                #trainset_idx = trainset_idx[: len(trainset_idx) - rem]
-                #self.datasets[split] = Subset(self.datasets[split], trainset_idx)
+                    self.datasets["train"] = torch.utils.data.ConcatDataset(
+                        [self.datasets["train"], aug_dataset]
+                    )
+            # trainset_idx = list(range(len(self.datasets[split])))
+            # rem = len(trainset_idx) % self.batch_size
+            # if rem <= 3:
+            # trainset_idx = trainset_idx[: len(trainset_idx) - rem]
+            # self.datasets[split] = Subset(self.datasets[split], trainset_idx)
 
     def train_dataloader(self):
         return DataLoader(
