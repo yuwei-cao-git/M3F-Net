@@ -10,7 +10,7 @@ data/processed/
 *.yml
 
 data_processing/ref
-data_processing/downlading
+data_processing/*
 checkpoints/
 
 *log.txt
@@ -32,3 +32,5 @@ data_processing/OutputImage.vrt
 data_processing/temp.ipynb
 data_processing/temp2.ipynb
 key.txt
+
+*.ipynb
