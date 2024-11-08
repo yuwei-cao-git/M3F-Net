@@ -6,32 +6,75 @@ import pandas as pd
 import torch
 from .common import read_las
 from torch.utils.data import Dataset
+import torchvision.transforms.v2 as transforms
 
+def angle_axis(angle, axis):
+    # type: (float, np.ndarray) -> float
+    r"""Returns a 4x4 rotation matrix that performs a rotation around axis by angle
+
+    Parameters
+    ----------
+    angle : float
+        Angle to rotate by
+    axis: np.ndarray
+        Axis to rotate about
+
+    Returns
+    -------
+    torch.Tensor
+        3x3 rotation matrix
+    """
+    u = axis / np.linalg.norm(axis)
+    cosval, sinval = np.cos(angle), np.sin(angle)
+
+    # yapf: disable
+    cross_prod_mat = np.array([[0.0, -u[2], u[1]],
+                                [u[2], 0.0, -u[0]],
+                                [-u[1], u[0], 0.0]])
+
+    R = torch.from_numpy(
+        cosval * np.eye(3)
+        + sinval * cross_prod_mat
+        + (1.0 - cosval) * np.outer(u, u)
+    )
+    # yapf: enable
+    return R.float()
 
 def rotate_points(coords, x=None):
-    rotation = np.random.uniform(-180, 180)
-    # Convert rotation values to radians
-    rotation = np.radians(rotation)
-
+    rotation_angle = np.random.uniform() * 2 * np.pi
+    axis=np.array([0.0, 1.0, 0.0])
     # Rotate point cloud
-    rot_mat = np.array(
-        [
-            [np.cos(rotation), -np.sin(rotation), 0],
-            [np.sin(rotation), np.cos(rotation), 0],
-            [0, 0, 1],
-        ]
-    )
+    rot_mat = angle_axis(rotation_angle, axis)
+
     aug_coords = coords
-    aug_coords[:, :3] = np.matmul(aug_coords[:, :3], rot_mat)
+    aug_coords[:, :3] = np.matmul(aug_coords[:, :3], rot_mat.t())
     if x is None:
         aug_x = None
     else:
         aug_x = x
-        aug_x[:, :3] = np.matmul(aug_x[:, :3], rot_mat)
+        aug_x[:, :3] = np.matmul(aug_x[:, :3], rot_mat.t())
 
     return aug_coords, aug_x
 
+def point_rotate_perturbation(coords, angle_sigma=0.06, angle_clip=0.18, x=None):
+    angles = np.clip(
+            angle_sigma * np.random.randn(3), -angle_clip, angle_clip
+        )
+    Rx = angle_axis(angles[0], np.array([1.0, 0.0, 0.0]))
+    Ry = angle_axis(angles[1], np.array([0.0, 1.0, 0.0]))
+    Rz = angle_axis(angles[2], np.array([0.0, 0.0, 1.0]))
 
+    rot_mat = torch.matmul(torch.matmul(Rz, Ry), Rx)
+    aug_coords = coords
+    aug_coords[:, :3] = np.matmul(aug_coords[:, :3], rot_mat.t())
+    if x is None:
+        aug_x = None
+    else:
+        aug_x = x
+        aug_x[:, :3] = np.matmul(aug_x[:, :3], rot_mat.t())
+
+    return aug_coords, aug_x
+    
 def point_removal(coords, n, x=None):
     # Get list of ids
     idx = list(range(np.shape(coords)[0]))
@@ -49,6 +92,23 @@ def point_removal(coords, n, x=None):
 
     return aug_coords, aug_x
 
+def point_translate(coords, translate_range=0.1, x=None):
+    translation = np.random.uniform(-translate_range, translate_range)
+    coords[:, 0:3] += translation
+    if x is None:  # remove x
+        aug_x = None
+    else:
+        aug_x = x + translation
+    return coords, aug_x
+
+def random_scale(coords, lo=0.8, hi=1.25, x=None):
+    scaler = np.random.uniform(lo, hi)
+    aug_coords = coords * scaler
+    if x is None:
+        aug_x = None
+    else:
+        aug_x = x * scaler
+    return aug_coords, aug_x
 
 def random_noise(coords, n, dim=1, x=None):
     # Random standard deviation value
@@ -91,7 +151,6 @@ def random_noise(coords, n, dim=1, x=None):
         aug_x = np.append(x, aug_x, axis=0)  # add random point values # ADDED axis=0
 
     return aug_coords, aug_x
-
 
 class AugmentPointCloudsInPickle(Dataset):
     """Point cloud dataset where one data point is a file."""
@@ -144,14 +203,57 @@ class AugmentPointCloudsInPickle(Dataset):
             return None
         return coords, xyz, target
 
-
-def pointCloudTransform(xyz, coords, target):
+def pointCloudTransform(xyz, coords, target, rot=True):
     # Point Removal
     n = random.randint(round(len(xyz) * 0.9), len(xyz))
     aug_xyz, aug_coords = point_removal(xyz, n, x=coords)
     aug_xyz, aug_coords = random_noise(aug_xyz, n=(len(xyz) - n), x=aug_coords)
-    xyz, coords = rotate_points(aug_xyz, x=aug_coords)
-
+    aug_xyz, aug_coords = random_scale(aug_xyz, x=aug_coords)
+    aug_xyz, aug_coords = point_translate(aug_xyz, x=aug_coords)
+    if rot:
+        aug_xyz, aug_coords = point_rotate_perturbation(aug_xyz, x=aug_coords)
+        aug_xyz, aug_coords = rotate_points(aug_xyz, x=aug_coords)
+    
     target = target
 
-    return coords, xyz, target
+    return aug_xyz, aug_coords, target
+
+def image_transform(img, image_transform):
+    if image_transform == "random":
+        transform = transforms.RandomApply(
+            torch.nn.ModuleList(
+                [
+                    transforms.RandomCrop(size=(128, 128)),
+                    transforms.RandomHorizontalFlip(p=0.5),
+                    transforms.ToDtype(torch.float32, scale=True),
+                    transforms.RandomPerspective(distortion_scale=0.6, p=1.0),
+                    transforms.RandomRotation(degrees=(0, 180)),
+                    transforms.RandomAffine(
+                        degrees=(30, 70),
+                        translate=(0.1, 0.3),
+                        scale=(0.5, 0.75),
+                    ),
+                ]
+            ),
+            p=0.3,
+        )
+    elif image_transform == "compose":
+            transform = transforms.Compose([
+                transforms.RandomCrop(size=(128, 128)),
+                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.ToDtype(torch.float32, scale=True),
+                transforms.RandomPerspective(distortion_scale=0.6, p=1.0),
+                transforms.RandomRotation(degrees=(0, 180)),
+                transforms.RandomAffine(
+                    degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75)
+                ),
+            ])
+    else:
+        transform = None
+            
+    if transform is None:
+        aug_image = None
+    else:
+        aug_image = transform(img)
+    
+    return aug_image

@@ -44,7 +44,7 @@ pip install --no-index --upgrade pip
 # pip install --no-index ray[all]
 pip install --no-index ray[tune] tensorboardX lightning pytorch_lightning torch torch-scatter torchaudio torchdata torcheval torchmetrics torchtext torchvision rasterio imageio wandb numpy pandas
 pip install seaborn scikit-learn torchsummary geopandas --no-index
-pip install pointnext==0.0.5 mamba-ssm[causal-conv1d]=2.2.1
+pip install pointnext==0.0.5 mamba-ssm[causal-conv1d]==2.2.2
 pip install laspy[laszip]
 
 echo "Virtual Env created!"
