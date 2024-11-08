@@ -34,3 +34,5 @@ data_processing/temp2.ipynb
 key.txt
 
 *.ipynb
+augmentation
+data_processing
