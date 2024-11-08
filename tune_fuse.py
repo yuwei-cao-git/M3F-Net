@@ -38,7 +38,7 @@ def main(args):
 
     config = {
         "mode": "fuse",  # tune.choice(["img", "pc", "fuse"]),
-        "learning_rate": tune.loguniform(1e-5, 1e-1),
+        "learning_rate": tune.loguniform(1e-5, 1e-2),
         "batch_size": tune.choice([16, 32, 64, 128]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
         "dropout": tune.choice([0.3, 0.5, 0.7]),  # dropout rate
@@ -50,7 +50,7 @@ def main(args):
         "patience": 10,  # patience
         "step_size": 20,  # step size
         "momentum": 0.9,  # sgd momentum
-        "weight_decay": tune.choice([1e-4, 1e-5]),  # sgd momentum
+        "weight_decay": tune.choice([1e-4, 1e-6]),  # sgd momentum
         "save_dir": save_dir,
         "train_path": os.path.join(data_dir, "rmf_laz/train"),
         "train_pickle": os.path.join(data_dir, "rmf_laz/train/plots_comp.pkl"),
