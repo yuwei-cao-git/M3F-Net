@@ -12,11 +12,12 @@ from data_utils.pts_augment import pointCloudTransform, image_transform
 
 class SuperpixelDataset(Dataset):
     def __init__(
-        self, superpixel_files, image_transform=None, point_cloud_transform=None
+        self, superpixel_files, rotate, image_transform=None, point_cloud_transform=None
     ):
         self.superpixel_files = superpixel_files
         self.image_transform = image_transform
         self.point_cloud_transform = point_cloud_transform
+        self.rotate = rotate
 
     def __len__(self):
         return len(self.superpixel_files)
@@ -43,7 +44,7 @@ class SuperpixelDataset(Dataset):
 
         # Apply point cloud transforms if any
         if self.point_cloud_transform:
-            xyz, coords, label = pointCloudTransform(xyz, coords, label)
+            xyz, coords, label = pointCloudTransform(xyz, coords, label, rot=self.rotate)
         
             
         # After applying transforms
@@ -70,6 +71,7 @@ class SuperpixelDataModule(LightningDataModule):
         self.num_workers = config["num_workers"]
         self.image_transform = config["img_transforms"]
         self.point_cloud_transform = config["pc_transforms"]
+        self.aug_rotate = config["pc_transforms"]
 
         self.data_dirs = {
             "train": join(
@@ -111,17 +113,19 @@ class SuperpixelDataModule(LightningDataModule):
                 point_cloud_transform=None,
             )
             if split == "train":
-                aug_dataset = SuperpixelDataset(
-                    superpixel_files,
-                    image_transform=self.image_transform,
-                    point_cloud_transform=self.point_cloud_transform
-                )
-                self.datasets["train"] = torch.utils.data.ConcatDataset([self.datasets["train"], aug_dataset])
-            trainset_idx = list(range(len(self.datasets[split])))
-            rem = len(trainset_idx) % self.batch_size
-            if rem <= 3:
-                trainset_idx = trainset_idx[: len(trainset_idx) - rem]
-                self.datasets[split] = Subset(self.datasets[split], trainset_idx)
+                if not (self.image_transform is None and self.point_cloud_transform is False):
+                    aug_dataset = SuperpixelDataset(
+                        superpixel_files,
+                        rotate=self.aug_rotate,
+                        image_transform=self.image_transform,
+                        point_cloud_transform=self.point_cloud_transform
+                    )
+                    self.datasets["train"] = torch.utils.data.ConcatDataset([self.datasets["train"], aug_dataset])
+            #trainset_idx = list(range(len(self.datasets[split])))
+            #rem = len(trainset_idx) % self.batch_size
+            #if rem <= 3:
+                #trainset_idx = trainset_idx[: len(trainset_idx) - rem]
+                #self.datasets[split] = Subset(self.datasets[split], trainset_idx)
 
     def train_dataloader(self):
         return DataLoader(
@@ -129,6 +133,7 @@ class SuperpixelDataModule(LightningDataModule):
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
+            drop_last=True,
             collate_fn=self.collate_fn,
         )
 
@@ -138,6 +143,7 @@ class SuperpixelDataModule(LightningDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
+            drop_last=True,
             collate_fn=self.collate_fn,
         )
 
@@ -147,6 +153,7 @@ class SuperpixelDataModule(LightningDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
+            drop_last=True,
             collate_fn=self.collate_fn,
         )
 

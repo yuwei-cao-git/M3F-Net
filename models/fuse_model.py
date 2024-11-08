@@ -126,9 +126,12 @@ class SuperpixelModel(pl.LightningModule):
         """
         pc_feat = pc_feat.permute(0, 2, 1)
         point_clouds = point_clouds.permute(0, 2, 1)
-        pixel_logits, pc_logits, fuse_logits = self.forward(
-            images, pc_feat, point_clouds
-        )
+        if self.config["fuse_feature"]:
+            pixel_logits, pc_logits, fuse_logits = self.forward(
+                images, pc_feat, point_clouds
+            )
+        else:
+            pixel_logits, pc_logits = self.forward(images, pc_feat, point_clouds)
 
         pc_preds = F.softmax(pc_logits, dim=1)
         pixel_preds = F.softmax(pixel_logits, dim=1)

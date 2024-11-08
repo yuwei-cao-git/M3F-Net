@@ -45,6 +45,7 @@ def main(args):
         "weighted_loss": tune.choice([True, False]),
         "img_transforms": tune.choice([None, "random", "compose"]),  # augment
         "pc_transforms": tune.choice([True, False]),  # number of augmentations
+        "rotate": tune.choice([True, False]),
         "scheduler": "asha",  # tune.choice(["plateau", "steplr", "cosine"]),
         "patience": 10,  # patience
         "step_size": 20,  # step size
