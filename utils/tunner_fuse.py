@@ -13,17 +13,28 @@ import time
 
 def train_func(config):
     seed_everything(1)
-    if config["use_residual"]:
-        log_name = "Fuse_pointnext_ResUnet_"
+    if config["fuse_feature"]:
+        log_name = f"Fuse_ff_pointnext_{config['encoder']}"
+        if config["mamba_fuse"]:
+            log_name = f"Fuse_ff_mamba_pointnext_{config['encoder']}"
     else:
-        log_name = "Fuse_pointnext_Unet_"
+        log_name = f"Fuse_pointnext_{config['encoder']}"
+    if config["use_residual"]:
+        log_name += "_ResUnet_"
+    else:
+        log_name += "_Unet_"
     if config["use_mf"]:
         log_name += "MF_"
+        if config["spatial_attention"]:
+            log_name += "SES_"
+        else:
+            log_name += "SE_"
     log_name += str(config["resolution"])
 
     # Initialize WandB, CSV Loggers
     wandb_logger = WandbLogger(
         project="M3F-Net-fuse",
+        group="tune_v3",
         name=f"{log_name}_trial_{tune.Trainable().trial_id}",
         save_dir=config["save_dir"],
         log_model=True,

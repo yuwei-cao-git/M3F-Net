@@ -37,16 +37,16 @@ def main(args):
         else os.path.join(os.getcwd(), "data")
     )
     class_weights = [
-            0.02303913,
-            0.13019594,
-            0.05610016,
-            0.07134316,
-            0.12228734,
-            0.08862843,
-            0.01239567,
-            0.48842124,
-            0.00758894,
-        ]
+        0.02303913,
+        0.13019594,
+        0.05610016,
+        0.07134316,
+        0.12228734,
+        0.08862843,
+        0.01239567,
+        0.48842124,
+        0.00758894,
+    ]
     class_weights = torch.from_numpy(np.array(class_weights)).float()
     config = {
         "mode": "fuse",  # tune.choice(["img", "pc", "fuse"]),
@@ -61,7 +61,7 @@ def main(args):
         "rotate": True,  # tune.choice([True, False]),
         "scheduler": "plateau",  # "asha",  # tune.choice(["plateau", "steplr", "cosine"]),
         "patience": 10,  # patience
-        "step_size": 20,  # step size
+        "step_size": 10,  # tune.choice([10, 20]), # step size
         "momentum": 0.9,  # sgd momentum
         "weight_decay": 1e-5,  # tune.choice([1e-4, 1e-6]),  # sgd momentum
         "save_dir": save_dir,
@@ -70,7 +70,10 @@ def main(args):
         "num_points": 7168,  # number of points
         "emb_dims": 1024,  # tune.choice([512, 768, 1024]),  # dimension of embeddings
         "encoder": tune.choice(["s", "b", "l", "xl"]),
-        "linear_layers_dims": [256, 64],  # tune.choice([[1024, 256], [512, 128], [256, 128], [128, 128], [256, 64]]),
+        "linear_layers_dims": [
+            256,
+            64,
+        ],  # tune.choice([[1024, 256], [512, 128], [256, 128], [128, 128], [256, 64]]),
         "fuse_feature": tune.choice([True, False]),
         "mamba_fuse": tune.choice([True, False]),
         "fusion_dim": 128,  # tune.choice([128, 256]),
@@ -104,7 +107,7 @@ def main(args):
                 callbacks=[
                     WandbLoggerCallback(
                         project="M3F-Net-fuse",
-                        group="tune_v2",
+                        group="tune_v3",
                         api_key=os.environ["WANDB_API_KEY"],
                         log_config=True,
                         save_checkpoints=True,

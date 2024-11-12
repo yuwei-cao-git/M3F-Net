@@ -22,10 +22,14 @@ class SE_Block(nn.Module):
         )
 
     def forward(self, x):
+        x = x.view(
+            x.size(0), -1, x.size(3), x.size(4)
+        )  # Resulting shape: (B, in_chns * D, H, W)
         b, c, _, _ = x.size()
         y = self.avg_pool(x).view(b, c)  # squeeze操作
         y = self.fc(y).view(b, c, 1, 1)  # FC获取通道注意力权重，是具有全局信息的
         return x * y.expand_as(x)  # 注意力作用每一个通道上
+
 
 # ref: https://github.com/wolny/pytorch-3dunet/blob/master/pytorch3dunet/unet3d/se.py
 class ChannelSELayer3D(nn.Module):
@@ -107,9 +111,9 @@ class SpatialSELayer3D(nn.Module):
 
 class ChannelSpatialSELayer3D(nn.Module):
     """
-       3D extension of concurrent spatial and channel squeeze & excitation:
-           *Roy et al., Concurrent Spatial and Channel Squeeze & Excitation in Fully Convolutional Networks, arXiv:1803.02579*
-       """
+    3D extension of concurrent spatial and channel squeeze & excitation:
+    *Roy et al., Concurrent Spatial and Channel Squeeze & Excitation in Fully Convolutional Networks, arXiv:1803.02579*
+    """
 
     def __init__(self, num_channels, reduction_ratio=2):
         """
@@ -123,10 +127,16 @@ class ChannelSpatialSELayer3D(nn.Module):
 
     def forward(self, input_tensor):
         output_tensor = torch.max(self.cSE(input_tensor), self.sSE(input_tensor))
+        output_tensor = output_tensor.view(
+            output_tensor.size(0), -1, output_tensor.size(3), output_tensor.size(4)
+        )
         return output_tensor
-    
+
+
 class MF(nn.Module):  # Multi-Feature (MF) module for seasonal attention-based fusion
-    def __init__(self, channels=12, reduction=16, spatial_att=False):  # Each season has 13 channels
+    def __init__(
+        self, channels=12, reduction=16, spatial_att=False
+    ):  # Each season has 13 channels
         super(MF, self).__init__()
         # Channel attention for each season (spring, summer, autumn, winter)
         self.channels = channels
@@ -145,9 +155,11 @@ class MF(nn.Module):  # Multi-Feature (MF) module for seasonal attention-based f
 
         # Final SE Block for channel attention across all seasons
         if self.spatial_attention:
-            self.se = ChannelSpatialSELayer3D(64, reduction_ratio=2)
+            self.se = ChannelSpatialSELayer3D(16, reduction_ratio=2)
         else:
-            self.se = SE_Block(64, self.reduction)  # Since we have 4 seasons with 16 channels each, we get a total of 64 channels
+            self.se = SE_Block(
+                64, self.reduction
+            )  # Since we have 4 seasons with 16 channels each, we get a total of 64 channels
 
     def forward(self, x):  # x is a list of 4 inputs (spring, summer, autumn, winter)
         spring, summer, autumn, winter = torch.unbind(x, dim=1)  # Unpack the inputs
@@ -172,13 +184,13 @@ class MF(nn.Module):  # Multi-Feature (MF) module for seasonal attention-based f
         autumn_features = self.bottleneck_autumn(autumn_mask)
         winter_features = self.bottleneck_winter(winter_mask)
 
-        # Concatenate features from all seasons
-        combined_features = torch.cat(
-            [spring_features, summer_features, autumn_features, winter_features], dim=1
-        )
+        # Concatenate along a new depth dimension (D)
+        combined_features = torch.stack(
+            [spring_features, summer_features, autumn_features, winter_features], dim=2
+        )  # Shape: (B, 16, D=4, H, W)
 
         # Apply SE Block for channel-wise attention
-        out = self.se(combined_features)
+        out = self.se(combined_features)  # SE_Block takes 4D input
 
         return out
 
@@ -371,10 +383,10 @@ class MLPBlock(nn.Module):
         self.dropout1 = nn.Dropout(p=config["dropout"])
 
         self.fc2 = nn.Linear(hidden_ch[0], hidden_ch[1])
-        self.bn2 = nn.BatchNorm1d(f[1])
+        self.bn2 = nn.BatchNorm1d(hidden_ch[1])
         self.dropout2 = nn.Dropout(p=0.5)
 
-        self.fc3 = nn.Linear(hidden_ch[1], self.config["n_classes"])
+        self.fc3 = nn.Linear(hidden_ch[1], config["n_classes"])
 
     def forward(self, img_emb, pc_emb):
         image_features_pooled = F.adaptive_avg_pool2d(img_emb, (1, 1)).view(
@@ -470,7 +482,8 @@ class MambaLayer(nn.Module):
 
         # Mamba module
         self.mamba = Mamba(
-            d_model=dim*self.pool_len+combined_in_chs,  # Model dimension, to be set dynamically in forward
+            d_model=dim * self.pool_len
+            + combined_in_chs,  # Model dimension, to be set dynamically in forward
             d_state=d_state,
             d_conv=d_conv,
             expand=expand,
@@ -493,11 +506,13 @@ class MambaLayer(nn.Module):
         ppm_out = [res]
         for p in self.pool_layers:
             pool_out = p(combined_features)
-            pool_out = F.interpolate(pool_out, (H, W), mode='bilinear', align_corners=False)
+            pool_out = F.interpolate(
+                pool_out, (H, W), mode="bilinear", align_corners=False
+            )
             ppm_out.append(pool_out)
         x = torch.cat(ppm_out, dim=1)
         _, chs, _, _ = x.shape
-        x = rearrange(x, 'b c h w -> b (h w) c', b=B, c=chs, h=H, w=W)
+        x = rearrange(x, "b c h w -> b (h w) c", b=B, c=chs, h=H, w=W)
         x = self.mamba(x)
         x = x.transpose(2, 1).view(B, chs, H, W)
         return x
@@ -563,7 +578,8 @@ class MambaFusionBlock(nn.Module):
         # Initialize MLPBlock (now it takes output channels as num_classes)
         self.mlp_block = MLP(
             in_ch=dim * self.mamba.pool_len
-            + in_img_chs + in_pc_chs,  # Adjusted input channels after fusion
+            + in_img_chs
+            + in_pc_chs,  # Adjusted input channels after fusion
             hidden_ch=hidden_ch,
             num_classes=num_classes,
             dropout_prob=drop,

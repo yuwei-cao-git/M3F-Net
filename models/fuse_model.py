@@ -22,7 +22,7 @@ class SuperpixelModel(pl.LightningModule):
         self.spatial_attention = self.config["spatial_attention"]
         self.use_residual = self.config["use_residual"]
         self.use_mamba_fuse = self.config["mamba_fuse"]
-        f = self.config["linear_layers_dims"]  # f = [512, 128]
+        self.f = self.config["linear_layers_dims"]  # f = [512, 128]
         if self.config["mode"] != "pts":
             # Initialize s2 model
             if self.config["resolution"] == 10:
@@ -32,7 +32,9 @@ class SuperpixelModel(pl.LightningModule):
 
             if self.use_mf:
                 # MF Module for seasonal fusion (each season has `n_bands` channels)
-                self.mf_module = MF(channels=self.n_bands, spatial_att=self.spatial_attention)
+                self.mf_module = MF(
+                    channels=self.n_bands, spatial_att=self.spatial_attention
+                )
                 total_input_channels = (
                     64  # MF module outputs 64 channels after processing four seasons
                 )
@@ -64,18 +66,17 @@ class SuperpixelModel(pl.LightningModule):
                     in_img_chs=512,
                     in_pc_chs=self.config["emb_dims"],
                     dim=self.config["fusion_dim"],
-                    hidden_ch=f,
+                    hidden_ch=self.f,
                     num_classes=self.config["n_classes"],
                     drop=self.config["dropout"],
                 )
             else:
                 in_ch = 512 + self.config["emb_dims"]
-                hidden_ch = f
-                self.MLP = MLPBlock(in_ch, hidden_ch)
+                self.MLP = MLPBlock(config, in_ch, self.f)
 
         # Define loss functions
         if self.config["weighted_loss"]:
-        # Loss function and other parameters
+            # Loss function and other parameters
             self.weights = self.config["train_weights"]  # Initialize on CPU
         self.criterion = nn.MSELoss()
 
@@ -108,7 +109,9 @@ class SuperpixelModel(pl.LightningModule):
                 fused_features = self.mf_module(images)
             else:
                 batch_size, num_seasons, num_channels, width, height = images.shape
-                fused_features = images.view(batch_size, num_seasons * num_channels, width, height)
+                fused_features = images.view(
+                    batch_size, num_seasons * num_channels, width, height
+                )
             image_outputs, img_emb = self.s2_model(fused_features)
 
         if self.config["mode"] != "img" and pc_feat is not None and xyz is not None:
@@ -124,15 +127,21 @@ class SuperpixelModel(pl.LightningModule):
         else:
             return point_outputs
 
-    def forward_and_metrics(self, images, img_masks, pc_feat, point_clouds, labels, pixel_labels, stage):
+    def forward_and_metrics(
+        self, images, img_masks, pc_feat, point_clouds, labels, pixel_labels, stage
+    ):
         """
         Forward operations, computes the masked loss, R² score, and logs the metrics.
         """
         pc_feat = pc_feat.permute(0, 2, 1) if pc_feat is not None else None
-        point_clouds = point_clouds.permute(0, 2, 1) if point_clouds is not None else None
+        point_clouds = (
+            point_clouds.permute(0, 2, 1) if point_clouds is not None else None
+        )
 
         if self.config["mode"] == "fuse":
-            pixel_preds, pc_preds, fuse_preds = self.forward(images, pc_feat, point_clouds)
+            pixel_preds, pc_preds, fuse_preds = self.forward(
+                images, pc_feat, point_clouds
+            )
         elif self.config["mode"] == "img":
             pixel_preds = self.forward(images, None, None)
         else:
@@ -162,37 +171,48 @@ class SuperpixelModel(pl.LightningModule):
             pc_r2 = self.calc_r2(pc_preds.view(-1), labels.view(-1))
 
             # Log metrics
-            logs.update({
-                f"pc_{stage}_loss": loss_point,
-                f"pc_{stage}_r2": pc_r2,
-                f"pc_{stage}_f1": pc_f1,
-            })
+            logs.update(
+                {
+                    f"pc_{stage}_loss": loss_point,
+                    f"pc_{stage}_r2": pc_r2,
+                    f"pc_{stage}_f1": pc_f1,
+                }
+            )
 
         # Image stream
         if self.config["mode"] != "pts":
             pred_lead_pixel_labels = torch.argmax(pixel_preds, dim=1)
             true_lead_pixel_labels = torch.argmax(pixel_labels, dim=1)
             valid_pixel_lead_preds, valid_pixel_lead_true = apply_mask(
-                pred_lead_pixel_labels, true_lead_pixel_labels, img_masks, multi_class=False)
+                pred_lead_pixel_labels,
+                true_lead_pixel_labels,
+                img_masks,
+                multi_class=False,
+            )
             img_f1 = self.calc_f1(valid_pixel_lead_preds, valid_pixel_lead_true)
-            
+
             # Compute pixel-level loss
             # Apply mask to predictions and labels
-            valid_pixel_preds, valid_pixel_true = apply_mask(pixel_preds, pixel_labels, img_masks)
+            valid_pixel_preds, valid_pixel_true = apply_mask(
+                pixel_preds, pixel_labels, img_masks
+            )
             loss_pixel = self.criterion(valid_pixel_preds, valid_pixel_true)
             loss += loss_pixel
 
             # Compute r2 metrics
             valid_pixel_preds = torch.round(valid_pixel_preds, decimals=1)
-            pixel_r2 = self.calc_r2(valid_pixel_preds.view(-1), valid_pixel_true.view(-1))
-            
+            pixel_r2 = self.calc_r2(
+                valid_pixel_preds.view(-1), valid_pixel_true.view(-1)
+            )
 
             # Log metrics
-            logs.update({
-                f"pixel_{stage}_loss": loss_pixel,
-                f"pixel_{stage}_r2": pixel_r2,
-                f"pixel_{stage}_f1": img_f1,
-            })
+            logs.update(
+                {
+                    f"pixel_{stage}_loss": loss_pixel,
+                    f"pixel_{stage}_r2": pixel_r2,
+                    f"pixel_{stage}_f1": img_f1,
+                }
+            )
 
         # Fusion stream
         if self.config["mode"] == "fuse":
@@ -204,23 +224,35 @@ class SuperpixelModel(pl.LightningModule):
                 fuse_preds = torch.round(fuse_preds, decimals=1)
                 fuse_r2 = self.calc_r2(fuse_preds.view(-1), labels.view(-1))
                 # Log metrics
-                logs.update({
-                    f"fuse_{stage}_loss": loss_fuse,
-                    f"fuse_{stage}_r2": fuse_r2,
-                })
+                logs.update(
+                    {
+                        f"fuse_{stage}_loss": loss_fuse,
+                        f"fuse_{stage}_r2": fuse_r2,
+                    }
+                )
 
         # Compute RMSE
         rmse = torch.sqrt(loss)
 
         # Log loss and RMSE
-        logs.update({
-            f"{stage}_loss": loss,
-            f"{stage}_rmse": rmse,
-        })
+        logs.update(
+            {
+                f"{stage}_loss": loss,
+                f"{stage}_rmse": rmse,
+            }
+        )
 
         # Log all metrics
         for key, value in logs.items():
-            self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log(
+                key,
+                value,
+                on_step=False,
+                on_epoch=True,
+                prog_bar=True,
+                logger=True,
+                sync_dist=True,
+            )
 
         return loss
 
@@ -228,7 +260,9 @@ class SuperpixelModel(pl.LightningModule):
         images = batch["images"] if "images" in batch else None
         point_clouds = batch["point_cloud"] if "point_cloud" in batch else None
         labels = batch["label"]
-        per_pixel_labels = batch["per_pixel_labels"] if "per_pixel_labels" in batch else None
+        per_pixel_labels = (
+            batch["per_pixel_labels"] if "per_pixel_labels" in batch else None
+        )
         image_masks = batch["nodata_mask"] if "nodata_mask" in batch else None
         pc_feat = batch["pc_feat"] if "pc_feat" in batch else None
 
@@ -247,7 +281,9 @@ class SuperpixelModel(pl.LightningModule):
         images = batch["images"] if "images" in batch else None
         point_clouds = batch["point_cloud"] if "point_cloud" in batch else None
         labels = batch["label"]
-        per_pixel_labels = batch["per_pixel_labels"] if "per_pixel_labels" in batch else None
+        per_pixel_labels = (
+            batch["per_pixel_labels"] if "per_pixel_labels" in batch else None
+        )
         image_masks = batch["nodata_mask"] if "nodata_mask" in batch else None
         pc_feat = batch["pc_feat"] if "pc_feat" in batch else None
 
@@ -266,7 +302,9 @@ class SuperpixelModel(pl.LightningModule):
         images = batch["images"] if "images" in batch else None
         point_clouds = batch["point_cloud"] if "point_cloud" in batch else None
         labels = batch["label"]
-        per_pixel_labels = batch["per_pixel_labels"] if "per_pixel_labels" in batch else None
+        per_pixel_labels = (
+            batch["per_pixel_labels"] if "per_pixel_labels" in batch else None
+        )
         image_masks = batch["nodata_mask"] if "nodata_mask" in batch else None
         pc_feat = batch["pc_feat"] if "pc_feat" in batch else None
 
@@ -280,23 +318,38 @@ class SuperpixelModel(pl.LightningModule):
             stage="test",
         )
         return loss
-
+    
     def configure_optimizers(self):
+        params = []
+
+        # Include parameters from the image model if in 'img' or 'fuse' mode
+        if self.config["mode"] != "pts":
+            params += list(self.s2_model.parameters())
+            if self.use_mf:
+                params += list(self.mf_module.parameters())
+
+        # Include parameters from the point cloud model if in 'pts' or 'fuse' mode
+        if self.config["mode"] != "img":
+            params += list(self.pointnext.parameters())
+
+        # Include parameters from the fusion layers if in 'fuse' mode
+        if self.config["mode"] == "fuse":
+            params += list(self.MLP.parameters())
         # Choose the optimizer based on input parameter
         if self.optimizer_type == "adam":
             optimizer = torch.optim.Adam(
-                self.parameters(),
+                params,
                 lr=self.config["learning_rate"],
                 betas=(0.9, 0.999),
                 eps=1e-08,
             )
         elif self.optimizer_type == "adamW":
             optimizer = torch.optim.AdamW(
-                self.parameters(), lr=self.config["learning_rate"]
+                params, lr=self.config["learning_rate"]
             )
         elif self.optimizer_type == "sgd":
             optimizer = torch.optim.SGD(
-                self.parameters(),
+                params,
                 lr=self.config["learning_rate"],
                 momentum=self.config["momentum"],
                 weight_decay=self.config["weight_decay"],
@@ -320,7 +373,7 @@ class SuperpixelModel(pl.LightningModule):
             return optimizer
         elif self.scheduler_type == "steplr":
             scheduler = torch.optim.lr_scheduler.StepLR(
-                optimizer, step_size=self.config["step_size"]
+                optimizer, step_size=self.config["step_size"], gamma=0.1
             )
             return {"optimizer": optimizer, "lr_scheduler": scheduler}
         elif self.scheduler_type == "cosine":
