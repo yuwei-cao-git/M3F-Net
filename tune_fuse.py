@@ -37,36 +37,28 @@ def main(args):
     )
 
     config = {
-        "mode": "fuse",  # tune.choice(["img", "pc", "fuse"]),
-        "learning_rate": tune.loguniform(1e-5, 1e-2),
-        "batch_size": tune.choice([16, 32, 64, 128]),
-        "optimizer": tune.choice(["adam", "sgd", "adamW"]),
-        "dropout": tune.choice([0.3, 0.5, 0.7]),  # dropout rate
-        "weighted_loss": tune.choice([True, False]),
-        "img_transforms": tune.choice([None, "random", "compose"]),  # augment
-        "pc_transforms": tune.choice([True, False]),  # number of augmentations
-        "rotate": tune.choice([True, False]),
-        "scheduler": "asha",  # tune.choice(["plateau", "steplr", "cosine"]),
+        "mode": "fuse", #tune.choice(["img", "pc", "fuse"]),
+        "learning_rate": 1e-4, # tune.loguniform(1e-5, 1e-2),
+        "batch_size": 32, # tune.choice([16, 32, 64, 128]),
+        "optimizer": "adam", #tune.choice(["adam", "sgd", "adamW"]),
+        "dropout": 0.5, #tune.choice([0.3, 0.5, 0.7]),  # dropout rate
+        "weighted_loss": True, #tune.choice([True, False]),
+        "img_transforms": "compose", # tune.choice([None, "random", "compose"]),  # augment
+        "pc_transforms": True, #tune.choice([True, False]),  # number of augmentations
+        "rotate": True, # tune.choice([True, False]),
+        "scheduler": "plateau", #"asha",  # tune.choice(["plateau", "steplr", "cosine"]),
         "patience": 10,  # patience
         "step_size": 20,  # step size
         "momentum": 0.9,  # sgd momentum
-        "weight_decay": tune.choice([1e-4, 1e-6]),  # sgd momentum
+        "weight_decay": 1e-5, #tune.choice([1e-4, 1e-6]),  # sgd momentum
         "save_dir": save_dir,
-        "train_path": os.path.join(data_dir, "rmf_laz/train"),
-        "train_pickle": os.path.join(data_dir, "rmf_laz/train/plots_comp.pkl"),
-        "val_path": os.path.join(data_dir, "rmf_laz/val"),
-        "val_pickle": os.path.join(data_dir, "rmf_laz/val/plots_comp.pkl"),
-        "test_path": os.path.join(data_dir, "rmf_laz/test"),
-        "test_pickle": os.path.join(data_dir, "rmf_laz/test/plots_comp.pkl"),
         "n_classes": 9,
         "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
         "num_points": 7168,  # number of points
-        "emb_dims": tune.choice([512, 768, 1024]),  # dimension of embeddings
+        "emb_dims": 1024, # tune.choice([512, 768, 1024]),  # dimension of embeddings
         "encoder": tune.choice(["s", "b", "l", "xl"]),
-        "linear_layers_dims": tune.choice(
-            [[1024, 256], [512, 128], [256, 128], [128, 128], [256, 64]]
-        ),
-        "fuse_feature": tune.choice([True, False]),
+        "linear_layers_dims": [256, 64], # tune.choice([[1024, 256], [512, 128], [256, 128], [128, 128], [256, 64]]),
+        "fuse_feature": True, #tune.choice([True, False]),
         "mamba_fuse": tune.choice([True, False]),
         "fusion_dim": 128,  # tune.choice([128, 256]),
         "resolution": 20,  # tune.choice([10, 20]),
