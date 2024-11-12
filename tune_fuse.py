@@ -1,6 +1,7 @@
 import argparse
 import os
 import torch
+import numpy as np
 from utils.tunner_fuse import train_func
 from ray import tune, train
 from ray.tune.schedulers import ASHAScheduler
@@ -35,30 +36,42 @@ def main(args):
         if args.data_dir is not None
         else os.path.join(os.getcwd(), "data")
     )
-
+    class_weights = [
+            0.02303913,
+            0.13019594,
+            0.05610016,
+            0.07134316,
+            0.12228734,
+            0.08862843,
+            0.01239567,
+            0.48842124,
+            0.00758894,
+        ]
+    class_weights = torch.from_numpy(np.array(class_weights)).float()
     config = {
-        "mode": "fuse", #tune.choice(["img", "pc", "fuse"]),
-        "learning_rate": 1e-4, # tune.loguniform(1e-5, 1e-2),
-        "batch_size": 32, # tune.choice([16, 32, 64, 128]),
-        "optimizer": "adam", #tune.choice(["adam", "sgd", "adamW"]),
-        "dropout": 0.5, #tune.choice([0.3, 0.5, 0.7]),  # dropout rate
-        "weighted_loss": True, #tune.choice([True, False]),
-        "img_transforms": "compose", # tune.choice([None, "random", "compose"]),  # augment
-        "pc_transforms": True, #tune.choice([True, False]),  # number of augmentations
-        "rotate": True, # tune.choice([True, False]),
-        "scheduler": "plateau", #"asha",  # tune.choice(["plateau", "steplr", "cosine"]),
+        "mode": "fuse",  # tune.choice(["img", "pc", "fuse"]),
+        "learning_rate": 1e-4,  # tune.loguniform(1e-5, 1e-2),
+        "batch_size": 32,  # tune.choice([16, 32, 64, 128]),
+        "optimizer": "adam",  # tune.choice(["adam", "sgd", "adamW"]),
+        "dropout": 0.5,  # tune.choice([0.3, 0.5, 0.7]),  # dropout rate
+        "weighted_loss": True,  # tune.choice([True, False]),
+        "train_weights": class_weights,
+        "img_transforms": "compose",  # tune.choice([None, "random", "compose"]),  # augment
+        "pc_transforms": True,  # tune.choice([True, False]),  # number of augmentations
+        "rotate": True,  # tune.choice([True, False]),
+        "scheduler": "plateau",  # "asha",  # tune.choice(["plateau", "steplr", "cosine"]),
         "patience": 10,  # patience
         "step_size": 20,  # step size
         "momentum": 0.9,  # sgd momentum
-        "weight_decay": 1e-5, #tune.choice([1e-4, 1e-6]),  # sgd momentum
+        "weight_decay": 1e-5,  # tune.choice([1e-4, 1e-6]),  # sgd momentum
         "save_dir": save_dir,
         "n_classes": 9,
         "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
         "num_points": 7168,  # number of points
-        "emb_dims": 1024, # tune.choice([512, 768, 1024]),  # dimension of embeddings
+        "emb_dims": 1024,  # tune.choice([512, 768, 1024]),  # dimension of embeddings
         "encoder": tune.choice(["s", "b", "l", "xl"]),
-        "linear_layers_dims": [256, 64], # tune.choice([[1024, 256], [512, 128], [256, 128], [128, 128], [256, 64]]),
-        "fuse_feature": True, #tune.choice([True, False]),
+        "linear_layers_dims": [256,64,],  # tune.choice([[1024, 256], [512, 128], [256, 128], [128, 128], [256, 64]]),
+        "fuse_feature": True,  # tune.choice([True, False]),
         "mamba_fuse": tune.choice([True, False]),
         "fusion_dim": 128,  # tune.choice([128, 256]),
         "resolution": 20,  # tune.choice([10, 20]),
@@ -72,7 +85,7 @@ def main(args):
         "data_dir": data_dir,
     }
     try:
-        scheduler = ASHAScheduler(max_t=1, grace_period=1, reduction_factor=2)
+        # asha_scheduler = ASHAScheduler(max_t=1, grace_period=1, reduction_factor=2)
         trainable_with_gpu = tune.with_resources(
             train_func, {"gpu": config.get("gpus", 1)}
         )
@@ -81,7 +94,7 @@ def main(args):
             tune_config=tune.TuneConfig(
                 metric="pc_val_r2",
                 mode="max",
-                scheduler=scheduler,
+                scheduler=config["scheduler"], #asha_scheduler,
                 num_samples=config["n_samples"],
             ),
             run_config=train.RunConfig(

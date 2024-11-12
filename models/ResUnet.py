@@ -66,4 +66,5 @@ class ResUnet(nn.Module):
         d4 = self.residual_block_d4(u4)  # f[0] channels
 
         logits = self.out_conv(d4)  # n_classes channels
-        return logits, b1
+        preds = F.softmax(logits, dim=1)
+        return preds, b1

@@ -296,7 +296,8 @@ class MLPBlock(nn.Module):
         x = self.dropout1(x)
         x = F.relu(self.bn2(self.fc2(x)))  # [batch_size, 128]
         x = self.dropout2(x)
-        class_output = self.fc3(x)  # [batch_size, num_classes]
+        logits = self.fc3(x)  # [batch_size, num_classes]
+        class_output = F.softmax(logits, dim=1)
 
         return class_output
 
@@ -417,10 +418,10 @@ class MLP(nn.Module):
         self.conv = ConvBNReLU(in_ch, in_ch, kernel_size=3)
         self.pooling = nn.AdaptiveAvgPool2d(1)
         self.fc1 = nn.Linear(in_ch, hidden_ch[0])
-        self.bn1 = nn.BatchNorm1d(hidden_ch[0])
+        self.bn1 = nn.GroupNorm(num_groups=32, num_channels=[0])
         self.dropout1 = nn.Dropout(dropout_prob)
         self.fc2 = nn.Linear(hidden_ch[0], hidden_ch[1])
-        self.bn2 = nn.BatchNorm1d(hidden_ch[1])
+        self.bn2 = nn.GroupNorm(num_groups=32, num_channels=hidden_ch[1])
         self.dropout2 = nn.Dropout(dropout_prob)
         self.fc3 = nn.Linear(hidden_ch[1], num_classes)  # Output layer
 
@@ -431,8 +432,9 @@ class MLP(nn.Module):
         x = self.dropout1(x)
         x = F.relu(self.bn2(self.fc2(x)))
         x = self.dropout2(x)
-        x = self.fc3(x)  # Shape: (B, num_classes)
-        return x
+        logits = self.fc3(x)  # [batch_size, num_classes]
+        class_output = F.softmax(logits, dim=1)
+        return class_output
 
 
 class MambaFusionBlock(nn.Module):

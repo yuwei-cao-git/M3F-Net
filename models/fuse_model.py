@@ -10,7 +10,7 @@ from .pointNext import PointNextModel
 
 from torchmetrics.regression import R2Score
 from torchmetrics.classification import MulticlassF1Score
-from .loss import MaskedMSELoss, apply_mask
+from .loss import apply_mask, calc_loss
 
 
 class SuperpixelModel(pl.LightningModule):
@@ -22,58 +22,66 @@ class SuperpixelModel(pl.LightningModule):
         self.use_residual = self.config["use_residual"]
         self.use_mamba_fuse = self.config["mamba_fuse"]
         f = self.config["linear_layers_dims"]  # f = [512, 128]
-        # Initialize s2 model
-        if self.config["resolution"] == 10:
-            self.n_bands = 12
-        else:
-            self.n_bands = 9
+        if self.config["mode"] != "pts":
+            # Initialize s2 model
+            if self.config["resolution"] == 10:
+                self.n_bands = 12
+            else:
+                self.n_bands = 9
 
-        if self.use_mf:
-            # MF Module for seasonal fusion (each season has `n_bands` channels)
-            self.mf_module = MF(channels=self.n_bands)
-            total_input_channels = (
-                64  # MF module outputs 64 channels after processing four seasons
-            )
-        else:
-            total_input_channels = (
-                self.n_bands * 4
-            )  # If no MF module, concatenating all seasons directly
+            if self.use_mf:
+                # MF Module for seasonal fusion (each season has `n_bands` channels)
+                self.mf_module = MF(channels=self.n_bands)
+                total_input_channels = (
+                    64  # MF module outputs 64 channels after processing four seasons
+                )
+            else:
+                total_input_channels = (
+                    self.n_bands * 4
+                )  # If no MF module, concatenating all seasons directly
 
-        # Define the U-Net architecture with or without Residual connections
-        if self.use_residual:
-            # Using ResUNet
-            self.s2_model = ResUnet(
-                n_channels=total_input_channels, n_classes=self.config["n_classes"]
-            )
-        else:
-            # Using standard UNet
-            self.s2_model = UNet(
-                n_channels=total_input_channels, n_classes=self.config["n_classes"]
-            )
+            # Define the U-Net architecture with or without Residual connections
+            if self.use_residual:
+                # Using ResUNet
+                self.s2_model = ResUnet(
+                    n_channels=total_input_channels, n_classes=self.config["n_classes"]
+                )
+            else:
+                # Using standard UNet
+                self.s2_model = UNet(
+                    n_channels=total_input_channels, n_classes=self.config["n_classes"]
+                )
 
-        # Fusion and classification layers with additional linear layer
-        if self.config["fuse_feature"]:
+        if self.config["mode"] != "img":
+            # Initialize point cloud stream model
+            self.pointnext = PointNextModel(self.config, in_dim=3)
+
+        if self.config["mode"] == "fuse":
+            # Fusion and classification layers with additional linear layer
             if self.use_mamba_fuse:
                 self.MLP = MambaFusionBlock(
                     in_img_chs=512,
                     in_pc_chs=self.config["emb_dims"],
                     dim=self.config["fusion_dim"],
-                    hidden_ch=self.config["linear_layers_dims"],
+                    hidden_ch=f,
                     num_classes=self.config["n_classes"],
                     drop=self.config["dropout"],
                 )
             else:
                 in_ch = 512 + self.config["emb_dims"]
-                hidden_ch = self.config["linear_layers_dims"]
+                hidden_ch = f
                 self.MLP = MLPBlock(in_ch, hidden_ch)
 
-        # Initialize point cloud stream model
-        self.pointnext = PointNextModel(self.config, in_dim=3)
-
         # Define loss functions
+        if self.params["weighted_loss"]:
+        # Loss function and other parameters
+            self.weights = self.config["train_weights"]  # Initialize on CPU
         self.criterion = nn.MSELoss()
 
         # Metrics
+        self.calc_r2 = R2Score()
+        self.calc_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
+        """
         self.train_r2 = R2Score()
         self.train_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
 
@@ -82,205 +90,148 @@ class SuperpixelModel(pl.LightningModule):
 
         self.test_r2 = R2Score()
         self.test_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
-
+        """
         # Optimizer and scheduler settings
         self.optimizer_type = self.config["optimizer"]
         self.scheduler_type = self.config["scheduler"]
 
     def forward(self, images, pc_feat, xyz):
-        # Forward pass through UNet
-        if self.use_mf:
-            # Apply the MF module first to extract features from input
-            fused_features = self.mf_module(images)
-        else:
-            # Concatenate all seasons directly if no MF module
-            batch_size, num_seasons, num_channels, width, height = images.shape
+        image_outputs = None
+        img_emb = None
+        point_outputs = None
+        pc_emb = None
 
-            # Reshape images to merge `num_seasons` and `num_channels` by concatenating along channels
-            fused_features = images.view(
-                batch_size, num_seasons * num_channels, width, height
-            )  # torch.Size([4, 36, 128, 128])
-        image_outputs, img_emb = self.s2_model(
-            fused_features
-        )  # torch.Size([4, 9, 128, 128])
-        # Forward pass through PointNet
-        point_outputs, pc_emb = self.pointnext(pc_feat, xyz)  # torch.Size([4, 9])
+        if self.config["mode"] != "pts" and images is not None:
+            # Process images
+            if self.use_mf:
+                fused_features = self.mf_module(images)
+            else:
+                batch_size, num_seasons, num_channels, width, height = images.shape
+                fused_features = images.view(batch_size, num_seasons * num_channels, width, height)
+            image_outputs, img_emb = self.s2_model(fused_features)
 
-        if self.config["fuse_feature"]:
+        if self.config["mode"] != "img" and pc_feat is not None and xyz is not None:
+            # Process point clouds
+            point_outputs, pc_emb = self.pointnext(pc_feat, xyz)
+
+        if self.config["mode"] == "fuse":
+            # Fusion and classification
             class_output = self.MLP(img_emb, pc_emb)
             return image_outputs, point_outputs, class_output
+        elif self.config["mode"] == "img":
+            return image_outputs
         else:
-            return image_outputs, point_outputs
+            return point_outputs
 
-    def foward_and_metrics(
-        self, images, img_masks, pc_feat, point_clouds, labels, pixel_labels, stage
-    ):
+    def forward_and_metrics(self, images, img_masks, pc_feat, point_clouds, labels, pixel_labels, stage):
         """
         Forward operations, computes the masked loss, R² score, and logs the metrics.
-
-        Args:
-        - stage: One of 'train', 'val', or 'test', used for logging purposes.
-
-        Returns:
-        - loss: The computed loss.
         """
-        pc_feat = pc_feat.permute(0, 2, 1)
-        point_clouds = point_clouds.permute(0, 2, 1)
-        if self.config["fuse_feature"]:
-            pixel_logits, pc_logits, fuse_logits = self.forward(
-                images, pc_feat, point_clouds
-            )
+        pc_feat = pc_feat.permute(0, 2, 1) if pc_feat is not None else None
+        point_clouds = point_clouds.permute(0, 2, 1) if point_clouds is not None else None
+
+        if self.config["mode"] == "fuse":
+            pixel_preds, pc_preds, fuse_preds = self.forward(images, pc_feat, point_clouds)
+        elif self.config["mode"] == "img":
+            pixel_preds = self.forward(images, None, None)
         else:
-            pixel_logits, pc_logits = self.forward(images, pc_feat, point_clouds)
+            pc_preds = self.forward(None, pc_feat, point_clouds)
 
-        pc_preds = F.softmax(pc_logits, dim=1)
-        pixel_preds = F.softmax(pixel_logits, dim=1)
-        if self.config["fuse_feature"]:
-            fuse_preds = F.softmax(fuse_logits, dim=1)
-
-        # Convert preds and labels to leading class labels by taking argmax
-        pred_pc_labels = torch.argmax(pc_preds, dim=1)
-        pred_lead_pixel_labels = torch.argmax(pixel_preds, dim=1)
         true_labels = torch.argmax(labels, dim=1)
-        true_lead_pixel_labels = torch.argmax(pixel_labels, dim=1)
 
-        valid_pixel_preds, valid_pixel_true = apply_mask(
-            pixel_preds, pixel_labels, img_masks
-        )
-        valid_pixel_lead_preds, valid_pixel_lead_true = apply_mask(
-            pred_lead_pixel_labels, true_lead_pixel_labels, img_masks, multi_class=False
-        )
+        loss = 0
+        logs = {}
 
-        # Compute loss
-        loss_pixel = self.criterion(
-            valid_pixel_preds, valid_pixel_true
-        )  # pixel-level loss
-        loss_point = self.criterion(pc_preds, labels)  # point cloud class-level loss
-        if self.config["fuse_feature"]:
-            loss_fuse = self.criterion(
-                fuse_preds, labels
-            )  # superpixel class-level loss
-            loss = loss_fuse + loss_point + loss_pixel  # Adjust weights as needed
-        else:
-            loss = loss_pixel + loss_point
+        # Point cloud stream
+        if self.config["mode"] != "img":
+            pred_lead_pc_labels = torch.argmax(pc_preds, dim=1)
+            pc_f1 = self.calc_f1(pred_lead_pc_labels, true_labels)
+            # Compute point cloud loss
+            # Compute the loss with the WeightedMSELoss, which will handle the weights
+            if self.config["weighted_loss"] and stage == "train":
+                self.weights = self.weights.to(pc_preds.device)
+                # Compute the loss with the WeightedMSELoss, which will handle the weights
+                loss_point = calc_loss(labels, pc_preds, self.weights)
+            else:
+                loss_point = self.criterion(pc_preds, labels)
+            loss += loss_point
+
+            # Compute r2 metrics
+            pc_preds = torch.round(pc_preds, decimals=1)
+            pc_r2 = self.calc_r2(pc_preds.view(-1), labels.view(-1))
+
+            # Log metrics
+            logs.update({
+                f"pc_{stage}_loss": loss_point,
+                f"pc_{stage}_r2": pc_r2,
+                f"pc_{stage}_f1": pc_f1,
+            })
+
+        # Image stream
+        if self.config["mode"] != "pts":
+            pred_lead_pixel_labels = torch.argmax(pixel_preds, dim=1)
+            true_lead_pixel_labels = torch.argmax(pixel_labels, dim=1)
+            valid_pixel_lead_preds, valid_pixel_lead_true = apply_mask(
+                pred_lead_pixel_labels, true_lead_pixel_labels, img_masks, multi_class=False)
+            img_f1 = self.calc_f1(valid_pixel_lead_preds, valid_pixel_lead_true)
+            
+            # Compute pixel-level loss
+            # Apply mask to predictions and labels
+            valid_pixel_preds, valid_pixel_true = apply_mask(pixel_preds, pixel_labels, img_masks)
+            loss_pixel = self.criterion(valid_pixel_preds, valid_pixel_true)
+            loss += loss_pixel
+
+            # Compute r2 metrics
+            valid_pixel_preds = torch.round(valid_pixel_preds, decimals=1)
+            pixel_r2 = self.calc_r2(valid_pixel_preds.view(-1), valid_pixel_true.view(-1))
+            
+
+            # Log metrics
+            logs.update({
+                f"pixel_{stage}_loss": loss_pixel,
+                f"pixel_{stage}_r2": pixel_r2,
+                f"pixel_{stage}_f1": img_f1,
+            })
+
+        # Fusion stream
+        if self.config["mode"] == "fuse":
+            if self.config.get("fuse_feature", False):
+                loss_fuse = self.criterion(fuse_preds, labels)
+                loss += loss_fuse
+
+                # Compute metrics
+                fuse_preds = torch.round(fuse_preds, decimals=1)
+                fuse_r2 = self.calc_r2(fuse_preds.view(-1), labels.view(-1))
+                # Log metrics
+                logs.update({
+                    f"fuse_{stage}_loss": loss_fuse,
+                    f"fuse_{stage}_r2": fuse_r2,
+                })
 
         # Compute RMSE
         rmse = torch.sqrt(loss)
 
-        # Compute R² score & f1 score of leading species
-        pc_preds = torch.round(pc_preds, decimals=1)
-        valid_pixel_preds = torch.round(valid_pixel_preds, decimals=1)
-        if self.config["fuse_feature"]:
-            fuse_preds = torch.round(fuse_preds, decimals=1)
-        if stage == "train":
-            pc_r2 = self.train_r2(pc_preds.view(-1), labels.view(-1))
-            pixel_r2 = self.train_r2(
-                valid_pixel_preds.view(-1), valid_pixel_true.view(-1)
-            )
-            if self.config["fuse_feature"]:
-                fuse_r2 = self.train_r2(fuse_preds.view(-1), labels.view(-1))
-            pc_f1 = self.train_f1(pred_pc_labels, true_labels)
-            img_f1 = self.train_f1(valid_pixel_lead_preds, valid_pixel_lead_true)
-        elif stage == "val":
-            pc_r2 = self.val_r2(pc_preds.view(-1), labels.view(-1))
-            pixel_r2 = self.val_r2(
-                valid_pixel_preds.view(-1), valid_pixel_true.view(-1)
-            )
-            if self.config["fuse_feature"]:
-                fuse_r2 = self.val_r2(fuse_preds.view(-1), labels.view(-1))
-            pc_f1 = self.val_f1(pred_pc_labels, true_labels)
-            img_f1 = self.val_f1(valid_pixel_lead_preds, valid_pixel_lead_true)
-        else:
-            pc_r2 = self.test_r2(pc_preds.view(-1), labels.view(-1))
-            pixel_r2 = self.test_r2(
-                valid_pixel_preds.view(-1), valid_pixel_true.view(-1)
-            )
-            if self.config["fuse_feature"]:
-                fuse_r2 = self.test_r2(fuse_preds.view(-1), labels.view(-1))
-            pc_f1 = self.test_f1(pred_pc_labels, true_labels)
-            img_f1 = self.test_f1(valid_pixel_lead_preds, valid_pixel_lead_true)
+        # Log loss and RMSE
+        logs.update({
+            f"{stage}_loss": loss,
+            f"{stage}_rmse": rmse,
+        })
 
-        # Log and return loss
-        # Log the loss and R² score
-        sync_state = True
-        self.log(
-            f"{stage}_loss",
-            loss,
-            logger=True,
-            sync_dist=sync_state,
-            on_step=True,
-            on_epoch=(stage == "val"),
-        )
-        self.log(
-            f"{stage}_rmse",
-            rmse,
-            logger=True,
-            sync_dist=sync_state,
-            on_step=True,
-            on_epoch=(stage != "train"),
-        )
-        self.log(
-            f"pc_{stage}_r2",
-            pc_r2,
-            logger=True,
-            prog_bar=True,
-            sync_dist=sync_state,
-            on_step=True,
-            on_epoch=(stage != "train"),
-        )
-        if self.config["fuse_feature"]:
-            self.log(
-                f"fuse_{stage}_r2",
-                fuse_r2,
-                logger=True,
-                prog_bar=True,
-                sync_dist=sync_state,
-                on_step=True,
-                on_epoch=(stage != "train"),
-            )
-        self.log(
-            f"pixel_{stage}_r2",
-            pixel_r2,
-            logger=True,
-            prog_bar=True,
-            sync_dist=sync_state,
-            on_step=True,
-            on_epoch=(stage != "train"),
-        )
-        self.log(
-            f"pc_{stage}_f1",
-            pc_f1,
-            logger=True,
-            prog_bar=True,
-            sync_dist=sync_state,
-            on_step=True,
-            on_epoch=(stage != "train"),
-        )
-        self.log(
-            f"pixel_{stage}_f1",
-            img_f1,
-            logger=True,
-            prog_bar=True,
-            sync_dist=sync_state,
-            on_step=True,
-            on_epoch=(stage != "train"),
-        )
+        # Log all metrics
+        for key, value in logs.items():
+            self.log(key, value, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         return loss
 
     def training_step(self, batch, batch_idx):
-        images = batch[
-            "images"
-        ]  # Shape: (batch_size, num_seasons, num_channels, 128, 128)
-        point_clouds = batch["point_cloud"]  # Shape: (batch_size, num_points, 3)
-        labels = batch["label"]  # Shape: (batch_size, num_classes)
-        per_pixel_labels = batch[
-            "per_pixel_labels"
-        ]  # Shape: (batch_size, num_classes, 128, 128)
-        image_masks = batch["nodata_mask"]
-        pc_feat = batch["pc_feat"]  # Shape: [batch_size, num_points, 3]
+        images = batch["images"] if "images" in batch else None
+        point_clouds = batch["point_cloud"] if "point_cloud" in batch else None
+        labels = batch["label"]
+        per_pixel_labels = batch["per_pixel_labels"] if "per_pixel_labels" in batch else None
+        image_masks = batch["nodata_mask"] if "nodata_mask" in batch else None
+        pc_feat = batch["pc_feat"] if "pc_feat" in batch else None
 
-        loss = self.foward_and_metrics(
+        loss = self.forward_and_metrics(
             images,
             image_masks,
             pc_feat,
@@ -292,18 +243,14 @@ class SuperpixelModel(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        images = batch[
-            "images"
-        ]  # Shape: (batch_size, num_seasons, num_channels, 128, 128)
-        point_clouds = batch["point_cloud"]  # Shape: (batch_size, num_points, 3)
-        labels = batch["label"]  # Shape: (batch_size, num_classes)
-        per_pixel_labels = batch[
-            "per_pixel_labels"
-        ]  # Shape: (batch_size, num_classes, 128, 128)
-        image_masks = batch["nodata_mask"]
-        pc_feat = batch["pc_feat"]  # Shape: [batch_size, num_points, 3]
+        images = batch["images"] if "images" in batch else None
+        point_clouds = batch["point_cloud"] if "point_cloud" in batch else None
+        labels = batch["label"]
+        per_pixel_labels = batch["per_pixel_labels"] if "per_pixel_labels" in batch else None
+        image_masks = batch["nodata_mask"] if "nodata_mask" in batch else None
+        pc_feat = batch["pc_feat"] if "pc_feat" in batch else None
 
-        loss = self.foward_and_metrics(
+        loss = self.forward_and_metrics(
             images,
             image_masks,
             pc_feat,
@@ -315,18 +262,14 @@ class SuperpixelModel(pl.LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        images = batch[
-            "images"
-        ]  # Shape: (batch_size, num_seasons, num_channels, 128, 128)
-        point_clouds = batch["point_cloud"]  # Shape: (batch_size, num_points, 3)
-        labels = batch["label"]  # Shape: (batch_size, num_classes)
-        per_pixel_labels = batch[
-            "per_pixel_labels"
-        ]  # Shape: (batch_size, num_classes, 128, 128)
-        image_masks = batch["nodata_mask"]
-        pc_feat = batch["pc_feat"]  # Shape: [batch_size, num_points, 3]
+        images = batch["images"] if "images" in batch else None
+        point_clouds = batch["point_cloud"] if "point_cloud" in batch else None
+        labels = batch["label"]
+        per_pixel_labels = batch["per_pixel_labels"] if "per_pixel_labels" in batch else None
+        image_masks = batch["nodata_mask"] if "nodata_mask" in batch else None
+        pc_feat = batch["pc_feat"] if "pc_feat" in batch else None
 
-        loss = self.foward_and_metrics(
+        loss = self.forward_and_metrics(
             images,
             image_masks,
             pc_feat,

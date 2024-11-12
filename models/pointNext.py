@@ -48,4 +48,5 @@ class PointNextModel(nn.Module):
         out = pc_feats.mean(dim=-1)
         out = self.act(out)
         logits = self.cls_head(out)
-        return logits, pc_feats
+        preds = F.softmax(logits, dim=1)
+        return preds, pc_feats
