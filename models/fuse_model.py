@@ -19,6 +19,7 @@ class SuperpixelModel(pl.LightningModule):
         self.save_hyperparameters(config)
         self.config = config
         self.use_mf = self.config["use_mf"]
+        self.spatial_attention = self.config["spatial_attention"]
         self.use_residual = self.config["use_residual"]
         self.use_mamba_fuse = self.config["mamba_fuse"]
         f = self.config["linear_layers_dims"]  # f = [512, 128]
@@ -31,7 +32,7 @@ class SuperpixelModel(pl.LightningModule):
 
             if self.use_mf:
                 # MF Module for seasonal fusion (each season has `n_bands` channels)
-                self.mf_module = MF(channels=self.n_bands)
+                self.mf_module = MF(channels=self.n_bands, spatial_att=self.spatial_attention)
                 total_input_channels = (
                     64  # MF module outputs 64 channels after processing four seasons
                 )

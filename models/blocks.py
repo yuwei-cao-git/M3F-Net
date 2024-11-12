@@ -27,13 +27,111 @@ class SE_Block(nn.Module):
         y = self.fc(y).view(b, c, 1, 1)  # FC获取通道注意力权重，是具有全局信息的
         return x * y.expand_as(x)  # 注意力作用每一个通道上
 
+# ref: https://github.com/wolny/pytorch-3dunet/blob/master/pytorch3dunet/unet3d/se.py
+class ChannelSELayer3D(nn.Module):
+    """
+    3D extension of Squeeze-and-Excitation (SE) block described in:
+        *Hu et al., Squeeze-and-Excitation Networks, arXiv:1709.01507*
+        *Zhu et al., AnatomyNet, arXiv:arXiv:1808.05238*
+    """
 
+    def __init__(self, num_channels, reduction_ratio=2):
+        """
+        Args:
+            num_channels (int): No of input channels
+            reduction_ratio (int): By how much should the num_channels should be reduced
+        """
+        super(ChannelSELayer3D, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool3d(1)
+        num_channels_reduced = num_channels // reduction_ratio
+        self.reduction_ratio = reduction_ratio
+        self.fc1 = nn.Linear(num_channels, num_channels_reduced, bias=True)
+        self.fc2 = nn.Linear(num_channels_reduced, num_channels, bias=True)
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        batch_size, num_channels, D, H, W = x.size()
+        # Average along each channel
+        squeeze_tensor = self.avg_pool(x)
+
+        # channel excitation
+        fc_out_1 = self.relu(self.fc1(squeeze_tensor.view(batch_size, num_channels)))
+        fc_out_2 = self.sigmoid(self.fc2(fc_out_1))
+
+        output_tensor = torch.mul(x, fc_out_2.view(batch_size, num_channels, 1, 1, 1))
+
+        return output_tensor
+
+
+class SpatialSELayer3D(nn.Module):
+    """
+    3D extension of SE block -- squeezing spatially and exciting channel-wise described in:
+        *Roy et al., Concurrent Spatial and Channel Squeeze & Excitation in Fully Convolutional Networks, MICCAI 2018*
+    """
+
+    def __init__(self, num_channels):
+        """
+        Args:
+            num_channels (int): No of input channels
+        """
+        super(SpatialSELayer3D, self).__init__()
+        self.conv = nn.Conv3d(num_channels, 1, 1)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x, weights=None):
+        """
+        Args:
+            weights (torch.Tensor): weights for few shot learning
+            x: X, shape = (batch_size, num_channels, D, H, W)
+
+        Returns:
+            (torch.Tensor): output_tensor
+        """
+        # channel squeeze
+        batch_size, channel, D, H, W = x.size()
+
+        if weights:
+            weights = weights.view(1, channel, 1, 1)
+            out = F.conv2d(x, weights)
+        else:
+            out = self.conv(x)
+
+        squeeze_tensor = self.sigmoid(out)
+
+        # spatial excitation
+        output_tensor = torch.mul(x, squeeze_tensor.view(batch_size, 1, D, H, W))
+
+        return output_tensor
+
+
+class ChannelSpatialSELayer3D(nn.Module):
+    """
+       3D extension of concurrent spatial and channel squeeze & excitation:
+           *Roy et al., Concurrent Spatial and Channel Squeeze & Excitation in Fully Convolutional Networks, arXiv:1803.02579*
+       """
+
+    def __init__(self, num_channels, reduction_ratio=2):
+        """
+        Args:
+            num_channels (int): No of input channels
+            reduction_ratio (int): By how much should the num_channels should be reduced
+        """
+        super(ChannelSpatialSELayer3D, self).__init__()
+        self.cSE = ChannelSELayer3D(num_channels, reduction_ratio)
+        self.sSE = SpatialSELayer3D(num_channels)
+
+    def forward(self, input_tensor):
+        output_tensor = torch.max(self.cSE(input_tensor), self.sSE(input_tensor))
+        return output_tensor
+    
 class MF(nn.Module):  # Multi-Feature (MF) module for seasonal attention-based fusion
-    def __init__(self, channels=13, reduction=16):  # Each season has 13 channels
+    def __init__(self, channels=12, reduction=16, spatial_att=False):  # Each season has 13 channels
         super(MF, self).__init__()
         # Channel attention for each season (spring, summer, autumn, winter)
         self.channels = channels
         self.reduction = reduction
+        self.spatial_attention = spatial_att
         self.mask_map_spring = nn.Conv2d(self.channels, 1, 1, 1, 0, bias=True)
         self.mask_map_summer = nn.Conv2d(self.channels, 1, 1, 1, 0, bias=True)
         self.mask_map_autumn = nn.Conv2d(self.channels, 1, 1, 1, 0, bias=True)
@@ -46,9 +144,10 @@ class MF(nn.Module):  # Multi-Feature (MF) module for seasonal attention-based f
         self.bottleneck_winter = nn.Conv2d(self.channels, 16, 3, 1, 1, bias=False)
 
         # Final SE Block for channel attention across all seasons
-        self.se = SE_Block(
-            64, self.reduction
-        )  # Since we have 4 seasons with 16 channels each, we get a total of 64 channels
+        if self.spatial_attention:
+            self.se = ChannelSpatialSELayer3D(64, reduction_ratio=2)
+        else:
+            self.se = SE_Block(64, self.reduction)  # Since we have 4 seasons with 16 channels each, we get a total of 64 channels
 
     def forward(self, x):  # x is a list of 4 inputs (spring, summer, autumn, winter)
         spring, summer, autumn, winter = torch.unbind(x, dim=1)  # Unpack the inputs

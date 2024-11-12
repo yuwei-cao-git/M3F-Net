@@ -76,6 +76,7 @@ def main(args):
         "fusion_dim": 128,  # tune.choice([128, 256]),
         "resolution": 20,  # tune.choice([10, 20]),
         "use_mf": tune.choice([True, False]),
+        "spatial_attention": tune.choice([True, False]),
         "use_residual": tune.choice([True, False]),
         "epochs": args.max_epochs,
         "eval": False,  # run testing
