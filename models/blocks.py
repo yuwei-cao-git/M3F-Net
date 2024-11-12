@@ -517,7 +517,7 @@ class MLP(nn.Module):
         self.conv = ConvBNReLU(in_ch, in_ch, kernel_size=3)
         self.pooling = nn.AdaptiveAvgPool2d(1)
         self.fc1 = nn.Linear(in_ch, hidden_ch[0])
-        self.bn1 = nn.GroupNorm(num_groups=32, num_channels=[0])
+        self.bn1 = nn.GroupNorm(num_groups=32, num_channels=hidden_ch[0])
         self.dropout1 = nn.Dropout(dropout_prob)
         self.fc2 = nn.Linear(hidden_ch[0], hidden_ch[1])
         self.bn2 = nn.GroupNorm(num_groups=32, num_channels=hidden_ch[1])
