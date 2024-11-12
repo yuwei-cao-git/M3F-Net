@@ -74,7 +74,7 @@ class SuperpixelModel(pl.LightningModule):
                 self.MLP = MLPBlock(in_ch, hidden_ch)
 
         # Define loss functions
-        if self.params["weighted_loss"]:
+        if self.config["weighted_loss"]:
         # Loss function and other parameters
             self.weights = self.config["train_weights"]  # Initialize on CPU
         self.criterion = nn.MSELoss()
