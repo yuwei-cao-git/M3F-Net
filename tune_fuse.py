@@ -86,7 +86,7 @@ def main(args):
         "data_dir": data_dir,
     }
     try:
-        # asha_scheduler = ASHAScheduler(max_t=1, grace_period=1, reduction_factor=2)
+        asha_scheduler = ASHAScheduler(max_t=1, grace_period=1, reduction_factor=2)
         trainable_with_gpu = tune.with_resources(
             train_func, {"gpu": config.get("gpus", 1)}
         )
@@ -95,7 +95,7 @@ def main(args):
             tune_config=tune.TuneConfig(
                 metric="pc_val_r2",
                 mode="max",
-                scheduler=config["scheduler"], #asha_scheduler,
+                scheduler=asha_scheduler,
                 num_samples=config["n_samples"],
             ),
             run_config=train.RunConfig(
