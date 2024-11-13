@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import Subset, DataLoader, ConcatDataset
 import pytorch_lightning as pl
 from data_utils.common import PointCloudsInPickle
-from data_utils.pts_augment import AugmentPointCloudsInPickle
+from data_utils.augment import AugmentPointCloudsInPickle
 
 class PointCloudDataModule(pl.LightningDataModule):
     def __init__(self, params):

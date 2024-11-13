@@ -16,7 +16,10 @@ class PointNeXtLightning(pl.LightningModule):
     def __init__(self, params, in_dim):
         super(PointNeXtLightning, self).__init__()
         self.params = params
-        self.model = PointNextModel(self.params, in_dim)
+        if self.params["pc_norm"]:
+            self.model = PointNextModel(self.params, in_dim=6)
+        else:
+            self.model = PointNextModel(self.params, in_dim=3)
 
         # Loss function and other parameters
         self.weights = self.params["train_weights"]  # Initialize on CPU

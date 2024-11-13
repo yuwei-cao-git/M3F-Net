@@ -57,7 +57,10 @@ class SuperpixelModel(pl.LightningModule):
 
         if self.config["mode"] != "img":
             # Initialize point cloud stream model
-            self.pointnext = PointNextModel(self.config, in_dim=3)
+            if self.config["pc_norm"]:
+                self.pointnext = PointNextModel(self.config, in_dim=6)
+            else:
+                self.pointnext = PointNextModel(self.config, in_dim=3)
 
         if self.config["mode"] == "fuse":
             # Fusion and classification layers with additional linear layer
@@ -81,9 +84,7 @@ class SuperpixelModel(pl.LightningModule):
         self.criterion = nn.MSELoss()
 
         # Metrics
-        self.calc_r2 = R2Score()
-        self.calc_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
-        """
+        
         self.train_r2 = R2Score()
         self.train_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
 
@@ -92,10 +93,20 @@ class SuperpixelModel(pl.LightningModule):
 
         self.test_r2 = R2Score()
         self.test_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
-        """
+        
         # Optimizer and scheduler settings
         self.optimizer_type = self.config["optimizer"]
         self.scheduler_type = self.config["scheduler"]
+        
+        # Learning rates for different parts
+        self.img_lr = self.config.get("img_lr")
+        self.pc_lr = self.config.get("pc_lr")
+        self.fusion_lr = self.config.get("fuse_lr")
+
+        # Loss weights
+        self.pc_loss_weight = self.config.get("pc_loss_weight", 2.0)
+        self.img_loss_weight = self.config.get("img_loss_weight", 1.0)
+        self.fuse_loss_weight = self.config.get("fuse_loss_weight", 1.0)
 
     def forward(self, images, pc_feat, xyz):
         image_outputs = None
@@ -132,115 +143,126 @@ class SuperpixelModel(pl.LightningModule):
     ):
         """
         Forward operations, computes the masked loss, R² score, and logs the metrics.
-        """
-        pc_feat = pc_feat.permute(0, 2, 1) if pc_feat is not None else None
-        point_clouds = (
-            point_clouds.permute(0, 2, 1) if point_clouds is not None else None
-        )
 
+        Args:
+        - images: Image data
+        - img_masks: Masks for images
+        - pc_feat: Point cloud features
+        - point_clouds: Point cloud coordinates
+        - labels: Ground truth labels for classification
+        - pixel_labels: Ground truth labels for per-pixel predictions
+        - stage: One of 'train', 'val', or 'test', used to select appropriate metrics and logging
+
+        Returns:
+        - loss: The computed loss
+        """
+        # Permute point cloud data if available
+        pc_feat = pc_feat.permute(0, 2, 1) if pc_feat is not None else None
+        point_clouds = point_clouds.permute(0, 2, 1) if point_clouds is not None else None
+
+        # Forward pass
         if self.config["mode"] == "fuse":
-            pixel_preds, pc_preds, fuse_preds = self.forward(
-                images, pc_feat, point_clouds
-            )
+            pixel_preds, pc_preds, fuse_preds = self.forward(images, pc_feat, point_clouds)
         elif self.config["mode"] == "img":
             pixel_preds = self.forward(images, None, None)
+            pc_preds = None
+            fuse_preds = None
         else:
             pc_preds = self.forward(None, pc_feat, point_clouds)
+            pixel_preds = None
+            fuse_preds = None
 
         true_labels = torch.argmax(labels, dim=1)
-
         loss = 0
         logs = {}
 
+        # Select appropriate metric instances based on the stage
+        if stage == "train":
+            r2_metric = self.train_r2
+            f1_metric = self.train_f1
+        elif stage == "val":
+            r2_metric = self.val_r2
+            f1_metric = self.val_f1
+        else:  # stage == "test"
+            r2_metric = self.test_r2
+            f1_metric = self.test_f1
+
         # Point cloud stream
-        if self.config["mode"] != "img":
-            pred_lead_pc_labels = torch.argmax(pc_preds, dim=1)
-            pc_f1 = self.calc_f1(pred_lead_pc_labels, true_labels)
+        if self.config["mode"] != "img" and pc_preds is not None:
             # Compute point cloud loss
-            # Compute the loss with the WeightedMSELoss, which will handle the weights
             if self.config["weighted_loss"] and stage == "train":
                 self.weights = self.weights.to(pc_preds.device)
-                # Compute the loss with the WeightedMSELoss, which will handle the weights
                 loss_point = calc_loss(labels, pc_preds, self.weights)
             else:
                 loss_point = self.criterion(pc_preds, labels)
-            loss += loss_point
+            loss += self.pc_loss_weight * loss_point
 
-            # Compute r2 metrics
-            pc_preds = torch.round(pc_preds, decimals=1)
-            pc_r2 = self.calc_r2(pc_preds.view(-1), labels.view(-1))
+            # Compute R² metric
+            pc_preds_rounded = torch.round(pc_preds, decimals=1)
+            pc_r2 = r2_metric(pc_preds_rounded.view(-1), labels.view(-1))
+
+            # Compute F1 score
+            pred_lead_pc_labels = torch.argmax(pc_preds, dim=1)
+            pc_f1 = f1_metric(pred_lead_pc_labels, true_labels)
 
             # Log metrics
-            logs.update(
-                {
-                    f"pc_{stage}_loss": loss_point,
-                    f"pc_{stage}_r2": pc_r2,
-                    f"pc_{stage}_f1": pc_f1,
-                }
-            )
+            logs.update({
+                f"pc_{stage}_loss": loss_point,
+                f"pc_{stage}_r2": pc_r2,
+                f"pc_{stage}_f1": pc_f1,
+            })
 
         # Image stream
-        if self.config["mode"] != "pts":
+        if self.config["mode"] != "pts" and pixel_preds is not None:
+            # Apply mask to predictions and labels
+            valid_pixel_preds, valid_pixel_true = apply_mask(pixel_preds, pixel_labels, img_masks)
+
+            # Compute pixel-level loss
+            loss_pixel = self.criterion(valid_pixel_preds, valid_pixel_true)
+            loss += self.img_loss_weight * loss_pixel
+
+            # Compute R² metric
+            valid_pixel_preds_rounded = torch.round(valid_pixel_preds, decimals=1)
+            pixel_r2 = r2_metric(valid_pixel_preds_rounded.view(-1), valid_pixel_true.view(-1))
+
+            # Compute F1 score
             pred_lead_pixel_labels = torch.argmax(pixel_preds, dim=1)
             true_lead_pixel_labels = torch.argmax(pixel_labels, dim=1)
             valid_pixel_lead_preds, valid_pixel_lead_true = apply_mask(
-                pred_lead_pixel_labels,
-                true_lead_pixel_labels,
-                img_masks,
-                multi_class=False,
+                pred_lead_pixel_labels, true_lead_pixel_labels, img_masks, multi_class=False
             )
-            img_f1 = self.calc_f1(valid_pixel_lead_preds, valid_pixel_lead_true)
-
-            # Compute pixel-level loss
-            # Apply mask to predictions and labels
-            valid_pixel_preds, valid_pixel_true = apply_mask(
-                pixel_preds, pixel_labels, img_masks
-            )
-            loss_pixel = self.criterion(valid_pixel_preds, valid_pixel_true)
-            loss += loss_pixel
-
-            # Compute r2 metrics
-            valid_pixel_preds = torch.round(valid_pixel_preds, decimals=1)
-            pixel_r2 = self.calc_r2(
-                valid_pixel_preds.view(-1), valid_pixel_true.view(-1)
-            )
+            img_f1 = f1_metric(valid_pixel_lead_preds, valid_pixel_lead_true)
 
             # Log metrics
-            logs.update(
-                {
-                    f"pixel_{stage}_loss": loss_pixel,
-                    f"pixel_{stage}_r2": pixel_r2,
-                    f"pixel_{stage}_f1": img_f1,
-                }
-            )
+            logs.update({
+                f"pixel_{stage}_loss": loss_pixel,
+                f"pixel_{stage}_r2": pixel_r2,
+                f"pixel_{stage}_f1": img_f1,
+            })
 
         # Fusion stream
-        if self.config["mode"] == "fuse":
+        if self.config["mode"] == "fuse" and fuse_preds is not None:
             if self.config.get("fuse_feature", False):
+                # Compute fusion loss
                 loss_fuse = self.criterion(fuse_preds, labels)
-                loss += loss_fuse
+                loss += self.fuse_loss_weight * loss_fuse
 
-                # Compute metrics
-                fuse_preds = torch.round(fuse_preds, decimals=1)
-                fuse_r2 = self.calc_r2(fuse_preds.view(-1), labels.view(-1))
+                # Compute R² metric
+                fuse_preds_rounded = torch.round(fuse_preds, decimals=1)
+                fuse_r2 = r2_metric(fuse_preds_rounded.view(-1), labels.view(-1))
+
                 # Log metrics
-                logs.update(
-                    {
-                        f"fuse_{stage}_loss": loss_fuse,
-                        f"fuse_{stage}_r2": fuse_r2,
-                    }
-                )
+                logs.update({
+                    f"fuse_{stage}_loss": loss_fuse,
+                    f"fuse_{stage}_r2": fuse_r2,
+                })
 
         # Compute RMSE
         rmse = torch.sqrt(loss)
-
-        # Log loss and RMSE
-        logs.update(
-            {
-                f"{stage}_loss": loss,
-                f"{stage}_rmse": rmse,
-            }
-        )
+        logs.update({
+            f"{stage}_loss": loss,
+            f"{stage}_rmse": rmse,
+        })
 
         # Log all metrics
         for key, value in logs.items():
@@ -324,36 +346,27 @@ class SuperpixelModel(pl.LightningModule):
 
         # Include parameters from the image model if in 'img' or 'fuse' mode
         if self.config["mode"] != "pts":
-            params += list(self.s2_model.parameters())
+            image_params = list(self.s2_model.parameters())
             if self.use_mf:
-                params += list(self.mf_module.parameters())
+                image_params += list(self.mf_module.parameters())
+            params.append({'params': image_params, 'lr': self.img_lr})
 
         # Include parameters from the point cloud model if in 'pts' or 'fuse' mode
         if self.config["mode"] != "img":
-            params += list(self.pointnext.parameters())
+            point_params = list(self.pointnext.parameters())
+            params.append({'params': point_params, 'lr': self.pc_lr})
 
         # Include parameters from the fusion layers if in 'fuse' mode
         if self.config["mode"] == "fuse":
-            params += list(self.MLP.parameters())
+            fusion_params = list(self.MLP.parameters())
+            params.append({'params': fusion_params, 'lr': self.fusion_lr})
         # Choose the optimizer based on input parameter
         if self.optimizer_type == "adam":
-            optimizer = torch.optim.Adam(
-                params,
-                lr=self.config["learning_rate"],
-                betas=(0.9, 0.999),
-                eps=1e-08,
-            )
+            optimizer = torch.optim.Adam(params, betas=(0.9, 0.999), eps=1e-08,)
         elif self.optimizer_type == "adamW":
-            optimizer = torch.optim.AdamW(
-                params, lr=self.config["learning_rate"]
-            )
+            optimizer = torch.optim.AdamW(params)
         elif self.optimizer_type == "sgd":
-            optimizer = torch.optim.SGD(
-                params,
-                lr=self.config["learning_rate"],
-                momentum=self.config["momentum"],
-                weight_decay=self.config["weight_decay"],
-            )
+            optimizer = torch.optim.SGD(params, momentum=self.config["momentum"], weight_decay=self.config["weight_decay"],)
         else:
             raise ValueError(f"Unknown optimizer type: {self.optimizer_type}")
 
@@ -369,8 +382,6 @@ class SuperpixelModel(pl.LightningModule):
                     "monitor": "val_loss",  # Reduce learning rate when 'val_loss' plateaus
                 },
             }
-        elif self.scheduler_type == "asha":
-            return optimizer
         elif self.scheduler_type == "steplr":
             scheduler = torch.optim.lr_scheduler.StepLR(
                 optimizer, step_size=self.config["step_size"], gamma=0.1
