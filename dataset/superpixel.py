@@ -39,8 +39,12 @@ class SuperpixelDataset(Dataset):
         nodata_mask = data["nodata_mask"]  # Shape: (128, 128)
         xyz = coords - np.mean(coords, axis=0)
 
-        superpixel_images = torch.from_numpy(superpixel_images).float()  # Shape: (num_seasons, num_channels, 128, 128)
-        per_pixel_labels = torch.from_numpy(per_pixel_labels).float()  # Shape: (num_classes, 128, 128)
+        superpixel_images = torch.from_numpy(
+            superpixel_images
+        ).float()  # Shape: (num_seasons, num_channels, 128, 128)
+        per_pixel_labels = torch.from_numpy(
+            per_pixel_labels
+        ).float()  # Shape: (num_classes, 128, 128)
         nodata_mask = torch.from_numpy(nodata_mask).bool()
 
         # Apply transforms if needed
@@ -49,7 +53,14 @@ class SuperpixelDataset(Dataset):
 
         # Apply point cloud transforms if any
         if self.point_cloud_transform:
-            xyz, coords, label = pointCloudTransform(xyz, pc_feat=coords, target=label, rot=self.rotate, norm=self.norm)
+            xyz, coords, label = pointCloudTransform(
+                xyz, pc_feat=coords, target=label, rot=self.rotate
+            )
+
+        if self.norm:
+            m = np.max(np.linalg.norm(xyz, axis=1, keepdims=True))
+            norm_xyz = xyz / m
+            coords = np.concatenate([coords, norm_xyz], axis=-1)
 
         # After applying transforms
         coords = torch.from_numpy(coords).float()  # Shape: (7168, 3)
@@ -115,7 +126,7 @@ class SuperpixelDataModule(LightningDataModule):
             self.datasets[split] = SuperpixelDataset(
                 superpixel_files,
                 rotate=None,
-                normalization=None,
+                normalization=self.aug_norm,
                 image_transform=None,
                 point_cloud_transform=None,
             )
@@ -126,7 +137,7 @@ class SuperpixelDataModule(LightningDataModule):
                     aug_dataset = SuperpixelDataset(
                         superpixel_files,
                         rotate=self.aug_rotate,
-                        rotate=self.aug_norm,
+                        normalization=self.aug_norm,
                         image_transform=self.image_transform,
                         point_cloud_transform=self.point_cloud_transform,
                     )

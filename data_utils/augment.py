@@ -8,6 +8,7 @@ from .common import read_las
 from torch.utils.data import Dataset
 import torchvision.transforms.v2 as transforms
 
+
 def angle_axis(angle, axis):
     # type: (float, np.ndarray) -> float
     r"""Returns a 4x4 rotation matrix that performs a rotation around axis by angle
@@ -40,9 +41,10 @@ def angle_axis(angle, axis):
     # yapf: enable
     return R.float()
 
+
 def rotate_points(coords, x=None):
     rotation_angle = np.random.uniform() * 2 * np.pi
-    axis=np.array([0.0, 1.0, 0.0])
+    axis = np.array([0.0, 1.0, 0.0])
     # Rotate point cloud
     rot_mat = angle_axis(rotation_angle, axis)
 
@@ -56,10 +58,9 @@ def rotate_points(coords, x=None):
 
     return aug_coords, aug_x
 
+
 def point_rotate_perturbation(coords, angle_sigma=0.06, angle_clip=0.18, x=None):
-    angles = np.clip(
-            angle_sigma * np.random.randn(3), -angle_clip, angle_clip
-        )
+    angles = np.clip(angle_sigma * np.random.randn(3), -angle_clip, angle_clip)
     Rx = angle_axis(angles[0], np.array([1.0, 0.0, 0.0]))
     Ry = angle_axis(angles[1], np.array([0.0, 1.0, 0.0]))
     Rz = angle_axis(angles[2], np.array([0.0, 0.0, 1.0]))
@@ -74,7 +75,8 @@ def point_rotate_perturbation(coords, angle_sigma=0.06, angle_clip=0.18, x=None)
         aug_x[:, :3] = np.matmul(aug_x[:, :3], rot_mat.t())
 
     return aug_coords, aug_x
-    
+
+
 def point_removal(coords, n, x=None):
     # Get list of ids
     idx = list(range(np.shape(coords)[0]))
@@ -92,6 +94,7 @@ def point_removal(coords, n, x=None):
 
     return aug_coords, aug_x
 
+
 def point_translate(coords, translate_range=0.1, x=None):
     translation = np.random.uniform(-translate_range, translate_range)
     coords[:, 0:3] += translation
@@ -101,8 +104,11 @@ def point_translate(coords, translate_range=0.1, x=None):
         aug_x = x + translation
     return coords, aug_x
 
+
 def point_jitter(coords, std=0.01, clip=0.05, x=None):
-    jittered_data = coords.new(coords.size(0), 3).normal_(mean=0.0, std=std).clamp_(-clip, clip)
+    jittered_data = (
+        coords.new(coords.size(0), 3).normal_(mean=0.0, std=std).clamp_(-clip, clip)
+    )
     coords[:, 0:3] += jittered_data
     if x is None:
         x = None
@@ -110,6 +116,8 @@ def point_jitter(coords, std=0.01, clip=0.05, x=None):
         x[:, 0:3] += jittered_data
 
     return coords, x
+
+
 def random_scale(coords, lo=0.8, hi=1.25, x=None):
     scaler = np.random.uniform(lo, hi)
     aug_coords = coords * scaler
@@ -118,6 +126,7 @@ def random_scale(coords, lo=0.8, hi=1.25, x=None):
     else:
         aug_x = x * scaler
     return aug_coords, aug_x
+
 
 def random_noise(coords, n, dim=1, x=None):
     # Random standard deviation value
@@ -160,6 +169,7 @@ def random_noise(coords, n, dim=1, x=None):
         aug_x = np.append(x, aug_x, axis=0)  # add random point values # ADDED axis=0
 
     return aug_coords, aug_x
+
 
 class AugmentPointCloudsInPickle(Dataset):
     """Point cloud dataset where one data point is a file."""
@@ -212,7 +222,8 @@ class AugmentPointCloudsInPickle(Dataset):
             return None
         return coords, xyz, target
 
-def pointCloudTransform(xyz, pc_feat, target, rot=True, norm=False):
+
+def pointCloudTransform(xyz, pc_feat, target, rot=True):
     # Point Removal
     n = random.randint(round(len(xyz) * 0.9), len(xyz))
     aug_xyz, aug_feats = point_removal(xyz, n, x=pc_feat)
@@ -223,14 +234,11 @@ def pointCloudTransform(xyz, pc_feat, target, rot=True, norm=False):
     if rot:
         aug_xyz, aug_feats = point_rotate_perturbation(aug_xyz, x=aug_feats)
         aug_xyz, aug_feats = rotate_points(aug_xyz, x=aug_feats)
-    if norm:
-        m = np.max(np.linalg.norm(aug_xyz, axis=1, keepdims=True))
-        norm_xyz = aug_xyz / m
-        aug_feats = np.concatenate([aug_feats, norm_xyz], axis=1)
-    
+
     target = target
 
     return aug_xyz, aug_feats, target
+
 
 def image_transform(img, image_transform):
     if image_transform == "random":
@@ -252,7 +260,8 @@ def image_transform(img, image_transform):
             p=0.3,
         )
     elif image_transform == "compose":
-            transform = transforms.Compose([
+        transform = transforms.Compose(
+            [
                 transforms.RandomCrop(size=(128, 128)),
                 transforms.RandomHorizontalFlip(p=0.5),
                 transforms.ToDtype(torch.float32, scale=True),
@@ -261,13 +270,14 @@ def image_transform(img, image_transform):
                 transforms.RandomAffine(
                     degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75)
                 ),
-            ])
+            ]
+        )
     else:
         transform = None
-            
+
     if transform is None:
         aug_image = None
     else:
         aug_image = transform(img)
-    
+
     return aug_image
