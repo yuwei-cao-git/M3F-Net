@@ -34,7 +34,7 @@ def train_func(config):
     # Initialize WandB, CSV Loggers
     wandb_logger = WandbLogger(
         project="M3F-Net-fuse",
-        group="tune_v3",
+        group="tune_v4",
         name=f"{log_name}_trial_{tune.Trainable().trial_id}",
         save_dir=config["save_dir"],
         log_model=True,
@@ -71,8 +71,8 @@ def train_func(config):
     trainer.fit(model, data_module)
 
     # Report the final metric to Ray Tune
-    final_result = trainer.callback_metrics["pc_val_r2"].item()
-    train.report({"pc_val_r2": final_result})
+    final_result = trainer.callback_metrics["fuse_val_r2"].item()
+    train.report({"fuse_val_r2": final_result})
 
     # Save the best model after training
     trainer.save_checkpoint(

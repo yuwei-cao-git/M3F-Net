@@ -110,7 +110,7 @@ def main(args):
                 callbacks=[
                     WandbLoggerCallback(
                         project="M3F-Net-fuse",
-                        group="tune_v3",
+                        group="tune_v4",
                         api_key=os.environ["WANDB_API_KEY"],
                         log_config=True,
                         save_checkpoints=True,
@@ -122,7 +122,7 @@ def main(args):
         results = tuner.fit()
         print(
             "Best trial config: {}".format(
-                results.get_best_result("pc_val_r2", "max").config
+                results.get_best_result("fuse_val_r2", "max").config
             )
         )
     except Exception as e:
