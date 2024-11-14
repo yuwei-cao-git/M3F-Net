@@ -76,7 +76,9 @@ def main(args):
         "num_points": 7168,  # number of points
         "emb_dims": tune.choice([512, 768, 1024]),  # dimension of embeddings
         "encoder": tune.choice(["s", "b", "l", "xl"]),
-        "linear_layers_dims": tune.choice([[1024, 256], [512, 128], [256, 128], [128, 128], [256, 64]]),
+        "linear_layers_dims": tune.choice(
+            [[1024, 256], [512, 128], [256, 128], [128, 128], [256, 64]]
+        ),
         "fuse_feature": tune.choice([True, False]),
         "mamba_fuse": tune.choice([True, False]),
         "fusion_dim": tune.choice([128, 256]),

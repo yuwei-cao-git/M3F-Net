@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from mamba_ssm import Mamba
-from einops import rearrange, repeat
+from einops import rearrange
 
 # -----------------------------------------------------------------------------------
 # Parts of the season fusion module
