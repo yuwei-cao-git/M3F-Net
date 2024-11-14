@@ -42,7 +42,7 @@ def train_func(config):
     # Define a checkpoint callback to save the best model
     checkpoint_callback = ModelCheckpoint(
         monitor="val_loss",  # Track the validation loss
-        filename="best-model-{epoch:02d}-{val_loss:.2f}",
+        filename="best-model-{epoch:02d}-{pc_val_r2:.2f}",
         save_top_k=1,  # Only save the best model
         mode="min",  # We want to minimize the validation loss
     )
