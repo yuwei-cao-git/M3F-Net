@@ -101,8 +101,8 @@ def main(args):
         tuner = tune.Tuner(
             trainable_with_gpu,
             tune_config=tune.TuneConfig(
-                metric="val_loss",
-                mode="min",
+                metric="fuse_val_r2",
+                mode="max",
                 # scheduler=asha_scheduler,
                 num_samples=config["n_samples"],
             ),

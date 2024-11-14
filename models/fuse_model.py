@@ -353,9 +353,7 @@ class SuperpixelModel(pl.LightningModule):
         images = batch["images"] if "images" in batch else None
         point_clouds = batch["point_cloud"] if "point_cloud" in batch else None
         labels = batch["label"]
-        per_pixel_labels = (
-            batch["per_pixel_labels"] if "per_pixel_labels" in batch else None
-        )
+        per_pixel_labels = (batch["per_pixel_labels"] if "per_pixel_labels" in batch else None)
         image_masks = batch["nodata_mask"] if "nodata_mask" in batch else None
         pc_feat = batch["pc_feat"] if "pc_feat" in batch else None
 
