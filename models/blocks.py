@@ -460,6 +460,9 @@ class MambaLayer(nn.Module):
 
         # Calculate the combined input channels
         combined_in_chs = in_img_chs + in_pc_chs
+        assert isinstance(combined_in_chs, int) and isinstance(
+            combined_in_chs, int
+        ), "in_channels and out_channels must be integers"
 
         # Initialize pooling layers
         self.pool_layers = nn.ModuleList()
@@ -467,7 +470,7 @@ class MambaLayer(nn.Module):
         # First pooling layer with 1x1 convolution and adaptive average pool
         self.pool_layers.append(
             nn.Sequential(
-                ConvBlock(combined_in_chs, dim, kernel_size=1), nn.AdaptiveAvgPool2d(1)
+                ConvBNReLU(combined_in_chs, dim, kernel_size=1), nn.AdaptiveAvgPool2d(1)
             )
         )
 
@@ -476,7 +479,7 @@ class MambaLayer(nn.Module):
             self.pool_layers.append(
                 nn.Sequential(
                     nn.AdaptiveAvgPool2d(pool_scale),
-                    ConvBlock(combined_in_chs, dim, kernel_size=1),
+                    ConvBNReLU(combined_in_chs, dim, kernel_size=1),
                 )
             )
 

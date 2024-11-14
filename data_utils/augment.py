@@ -106,13 +106,15 @@ def point_translate(coords, translate_range=0.1, x=None):
 
 
 def point_jitter(coords, std=0.01, clip=0.05, x=None):
-    jittered_data = (
-        coords.new(coords.size(0), 3).normal_(mean=0.0, std=std).clamp_(-clip, clip)
+    # Generate jittered noise with a normal distribution
+    jittered_data = np.clip(
+        np.random.normal(loc=0.0, scale=std, size=(coords.shape[0], 3)), -clip, clip
     )
+    # Apply jitter to the coordinates
     coords[:, 0:3] += jittered_data
-    if x is None:
-        x = None
-    else:
+
+    # Conditionally apply jitter to x if it is provided
+    if x is not None:
         x[:, 0:3] += jittered_data
 
     return coords, x

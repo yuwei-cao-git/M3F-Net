@@ -58,24 +58,26 @@ class SuperpixelModel(pl.LightningModule):
         if self.config["mode"] != "img":
             # Initialize point cloud stream model
             if self.config["pc_norm"]:
-                self.pointnext = PointNextModel(self.config, in_dim=6)
+                self.pc_model = PointNextModel(self.config, in_dim=6)
             else:
-                self.pointnext = PointNextModel(self.config, in_dim=3)
+                self.pc_model = PointNextModel(self.config, in_dim=3)
 
         if self.config["mode"] == "fuse":
             # Fusion and classification layers with additional linear layer
             if self.use_mamba_fuse:
-                self.MLP = MambaFusionBlock(
+                self.fuse_head = MambaFusionBlock(
                     in_img_chs=512,
                     in_pc_chs=self.config["emb_dims"],
                     dim=self.config["fusion_dim"],
-                    hidden_ch=self.f,
+                    hidden_ch=self.config["linear_layers_dims"],
                     num_classes=self.config["n_classes"],
                     drop=self.config["dropout"],
                 )
             else:
                 in_ch = 512 + self.config["emb_dims"]
-                self.MLP = MLPBlock(config, in_ch, self.f)
+                self.fuse_head = MLPBlock(
+                    config, in_ch, self.config["linear_layers_dims"]
+                )
 
         # Define loss functions
         if self.config["weighted_loss"]:
@@ -84,7 +86,6 @@ class SuperpixelModel(pl.LightningModule):
         self.criterion = nn.MSELoss()
 
         # Metrics
-
         self.train_r2 = R2Score()
         self.train_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
 
@@ -114,7 +115,7 @@ class SuperpixelModel(pl.LightningModule):
         point_outputs = None
         pc_emb = None
 
-        if self.config["mode"] != "pts" and images is not None:
+        if self.config["mode"] != "pts":
             # Process images
             if self.use_mf:
                 fused_features = self.mf_module(images)
@@ -125,13 +126,13 @@ class SuperpixelModel(pl.LightningModule):
                 )
             image_outputs, img_emb = self.s2_model(fused_features)
 
-        if self.config["mode"] != "img" and pc_feat is not None and xyz is not None:
+        if self.config["mode"] != "img":
             # Process point clouds
-            point_outputs, pc_emb = self.pointnext(pc_feat, xyz)
+            point_outputs, pc_emb = self.pc_model(pc_feat, xyz)
 
         if self.config["mode"] == "fuse":
             # Fusion and classification
-            class_output = self.MLP(img_emb, pc_emb)
+            class_output = self.fuse_head(img_emb, pc_emb)
             return image_outputs, point_outputs, class_output
         elif self.config["mode"] == "img":
             return image_outputs
@@ -192,7 +193,7 @@ class SuperpixelModel(pl.LightningModule):
             f1_metric = self.test_f1
 
         # Point cloud stream
-        if self.config["mode"] != "img" and pc_preds is not None:
+        if self.config["mode"] != "img":
             # Compute point cloud loss
             if self.config["weighted_loss"] and stage == "train":
                 self.weights = self.weights.to(pc_preds.device)
@@ -219,7 +220,7 @@ class SuperpixelModel(pl.LightningModule):
             )
 
         # Image stream
-        if self.config["mode"] != "pts" and pixel_preds is not None:
+        if self.config["mode"] != "pts":
             # Apply mask to predictions and labels
             valid_pixel_preds, valid_pixel_true = apply_mask(
                 pixel_preds, pixel_labels, img_masks
@@ -256,7 +257,7 @@ class SuperpixelModel(pl.LightningModule):
             )
 
         # Fusion stream
-        if self.config["mode"] == "fuse" and fuse_preds is not None:
+        if self.config["mode"] == "fuse":
             if self.config.get("fuse_feature", False):
                 # Compute fusion loss
                 loss_fuse = self.criterion(fuse_preds, labels)
@@ -372,12 +373,12 @@ class SuperpixelModel(pl.LightningModule):
 
         # Include parameters from the point cloud model if in 'pts' or 'fuse' mode
         if self.config["mode"] != "img":
-            point_params = list(self.pointnext.parameters())
+            point_params = list(self.pc_model.parameters())
             params.append({"params": point_params, "lr": self.pc_lr})
 
         # Include parameters from the fusion layers if in 'fuse' mode
         if self.config["mode"] == "fuse":
-            fusion_params = list(self.MLP.parameters())
+            fusion_params = list(self.fuse_head.parameters())
             params.append({"params": fusion_params, "lr": self.fusion_lr})
         # Choose the optimizer based on input parameter
         if self.optimizer_type == "adam":
