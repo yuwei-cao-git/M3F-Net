@@ -56,7 +56,7 @@ def main(args):
         "pc_loss_weight": 2.0,  # tune.loguniform(1.0, 4.0),
         "img_loss_weight": 1.0,  # tune.loguniform(1.0, 4.0),
         "fuse_loss_weight": 1.0,  # tune.loguniform(1.0, 4.0),
-        "batch_size": 4,  # tune.choice([16, 32, 64, 128]),
+        "batch_size": 32,  # tune.choice([16, 32, 64, 128]),
         "optimizer": "adam",  # tune.choice(["adam", "sgd", "adamW"]),
         "dropout": 0.5,  # tune.choice([0.3, 0.5, 0.7]),  # dropout rate
         "weighted_loss": True,  # tune.choice([True, False]),
@@ -87,7 +87,7 @@ def main(args):
         "spatial_attention": tune.choice([True, False]),
         "use_residual": tune.choice([True, False]),
         "epochs": args.max_epochs,
-        "eval": False,  # run testing
+        "eval": True,  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu
         "gpus": torch.cuda.device_count(),
         "n_samples": 20,

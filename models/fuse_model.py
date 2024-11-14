@@ -22,6 +22,7 @@ class SuperpixelModel(pl.LightningModule):
         self.spatial_attention = self.config["spatial_attention"]
         self.use_residual = self.config["use_residual"]
         self.use_mamba_fuse = self.config["mamba_fuse"]
+        self.fuse_feature = self.config["fuse_feature"]
         self.f = self.config["linear_layers_dims"]  # f = [512, 128]
         if self.config["mode"] != "pts":
             # Initialize s2 model
@@ -64,20 +65,21 @@ class SuperpixelModel(pl.LightningModule):
 
         if self.config["mode"] == "fuse":
             # Fusion and classification layers with additional linear layer
-            if self.use_mamba_fuse:
-                self.fuse_head = MambaFusionBlock(
-                    in_img_chs=512,
-                    in_pc_chs=self.config["emb_dims"],
-                    dim=self.config["fusion_dim"],
-                    hidden_ch=self.config["linear_layers_dims"],
-                    num_classes=self.config["n_classes"],
-                    drop=self.config["dropout"],
-                )
-            else:
-                in_ch = 512 + self.config["emb_dims"]
-                self.fuse_head = MLPBlock(
-                    config, in_ch, self.config["linear_layers_dims"]
-                )
+            if self.fuse_feature:
+                if self.use_mamba_fuse:
+                    self.fuse_head = MambaFusionBlock(
+                        in_img_chs=512,
+                        in_pc_chs=self.config["emb_dims"],
+                        dim=self.config["fusion_dim"],
+                        hidden_ch=self.config["linear_layers_dims"],
+                        num_classes=self.config["n_classes"],
+                        drop=self.config["dropout"],
+                    )
+                else:
+                    in_ch = 512 + self.config["emb_dims"]
+                    self.fuse_head = MLPBlock(
+                        config, in_ch, self.config["linear_layers_dims"]
+                    )
 
         # Define loss functions
         if self.config["weighted_loss"]:
@@ -131,9 +133,12 @@ class SuperpixelModel(pl.LightningModule):
             point_outputs, pc_emb = self.pc_model(pc_feat, xyz)
 
         if self.config["mode"] == "fuse":
-            # Fusion and classification
-            class_output = self.fuse_head(img_emb, pc_emb)
-            return image_outputs, point_outputs, class_output
+            if self.fuse_feature:
+                # Fusion and classification
+                class_output = self.fuse_head(img_emb, pc_emb)
+                return image_outputs, point_outputs, class_output
+            else:
+                return image_outputs, point_outputs
         elif self.config["mode"] == "img":
             return image_outputs
         else:
@@ -165,9 +170,13 @@ class SuperpixelModel(pl.LightningModule):
 
         # Forward pass
         if self.config["mode"] == "fuse":
-            pixel_preds, pc_preds, fuse_preds = self.forward(
-                images, pc_feat, point_clouds
-            )
+            if self.fuse_feature:
+                pixel_preds, pc_preds, fuse_preds = self.forward(
+                    images, pc_feat, point_clouds
+                )
+            else:
+                pixel_preds, pc_preds = self.forward(images, pc_feat, point_clouds)
+                fuse_preds = None
         elif self.config["mode"] == "img":
             pixel_preds = self.forward(images, None, None)
             pc_preds = None
@@ -378,8 +387,9 @@ class SuperpixelModel(pl.LightningModule):
 
         # Include parameters from the fusion layers if in 'fuse' mode
         if self.config["mode"] == "fuse":
-            fusion_params = list(self.fuse_head.parameters())
-            params.append({"params": fusion_params, "lr": self.fusion_lr})
+            if self.config.get("fuse_feature", False):
+                fusion_params = list(self.fuse_head.parameters())
+                params.append({"params": fusion_params, "lr": self.fusion_lr})
         # Choose the optimizer based on input parameter
         if self.optimizer_type == "adam":
             optimizer = torch.optim.Adam(
