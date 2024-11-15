@@ -57,7 +57,7 @@ def main(args):
         "img_loss_weight": 1.0,  # tune.loguniform(1.0, 4.0),
         "fuse_loss_weight": 1.0,  # tune.loguniform(1.0, 4.0),
         "batch_size": 4,  # tune.choice([16, 32, 64, 128]),
-        "optimizer": "adam",  # tune.choice(["adam", "sgd", "adamW"]),
+        "optimizer": tune.choice(["adam", "sgd", "adamW"]),
         "dropout": 0.5,  # tune.choice([0.3, 0.5, 0.7]),  # dropout rate
         "weighted_loss": True,  # tune.choice([True, False]),
         "train_weights": class_weights,
