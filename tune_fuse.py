@@ -50,13 +50,13 @@ def main(args):
     class_weights = torch.from_numpy(np.array(class_weights)).float()
     config = {
         "mode": "fuse",  # tune.choice(["img", "pc", "fuse"]),
-        "img_lr": 1e-4,  # tune.loguniform(1e-5, 1e-2),
-        "pc_lr": 1e-3,  # tune.loguniform(1e-5, 1e-2),
-        "fuse_lr": 1e-3,  # tune.loguniform(1e-5, 1e-2),
+        "img_lr": tune.loguniform(1e-5, 1e-2),
+        "pc_lr": tune.loguniform(1e-5, 1e-2),
+        "fuse_lr": tune.loguniform(1e-5, 1e-2),
         "pc_loss_weight": 2.0,  # tune.loguniform(1.0, 4.0),
         "img_loss_weight": 1.0,  # tune.loguniform(1.0, 4.0),
         "fuse_loss_weight": 1.0,  # tune.loguniform(1.0, 4.0),
-        "batch_size": 32,  # tune.choice([16, 32, 64, 128]),
+        "batch_size": 4,  # tune.choice([16, 32, 64, 128]),
         "optimizer": "adam",  # tune.choice(["adam", "sgd", "adamW"]),
         "dropout": 0.5,  # tune.choice([0.3, 0.5, 0.7]),  # dropout rate
         "weighted_loss": True,  # tune.choice([True, False]),
@@ -69,7 +69,7 @@ def main(args):
         "patience": 10,  # patience
         "step_size": 10,  # tune.choice([10, 20]), # step size
         "momentum": 0.9,  # sgd momentum
-        "weight_decay": 1e-5,  # tune.choice([1e-4, 1e-6]),  # sgd momentum
+        "weight_decay": tune.choice([1e-4, 1e-6]),  # sgd momentum
         "save_dir": save_dir,
         "n_classes": 9,
         "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
