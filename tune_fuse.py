@@ -86,7 +86,7 @@ def main(args):
         "use_mf": tune.choice([True, False]),
         "spatial_attention": tune.choice([True, False]),
         "use_residual": tune.choice([True, False]),
-        "epochs": 1,  # args.max_epochs,
+        "epochs": 150,  # args.max_epochs,
         "eval": True,  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu
         "gpus": torch.cuda.device_count(),
