@@ -79,7 +79,7 @@ def main(args):
         "linear_layers_dims": tune.choice(
             [[1024, 256], [512, 128], [256, 128], [128, 128], [256, 64]]
         ),
-        "fuse_feature": tune.choice([True, False]),
+        "fuse_feature": True, # tune.choice([True, False]),
         "mamba_fuse": tune.choice([True, False]),
         "fusion_dim": tune.choice([128, 256]),
         "resolution": 20,  # tune.choice([10, 20]),

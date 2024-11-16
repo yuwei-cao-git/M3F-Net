@@ -95,6 +95,16 @@ class SuperpixelModel(pl.LightningModule):
 
         self.test_r2 = R2Score()
         self.test_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
+        
+        # Containers for validation predictions and true labels
+        self.val_preds = []
+        self.val_pixel_preds = []
+        self.true_labels = []
+        self.true_pixel_labels = []
+        self.best_test_outputs = None
+
+        # Species class names
+        self.species_names = self.config['classes']  # Ensure this is a list of species names
 
         # Optimizer and scheduler settings
         self.optimizer_type = self.config["optimizer"]
@@ -185,7 +195,7 @@ class SuperpixelModel(pl.LightningModule):
             pixel_preds = None
             fuse_preds = None
 
-        true_labels = torch.argmax(labels, dim=1)
+        true_lead_labels = torch.argmax(labels, dim=1)
         loss = 0
         logs = {}
 
@@ -216,7 +226,7 @@ class SuperpixelModel(pl.LightningModule):
 
             # Compute F1 score
             pred_lead_pc_labels = torch.argmax(pc_preds, dim=1)
-            pc_f1 = f1_metric(pred_lead_pc_labels, true_labels)
+            pc_f1 = f1_metric(pred_lead_pc_labels, true_lead_labels)
 
             # Log metrics
             logs.update(
@@ -263,6 +273,9 @@ class SuperpixelModel(pl.LightningModule):
                     f"pixel_{stage}_f1": img_f1,
                 }
             )
+            if stage == 'val':
+                self.val_pixel_preds.append(pixel_preds)
+                self.true_pixel_labels.append(pixel_labels)
 
         # Fusion stream
         if self.config["mode"] == "fuse":
@@ -274,14 +287,23 @@ class SuperpixelModel(pl.LightningModule):
                 # Compute R² metric
                 fuse_preds_rounded = torch.round(fuse_preds, decimals=1)
                 fuse_r2 = r2_metric(fuse_preds_rounded.view(-1), labels.view(-1))
+                
+                # Compute F1 score
+                # Compute F1 score
+                pred_lead_fuse_labels = torch.argmax(fuse_preds, dim=1)
+                fuse_f1 = f1_metric(pred_lead_fuse_labels, true_lead_labels)
 
                 # Log metrics
                 logs.update(
                     {
                         f"fuse_{stage}_loss": loss_fuse,
                         f"fuse_{stage}_r2": fuse_r2,
+                        f"fuse_{stage}_f1": fuse_f1,
                     }
                 )
+                if stage == 'val':
+                    self.val_preds.append(fuse_preds)
+                    self.true_labels.append(labels)
 
         # Compute RMSE
         rmse = torch.sqrt(loss)
@@ -347,7 +369,43 @@ class SuperpixelModel(pl.LightningModule):
             stage="val",
         )
         return loss
+    
+    def on_validation_epoch_end(self):
+        # Get the current validation metric (e.g., 'fuse_val_r2')
+        val_r2 = self.trainer.callback_metrics.get('fuse_val_r2')
 
+        if val_r2 is None:
+            # If val_r2 is not available, return
+            return
+
+        # Determine if current epoch has the best validation metric
+        is_best = False
+        if self.best_val_metric is None or val_r2 > self.best_val_metric:
+            is_best = True
+            self.best_val_metric = val_r2
+            self.best_epoch = self.current_epoch
+
+        if is_best:
+            # Concatenate all predictions and true labels
+            preds_all = torch.cat(self.val_preds)
+            pixel_preds_all = torch.cat(self.val_pixel_preds)
+            true_labels_all = torch.cat(self.true_labels)
+            true_pixel_labels_all = torch.cat(self.true_pixel_labels)
+
+            # Store the tensors without converting to NumPy arrays
+            self.best_test_outputs = {
+                'preds_all': preds_all.detach().cpu(),
+                'true_labels_all': true_labels_all.detach().cpu(),
+                'pixel_preds_all': pixel_preds_all.detach().cpu(),
+                'true_pixel_labels_all': true_pixel_labels_all.detach().cpu()
+            }
+
+        # Clear buffers for the next epoch
+        self.val_preds.clear()
+        self.true_labels.clear()
+        self.val_pixel_preds.clear()
+        self.true_pixel_labels.clear()
+    
     def test_step(self, batch, batch_idx):
         images = batch["images"] if "images" in batch else None
         point_clouds = batch["point_cloud"] if "point_cloud" in batch else None

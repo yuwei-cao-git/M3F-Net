@@ -1,7 +1,7 @@
 from pytorch_lightning import Trainer, seed_everything
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, Callback
 from lightning.pytorch.loggers import WandbLogger
-from pytorch_lightning.utilities.model_summary import ModelSummary
+# from pytorch_lightning.utilities.model_summary import ModelSummary
 from ray import tune, train
 
 from models.fuse_model import SuperpixelModel
@@ -9,7 +9,24 @@ from dataset.superpixel import SuperpixelDataModule
 
 import os
 import time
+import wandb
+from .common import generate_eva
 
+class PointCloudLogger(Callback):
+    def on_validation_batch_end(self, wandb_logger, trainer, pl_module, outputs, batch, batch_idx):
+        # Access data and potentially augmented point cloud from current batch
+        if batch_idx == 0:
+            n = 4
+            point_clouds =  [pc for pc in batch["point_cloud"][:n]]
+            labels = [label for label in batch["label"][:n]]
+            captions_1 = [f'Ground Truth: {y_i} - Prediction: {y_pred}' for y_i, y_pred in zip(labels[:n], outputs[0][:n])]
+            wandb.log({"point_cloud": wandb.Object3D(point_clouds)}, captions=captions_1)
+
+            images = [img for img in batch["images"][:n]]
+            per_pixel_labels = [pixel_label for pixel_label in batch["per_pixel_labels"][:n]]
+            captions = [f'Image Ground Truth: {y_i} - Prediction: {y_pred}' for y_i, y_pred in zip(per_pixel_labels[:n], outputs[1][:n])]
+            # Option 1: log images with `WandbLogger.log_image`
+            wandb_logger.log_image(key='sample_images', images=images, caption=captions)
 
 def train_func(config):
     seed_everything(1)
@@ -39,17 +56,18 @@ def train_func(config):
         save_dir=config["save_dir"],
         log_model=True,
     )
+    
     # Define a checkpoint callback to save the best model
     checkpoint_callback = ModelCheckpoint(
-        monitor="val_loss",  # Track the validation loss
-        filename="best-model-{epoch:02d}-{pc_val_r2:.2f}",
+        monitor="fuse_val_r2",  # Track the validation loss
+        filename="best-model-{epoch:02d}-{fuse_val_r2:.2f}",
         save_top_k=1,  # Only save the best model
-        mode="min",  # We want to minimize the validation loss
+        mode="max",  # We want to minimize the validation loss
     )
     early_stopping = EarlyStopping(
-        monitor="val_loss",  # Metric to monitor
+        monitor="fuse_val_r2",  # Metric to monitor
         patience=10,  # Number of epochs with no improvement after which training will be stopped
-        mode="min",  # Set "min" for validation loss
+        mode="max",  # Set "min" for validation loss
         verbose=True,
     )
     # Initialize the DataModule
@@ -82,6 +100,10 @@ def train_func(config):
             "final_model.pt",
         )
     )
+    # using a pandas DataFrame to recode best results
+    if hasattr(model, 'best_test_outputs') and model.best_test_outputs is not None:
+        output_dir = f"checkpoints/{log_name}_trial_{tune.Trainable().trial_id}/output"
+        generate_eva(model, trainer, config["classes"], output_dir)
 
     # Test the model after training
     if config["eval"]:
