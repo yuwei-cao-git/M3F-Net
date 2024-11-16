@@ -75,7 +75,7 @@ def main(args):
         "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
         "num_points": 7168,  # number of points
         "emb_dims": tune.choice([512, 768, 1024]),  # dimension of embeddings
-        "encoder": "s",  # tune.choice(["s", "b", "l", "xl"]),
+        "encoder": tune.choice(["s", "b", "l", "xl"]),
         "linear_layers_dims": tune.choice(
             [[1024, 256], [512, 128], [256, 128], [128, 128], [256, 64]]
         ),
