@@ -1,6 +1,7 @@
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, Callback
 from lightning.pytorch.loggers import WandbLogger
+
 # from pytorch_lightning.utilities.model_summary import ModelSummary
 from ray import tune, train
 
@@ -12,21 +13,35 @@ import time
 import wandb
 from .common import generate_eva
 
+
 class PointCloudLogger(Callback):
-    def on_validation_batch_end(self, wandb_logger, trainer, pl_module, outputs, batch, batch_idx):
+    def on_validation_batch_end(
+        self, wandb_logger, trainer, pl_module, outputs, batch, batch_idx
+    ):
         # Access data and potentially augmented point cloud from current batch
         if batch_idx == 0:
             n = 4
-            point_clouds =  [pc for pc in batch["point_cloud"][:n]]
+            point_clouds = [pc for pc in batch["point_cloud"][:n]]
             labels = [label for label in batch["label"][:n]]
-            captions_1 = [f'Ground Truth: {y_i} - Prediction: {y_pred}' for y_i, y_pred in zip(labels[:n], outputs[0][:n])]
-            wandb.log({"point_cloud": wandb.Object3D(point_clouds)}, captions=captions_1)
+            captions_1 = [
+                f"Ground Truth: {y_i} - Prediction: {y_pred}"
+                for y_i, y_pred in zip(labels[:n], outputs[0][:n])
+            ]
+            wandb.log(
+                {"point_cloud": wandb.Object3D(point_clouds)}, captions=captions_1
+            )
 
             images = [img for img in batch["images"][:n]]
-            per_pixel_labels = [pixel_label for pixel_label in batch["per_pixel_labels"][:n]]
-            captions = [f'Image Ground Truth: {y_i} - Prediction: {y_pred}' for y_i, y_pred in zip(per_pixel_labels[:n], outputs[1][:n])]
+            per_pixel_labels = [
+                pixel_label for pixel_label in batch["per_pixel_labels"][:n]
+            ]
+            captions = [
+                f"Image Ground Truth: {y_i} - Prediction: {y_pred}"
+                for y_i, y_pred in zip(per_pixel_labels[:n], outputs[1][:n])
+            ]
             # Option 1: log images with `WandbLogger.log_image`
-            wandb_logger.log_image(key='sample_images', images=images, caption=captions)
+            wandb_logger.log_image(key="sample_images", images=images, caption=captions)
+
 
 def train_func(config):
     seed_everything(1)
@@ -47,19 +62,29 @@ def train_func(config):
         else:
             log_name += "SE_"
     log_name += str(config["resolution"])
+    log_name += f"_trial_{tune.Trainable().trial_id}"
+    save_dir = os.path.join(config["save_dir"], log_name)
+    log_dir = os.path.join(save_dir, "wandblogs")
+    chk_dir = os.path.join(save_dir, "checkpoints")
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir, exist_ok=True)
+    if not os.path.exists(log_dir):
+        os.mkdir(log_dir)
+    if not os.path.exists(chk_dir):
+        os.mkdir(chk_dir)
 
     # Initialize WandB, CSV Loggers
     wandb_logger = WandbLogger(
         project="M3F-Net-fuse",
         group="tune_v4",
-        name=f"{log_name}_trial_{tune.Trainable().trial_id}",
-        save_dir=config["save_dir"],
+        save_dir=log_dir,
         log_model=True,
     )
-    
+
     # Define a checkpoint callback to save the best model
     checkpoint_callback = ModelCheckpoint(
         monitor="fuse_val_r2",  # Track the validation loss
+        dirpath=chk_dir,
         filename="best-model-{epoch:02d}-{fuse_val_r2:.2f}",
         save_top_k=1,  # Only save the best model
         mode="max",  # We want to minimize the validation loss
@@ -95,14 +120,16 @@ def train_func(config):
     # Save the best model after training
     trainer.save_checkpoint(
         os.path.join(
-            config["save_dir"],
-            f"{log_name}_trial_{tune.Trainable().trial_id}",
+            chk_dir,
             "final_model.pt",
         )
     )
     # using a pandas DataFrame to recode best results
-    if hasattr(model, 'best_test_outputs') and model.best_test_outputs is not None:
-        output_dir = f"checkpoints/{log_name}_trial_{tune.Trainable().trial_id}/output"
+    if model.best_test_outputs is not None:
+        output_dir = os.path.join(
+            save_dir,
+            "outputs",
+        )
         generate_eva(model, trainer, config["classes"], output_dir)
 
     # Test the model after training

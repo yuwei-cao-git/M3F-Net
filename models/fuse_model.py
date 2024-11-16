@@ -8,7 +8,7 @@ from .ResUnet import ResUnet
 from .pointNext import PointNextModel
 
 from torchmetrics.regression import R2Score
-from torchmetrics.classification import MulticlassF1Score
+from torchmetrics.classification import MulticlassF1Score, Accuracy
 from .loss import apply_mask, calc_loss
 
 
@@ -88,23 +88,27 @@ class SuperpixelModel(pl.LightningModule):
 
         # Metrics
         self.train_r2 = R2Score()
-        self.train_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
 
         self.val_r2 = R2Score()
         self.val_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
+        self.val_oa = Accuracy(task="multiclass", num_classes=self.config["n_classes"])
 
         self.test_r2 = R2Score()
         self.test_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
-        
+        self.test_oa = Accuracy(task="multiclass", num_classes=self.config["n_classes"])
+
         # Containers for validation predictions and true labels
         self.val_preds = []
         self.val_pixel_preds = []
         self.true_labels = []
         self.true_pixel_labels = []
         self.best_test_outputs = None
+        self.best_val_metric = None
 
         # Species class names
-        self.species_names = self.config['classes']  # Ensure this is a list of species names
+        self.species_names = self.config[
+            "classes"
+        ]  # Ensure this is a list of species names
 
         # Optimizer and scheduler settings
         self.optimizer_type = self.config["optimizer"]
@@ -202,13 +206,14 @@ class SuperpixelModel(pl.LightningModule):
         # Select appropriate metric instances based on the stage
         if stage == "train":
             r2_metric = self.train_r2
-            f1_metric = self.train_f1
         elif stage == "val":
             r2_metric = self.val_r2
             f1_metric = self.val_f1
+            oa_metric = self.val_oa
         else:  # stage == "test"
             r2_metric = self.test_r2
             f1_metric = self.test_f1
+            oa_metric = self.test_oa
 
         # Point cloud stream
         if self.config["mode"] != "img":
@@ -223,17 +228,24 @@ class SuperpixelModel(pl.LightningModule):
             # Compute R² metric
             pc_preds_rounded = torch.round(pc_preds, decimals=1)
             pc_r2 = r2_metric(pc_preds_rounded.view(-1), labels.view(-1))
-
-            # Compute F1 score
-            pred_lead_pc_labels = torch.argmax(pc_preds, dim=1)
-            pc_f1 = f1_metric(pred_lead_pc_labels, true_lead_labels)
+            if stage != "train":
+                # Compute F1 score
+                pred_lead_pc_labels = torch.argmax(pc_preds, dim=1)
+                pc_f1 = f1_metric(pred_lead_pc_labels, true_lead_labels)
+                pc_oa = oa_metric(pred_lead_pc_labels, true_lead_labels)
+                # Log metrics
+                logs.update(
+                    {
+                        f"pc_{stage}_oa": pc_oa,
+                        f"pc_{stage}_f1": pc_f1,
+                    }
+                )
 
             # Log metrics
             logs.update(
                 {
                     f"pc_{stage}_loss": loss_point,
                     f"pc_{stage}_r2": pc_r2,
-                    f"pc_{stage}_f1": pc_f1,
                 }
             )
 
@@ -253,29 +265,32 @@ class SuperpixelModel(pl.LightningModule):
             pixel_r2 = r2_metric(
                 valid_pixel_preds_rounded.view(-1), valid_pixel_true.view(-1)
             )
-
-            # Compute F1 score
-            pred_lead_pixel_labels = torch.argmax(pixel_preds, dim=1)
-            true_lead_pixel_labels = torch.argmax(pixel_labels, dim=1)
-            valid_pixel_lead_preds, valid_pixel_lead_true = apply_mask(
-                pred_lead_pixel_labels,
-                true_lead_pixel_labels,
-                img_masks,
-                multi_class=False,
-            )
-            img_f1 = f1_metric(valid_pixel_lead_preds, valid_pixel_lead_true)
-
+            if stage != "train":
+                # Compute F1 score
+                pred_lead_pixel_labels = torch.argmax(pixel_preds, dim=1)
+                true_lead_pixel_labels = torch.argmax(pixel_labels, dim=1)
+                valid_pixel_lead_preds, valid_pixel_lead_true = apply_mask(
+                    pred_lead_pixel_labels,
+                    true_lead_pixel_labels,
+                    img_masks,
+                    multi_class=False,
+                )
+                img_f1 = f1_metric(valid_pixel_lead_preds, valid_pixel_lead_true)
+                img_oa = oa_metric(valid_pixel_lead_preds, valid_pixel_lead_true)
+                # Log metrics
+                logs.update(
+                    {
+                        f"pixel_{stage}_oa": img_oa,
+                        f"pixel_{stage}_f1": img_f1,
+                    }
+                )
             # Log metrics
             logs.update(
                 {
                     f"pixel_{stage}_loss": loss_pixel,
                     f"pixel_{stage}_r2": pixel_r2,
-                    f"pixel_{stage}_f1": img_f1,
                 }
             )
-            if stage == 'val':
-                self.val_pixel_preds.append(pixel_preds)
-                self.true_pixel_labels.append(pixel_labels)
 
         # Fusion stream
         if self.config["mode"] == "fuse":
@@ -287,21 +302,25 @@ class SuperpixelModel(pl.LightningModule):
                 # Compute R² metric
                 fuse_preds_rounded = torch.round(fuse_preds, decimals=1)
                 fuse_r2 = r2_metric(fuse_preds_rounded.view(-1), labels.view(-1))
-                
-                # Compute F1 score
-                # Compute F1 score
-                pred_lead_fuse_labels = torch.argmax(fuse_preds, dim=1)
-                fuse_f1 = f1_metric(pred_lead_fuse_labels, true_lead_labels)
+
+                if stage != "train":
+                    # Compute F1 score
+                    pred_lead_fuse_labels = torch.argmax(fuse_preds, dim=1)
+                    fuse_f1 = f1_metric(pred_lead_fuse_labels, true_lead_labels)
+                    fuse_oa = oa_metric(pred_lead_fuse_labels, true_lead_labels)
+                    # Log metrics
+                    logs.update(
+                        {
+                            f"fuse_{stage}_f1": fuse_f1,
+                            f"fuse_{stage}_oa": fuse_oa,
+                        }
+                    )
 
                 # Log metrics
                 logs.update(
-                    {
-                        f"fuse_{stage}_loss": loss_fuse,
-                        f"fuse_{stage}_r2": fuse_r2,
-                        f"fuse_{stage}_f1": fuse_f1,
-                    }
+                    {f"fuse_{stage}_loss": loss_fuse, f"fuse_{stage}_r2": fuse_r2}
                 )
-                if stage == 'val':
+                if stage == "val":
                     self.val_preds.append(fuse_preds)
                     self.true_labels.append(labels)
 
@@ -316,15 +335,24 @@ class SuperpixelModel(pl.LightningModule):
 
         # Log all metrics
         for key, value in logs.items():
-            self.log(
-                key,
-                value,
-                on_step=True,
-                on_epoch=True,
-                prog_bar=True,
-                logger=True,
-                sync_dist=True,
-            )
+            if "loss" in key:
+                self.log(
+                    key,
+                    value,
+                    on_step=True,
+                    prog_bar=True,
+                    logger=True,
+                    sync_dist=True,
+                )
+            else:
+                self.log(
+                    key,
+                    value,
+                    on_epoch=True,
+                    prog_bar=False,
+                    logger=True,
+                    sync_dist=True,
+                )
 
         return loss
 
@@ -369,10 +397,10 @@ class SuperpixelModel(pl.LightningModule):
             stage="val",
         )
         return loss
-    
+
     def on_validation_epoch_end(self):
         # Get the current validation metric (e.g., 'fuse_val_r2')
-        val_r2 = self.trainer.callback_metrics.get('fuse_val_r2')
+        val_r2 = self.trainer.callback_metrics.get("fuse_val_r2")
 
         if val_r2 is None:
             # If val_r2 is not available, return
@@ -383,29 +411,22 @@ class SuperpixelModel(pl.LightningModule):
         if self.best_val_metric is None or val_r2 > self.best_val_metric:
             is_best = True
             self.best_val_metric = val_r2
-            self.best_epoch = self.current_epoch
 
         if is_best:
             # Concatenate all predictions and true labels
             preds_all = torch.cat(self.val_preds)
-            pixel_preds_all = torch.cat(self.val_pixel_preds)
             true_labels_all = torch.cat(self.true_labels)
-            true_pixel_labels_all = torch.cat(self.true_pixel_labels)
 
             # Store the tensors without converting to NumPy arrays
             self.best_test_outputs = {
-                'preds_all': preds_all.detach().cpu(),
-                'true_labels_all': true_labels_all.detach().cpu(),
-                'pixel_preds_all': pixel_preds_all.detach().cpu(),
-                'true_pixel_labels_all': true_pixel_labels_all.detach().cpu()
+                "preds_all": preds_all.detach().cpu(),
+                "true_labels_all": true_labels_all.detach().cpu(),
             }
 
         # Clear buffers for the next epoch
         self.val_preds.clear()
         self.true_labels.clear()
-        self.val_pixel_preds.clear()
-        self.true_pixel_labels.clear()
-    
+
     def test_step(self, batch, batch_idx):
         images = batch["images"] if "images" in batch else None
         point_clouds = batch["point_cloud"] if "point_cloud" in batch else None
