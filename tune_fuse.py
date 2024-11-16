@@ -90,7 +90,7 @@ def main(args):
         "eval": True,  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu
         "gpus": torch.cuda.device_count(),
-        "n_samples": 1,
+        "n_samples": 30,
         "data_dir": data_dir,
     }
     try:
