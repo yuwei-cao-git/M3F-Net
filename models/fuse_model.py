@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
+import torch.nn.functional as F
 
 from .blocks import MF, MLPBlock, MambaFusionBlock
 from .unet import UNet
@@ -88,6 +89,8 @@ class SuperpixelModel(pl.LightningModule):
 
         # Metrics
         self.train_r2 = R2Score()
+        if self.config.get("leading_loss", False):
+            self.ce_loss = nn.CrossEntropyLoss(reduction="mean")
 
         self.val_r2 = R2Score()
         self.val_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
@@ -120,9 +123,11 @@ class SuperpixelModel(pl.LightningModule):
         self.fusion_lr = self.config.get("fuse_lr")
 
         # Loss weights
-        self.pc_loss_weight = self.config.get("pc_loss_weight", 2.0)
+        self.pc_loss_weight = self.config.get("pc_loss_weight", 1.0)
         self.img_loss_weight = self.config.get("img_loss_weight", 1.0)
         self.fuse_loss_weight = self.config.get("fuse_loss_weight", 1.0)
+        if self.config.get("leading_loss", False):
+            self.lead_loss_weight = self.config.get("lead_loss_weight", 1.0)
 
     def forward(self, images, pc_feat, xyz):
         image_outputs = None
@@ -139,23 +144,23 @@ class SuperpixelModel(pl.LightningModule):
                 fused_features = images.view(
                     batch_size, num_seasons * num_channels, width, height
                 )
-            image_outputs, img_emb = self.s2_model(fused_features)
+            image_logits, img_emb = self.s2_model(fused_features)
 
         if self.config["mode"] != "img":
             # Process point clouds
-            point_outputs, pc_emb = self.pc_model(pc_feat, xyz)
+            pc_logits, pc_emb = self.pc_model(pc_feat, xyz)
 
         if self.config["mode"] == "fuse":
             if self.fuse_feature:
                 # Fusion and classification
-                class_output = self.fuse_head(img_emb, pc_emb)
-                return image_outputs, point_outputs, class_output
+                fuse_logits = self.fuse_head(img_emb, pc_emb)
+                return image_logits, pc_logits, fuse_logits
             else:
                 return image_outputs, point_outputs
         elif self.config["mode"] == "img":
-            return image_outputs
+            return image_logits
         else:
-            return point_outputs
+            return pc_logits
 
     def forward_and_metrics(
         self, images, img_masks, pc_feat, point_clouds, labels, pixel_labels, stage
@@ -184,20 +189,20 @@ class SuperpixelModel(pl.LightningModule):
         # Forward pass
         if self.config["mode"] == "fuse":
             if self.fuse_feature:
-                pixel_preds, pc_preds, fuse_preds = self.forward(
+                pixel_logits, pc_logits, fuse_logits = self.forward(
                     images, pc_feat, point_clouds
                 )
             else:
-                pixel_preds, pc_preds = self.forward(images, pc_feat, point_clouds)
-                fuse_preds = None
+                pixel_logits, pc_logits = self.forward(images, pc_feat, point_clouds)
+                fuse_logits = None
         elif self.config["mode"] == "img":
-            pixel_preds = self.forward(images, None, None)
-            pc_preds = None
-            fuse_preds = None
+            pixel_logits = self.forward(images, None, None)
+            pc_logits = None
+            fuse_logits = None
         else:
-            pc_preds = self.forward(None, pc_feat=pc_feat, xyz=point_clouds)
-            pixel_preds = None
-            fuse_preds = None
+            pc_logits = self.forward(None, pc_feat=pc_feat, xyz=point_clouds)
+            pixel_logits = None
+            fuse_logits = None
 
         true_lead_labels = torch.argmax(labels, dim=1)
         loss = 0
@@ -218,16 +223,28 @@ class SuperpixelModel(pl.LightningModule):
         # Point cloud stream
         if self.config["mode"] != "img":
             # Compute point cloud loss
+            pc_preds = F.softmax(pc_logits, dim=1)
             if self.config["weighted_loss"] and stage == "train":
-                self.weights = self.weights.to(pc_preds.device)
+                self.weights = self.weights.to(pc_logits.device)
+                # (batch_size, num_classes, n_pts)
                 loss_point = calc_loss(labels, pc_preds, self.weights)
             else:
                 loss_point = self.criterion(pc_preds, labels)
-            loss += self.pc_loss_weight * loss_point
+
+            if self.config.get("leading_loss", False) and stage == "train":
+                loss += 0.5 * self.pc_loss_weight * loss_point
+                loss += (
+                    0.5
+                    * self.lead_loss_weight
+                    * self.ce_loss(pc_logits, true_lead_labels)
+                )
+            else:
+                loss += self.pc_loss_weight * loss_point
 
             # Compute R² metric
-            pc_preds_rounded = torch.round(pc_preds, decimals=1)
+            pc_preds_rounded = torch.round(pc_preds, decimals=2)
             pc_r2 = r2_metric(pc_preds_rounded.view(-1), labels.view(-1))
+
             if stage != "train":
                 # Compute F1 score
                 pred_lead_pc_labels = torch.argmax(pc_preds, dim=1)
@@ -252,6 +269,9 @@ class SuperpixelModel(pl.LightningModule):
         # Image stream
         if self.config["mode"] != "pts":
             # Apply mask to predictions and labels
+            pixel_preds = F.softmax(
+                pixel_logits, dim=1
+            )  # (batch_size, num_classes, height, width)
             valid_pixel_preds, valid_pixel_true = apply_mask(
                 pixel_preds, pixel_labels, img_masks
             )
@@ -261,10 +281,11 @@ class SuperpixelModel(pl.LightningModule):
             loss += self.img_loss_weight * loss_pixel
 
             # Compute R² metric
-            valid_pixel_preds_rounded = torch.round(valid_pixel_preds, decimals=1)
+            valid_pixel_preds_rounded = torch.round(valid_pixel_preds, decimals=2)
             pixel_r2 = r2_metric(
                 valid_pixel_preds_rounded.view(-1), valid_pixel_true.view(-1)
             )
+
             if stage != "train":
                 # Compute F1 score
                 pred_lead_pixel_labels = torch.argmax(pixel_preds, dim=1)
@@ -296,11 +317,21 @@ class SuperpixelModel(pl.LightningModule):
         if self.config["mode"] == "fuse":
             if self.config.get("fuse_feature", False):
                 # Compute fusion loss
+                fuse_preds = F.softmax(fuse_logits, dim=1)
                 loss_fuse = self.criterion(fuse_preds, labels)
-                loss += self.fuse_loss_weight * loss_fuse
+
+                if self.config.get("leading_loss", False) and stage == "train":
+                    loss += 0.5 * self.fuse_loss_weight * loss_fuse
+                    loss += (
+                        0.5
+                        * self.lead_loss_weight
+                        * self.ce_loss(fuse_preds, true_lead_labels)
+                    )
+                else:
+                    loss += self.fuse_loss_weight * loss_fuse
 
                 # Compute R² metric
-                fuse_preds_rounded = torch.round(fuse_preds, decimals=1)
+                fuse_preds_rounded = torch.round(fuse_preds, decimals=2)
                 fuse_r2 = r2_metric(fuse_preds_rounded.view(-1), labels.view(-1))
 
                 if stage != "train":

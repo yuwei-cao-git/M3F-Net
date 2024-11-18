@@ -1,5 +1,5 @@
 from pytorch_lightning import Trainer, seed_everything
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, Callback
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import WandbLogger
 
 # from pytorch_lightning.utilities.model_summary import ModelSummary
@@ -11,36 +11,7 @@ from dataset.superpixel import SuperpixelDataModule
 import os
 import time
 import wandb
-from .common import generate_eva
-
-
-class PointCloudLogger(Callback):
-    def on_validation_batch_end(
-        self, wandb_logger, trainer, pl_module, outputs, batch, batch_idx
-    ):
-        # Access data and potentially augmented point cloud from current batch
-        if batch_idx == 0:
-            n = 4
-            point_clouds = [pc for pc in batch["point_cloud"][:n]]
-            labels = [label for label in batch["label"][:n]]
-            captions_1 = [
-                f"Ground Truth: {y_i} - Prediction: {y_pred}"
-                for y_i, y_pred in zip(labels[:n], outputs[0][:n])
-            ]
-            wandb.log(
-                {"point_cloud": wandb.Object3D(point_clouds)}, captions=captions_1
-            )
-
-            images = [img for img in batch["images"][:n]]
-            per_pixel_labels = [
-                pixel_label for pixel_label in batch["per_pixel_labels"][:n]
-            ]
-            captions = [
-                f"Image Ground Truth: {y_i} - Prediction: {y_pred}"
-                for y_i, y_pred in zip(per_pixel_labels[:n], outputs[1][:n])
-            ]
-            # Option 1: log images with `WandbLogger.log_image`
-            wandb_logger.log_image(key="sample_images", images=images, caption=captions)
+from .common import generate_eva, PointCloudLogger
 
 
 def train_func(config):

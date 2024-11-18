@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import os
 import pytorch_lightning as pl
+from pytorch_lightning.callbacks import Callback
 
 
 # get configs for a sweep from .yaml file
@@ -221,3 +222,41 @@ def generate_eva(model, trainer, classes, output_dir):
     print("R2 Scores per Species:")
     for species, r2 in evaluation_results["R2 Scores per Species"].items():
         print(f"{species}: {r2:.4f}")
+
+
+class PointCloudLogger(Callback):
+    def on_validation_batch_end(
+        self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0
+    ):
+        # Log only for the first batch in validation
+        if batch_idx == 0:
+            wandb_logger = trainer.logger.experiment  # Access WandbLogger
+            n = min(4, len(batch["point_cloud"]))  # Handle smaller batches
+            point_clouds = [pc.cpu().numpy() for pc in batch["point_cloud"][:n]]
+            labels = [label.cpu().numpy() for label in batch["label"][:n]]
+            # Captions for point clouds
+            captions_1 = [
+                f"Ground Truth: {y_i} - Prediction: {y_pred}"
+                for y_i, y_pred in zip(
+                    labels[:n], outputs[0][:n].detach().cpu().numpy()
+                )
+            ]
+            # Log point clouds
+            wandb_logger.log(
+                {"point_cloud": [wandb.Object3D(pc) for pc in point_clouds]}
+            )
+
+            # Log images
+            images = [
+                img.cpu().numpy().transpose(1, 2, 0) for img in batch["images"][:n]
+            ]
+            per_pixel_labels = [
+                lbl.cpu().numpy() for lbl in batch["per_pixel_labels"][:n]
+            ]
+            captions = [
+                f"Image Ground Truth: {y_i} - Prediction: {y_pred}"
+                for y_i, y_pred in zip(
+                    per_pixel_labels[:n], outputs[1][:n].detach().cpu().numpy()
+                )
+            ]
+            wandb_logger.log_image(key="sample_images", images=images, caption=captions)

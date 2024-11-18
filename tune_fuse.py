@@ -56,10 +56,12 @@ def main(args):
         "pc_loss_weight": tune.loguniform(1.0, 4.0),
         "img_loss_weight": tune.loguniform(1.0, 4.0),
         "fuse_loss_weight": tune.loguniform(1.0, 4.0),
+        "leading_loss": tune.choice([True, False]),
+        "lead_loss_weight": tune.loguniform(1.0, 4.0),
         "batch_size": tune.choice([16, 32, 64]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
-        "dropout": 0.5,  # tune.choice([0.3, 0.5, 0.7]),  # dropout rate
-        "weighted_loss": True,  # tune.choice([True, False]),
+        "dropout": tune.choice([0.3, 0.5, 0.7]),  # dropout rate
+        "weighted_loss": tune.choice([True, False]),
         "train_weights": class_weights,
         "img_transforms": "compose",  # tune.choice([None, "random", "compose"]),  # augment
         "pc_transforms": True,  # tune.choice([True, False]),  # number of augmentations
@@ -112,7 +114,7 @@ def main(args):
                 callbacks=[
                     WandbLoggerCallback(
                         project="M3F-Net-fuse",
-                        group="tune_v4",
+                        group="tune_v5",
                         api_key=os.environ["WANDB_API_KEY"],
                         log_config=True,
                         save_checkpoints=True,
