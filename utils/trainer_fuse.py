@@ -73,7 +73,7 @@ def train(config):
 
     # Create a PyTorch Lightning Trainer
     trainer = Trainer(
-        max_epochs=config["epochs"],
+        max_epochs=config["max_epochs"],
         logger=[wandb_logger, PointCloudLogger],
         callbacks=[early_stopping, checkpoint_callback],
         devices=config["gpus"],

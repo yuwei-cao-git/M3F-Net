@@ -20,7 +20,7 @@ def main():
     parser.add_argument(
         "--data_dir",
         type=str,
-        default="/mnt/d/Sync/research/tree_species_estimation/tree_dataset/rmf/processed",
+        default=None,  # "/mnt/d/Sync/research/tree_species_estimation/tree_dataset/rmf/processed",
         help="path to data dir",
     )
     parser.add_argument("--n_classes", type=int, default=9, help="number classes")
@@ -37,7 +37,10 @@ def main():
         help="Resolution to use for the data",
     )
     parser.add_argument(
-        "--epochs", type=int, default=150, help="Number of epochs to train the model"
+        "--max_epochs",
+        type=int,
+        default=200,
+        help="Number of epochs to train the model",
     )
     parser.add_argument(
         "--batch_size", type=int, default=8, help="Number of epochs to train the model"
@@ -121,6 +124,11 @@ def main():
     # Parse arguments
     params = vars(parser.parse_args())
     params["save_dir"] = os.path.join(os.getcwd(), "fuse_train_logs")
+    params["data_dir"] = (
+        params.data_dir
+        if params.data_dir is not None
+        else os.path.join(os.getcwd(), "data")
+    )
     class_weights = [
         0.02303913,
         0.13019594,
