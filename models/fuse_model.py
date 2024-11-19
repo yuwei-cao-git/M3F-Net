@@ -281,7 +281,7 @@ class SuperpixelModel(pl.LightningModule):
             loss += self.img_loss_weight * loss_pixel
 
             # Compute R² metric
-            valid_pixel_preds_rounded = torch.round(valid_pixel_preds, decimals=2)
+            valid_pixel_preds_rounded = torch.round(valid_pixel_preds, decimals=1)
             pixel_r2 = r2_metric(
                 valid_pixel_preds_rounded.view(-1), valid_pixel_true.view(-1)
             )
@@ -331,7 +331,7 @@ class SuperpixelModel(pl.LightningModule):
                     loss += self.fuse_loss_weight * loss_fuse
 
                 # Compute R² metric
-                fuse_preds_rounded = torch.round(fuse_preds, decimals=2)
+                fuse_preds_rounded = torch.round(fuse_preds, decimals=1)
                 fuse_r2 = r2_metric(fuse_preds_rounded.view(-1), labels.view(-1))
 
                 if stage != "train":
@@ -366,26 +366,15 @@ class SuperpixelModel(pl.LightningModule):
 
         # Log all metrics
         for key, value in logs.items():
-            if "r2" in key:
-                self.log(
-                    key,
-                    value,
-                    on_step=True,
-                    on_epoch=True,
-                    prog_bar=True,
-                    logger=True,
-                    sync_dist=True,
-                )
-            else:
-                self.log(
-                    key,
-                    value,
-                    on_step=True,
-                    on_epoch=True,
-                    prog_bar=False,
-                    logger=True,
-                    sync_dist=True,
-                )
+            self.log(
+                key,
+                value,
+                on_step=True,
+                on_epoch=True,
+                prog_bar="r2" in key,
+                logger=True,
+                sync_dist=True,
+            )
 
         return loss
 

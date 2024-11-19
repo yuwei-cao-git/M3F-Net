@@ -143,12 +143,13 @@ def evaluate_model(sp_output_csv, classes):
     cm = confusion_matrix(true_leading, pred_leading, labels=class_indices)
 
     # Compute Overall R² Score
-    all_r2 = r2_score(sp_true, sp_pred, multioutput="uniform_average")
+    sp_pred_rounded = sp_pred.round(1)
+    all_r2 = r2_score(sp_true, sp_pred_rounded, multioutput="uniform_average")
 
     # Compute R² Score per Species
     species_r2_scores = {}
     for i, species in enumerate(classes):
-        r2 = r2_score(sp_true[:, i], sp_pred[:, i])
+        r2 = r2_score(sp_true[:, i], sp_pred_rounded[:, i])
         species_r2_scores[species] = r2
 
     # Compile evaluation results
