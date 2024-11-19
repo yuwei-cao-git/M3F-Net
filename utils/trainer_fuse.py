@@ -45,7 +45,7 @@ def train(config):
         save_dir=log_dir,
         log_model=True,
     )
-
+    # point_logger = PointCloudLogger(trainer=Trainer)
     # Define a checkpoint callback to save the best model
     checkpoint_callback = ModelCheckpoint(
         monitor="fuse_val_r2",  # Track the validation loss
@@ -74,7 +74,7 @@ def train(config):
     # Create a PyTorch Lightning Trainer
     trainer = Trainer(
         max_epochs=config["max_epochs"],
-        logger=[wandb_logger, PointCloudLogger],
+        logger=[wandb_logger],
         callbacks=[early_stopping, checkpoint_callback],
         devices=config["gpus"],
         num_nodes=1,
