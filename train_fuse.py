@@ -83,7 +83,8 @@ def main():
     parser.add_argument("--step_size", type=int, default=10)
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--weight_decay", type=float, default=1e-6)
-    parser.add_argument("--dropout", default=0.5)
+    parser.add_argument("--dp_fuse", default=0.5)
+    parser.add_argument("--dp_pc", default=0.5)
     parser.add_argument(
         "--use_mf", action="store_true", help="Use multi-fusion (set flag to enable)"
     )

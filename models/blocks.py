@@ -380,7 +380,7 @@ class MLPBlock(nn.Module):
         super(MLPBlock, self).__init__()
         self.fc1 = nn.Linear(in_ch, hidden_ch[0])
         self.bn1 = nn.BatchNorm1d(hidden_ch[0])
-        self.dropout1 = nn.Dropout(p=config["dropout"])
+        self.dropout1 = nn.Dropout(p=config["dp_fuse"])
 
         self.fc2 = nn.Linear(hidden_ch[0], hidden_ch[1])
         self.bn2 = nn.BatchNorm1d(hidden_ch[1])
@@ -535,10 +535,10 @@ class MLP(nn.Module):
         self.conv = ConvBNReLU(in_ch, in_ch, kernel_size=3)
         self.pooling = nn.AdaptiveAvgPool2d(1)
         self.fc1 = nn.Linear(in_ch, hidden_ch[0])
-        self.bn1 = nn.GroupNorm(num_groups=32, num_channels=hidden_ch[0])
+        self.bn1 = nn.BatchNorm1d(hidden_ch[0])
         self.dropout1 = nn.Dropout(dropout_prob)
         self.fc2 = nn.Linear(hidden_ch[0], hidden_ch[1])
-        self.bn2 = nn.GroupNorm(num_groups=32, num_channels=hidden_ch[1])
+        self.bn1 = nn.BatchNorm1d(hidden_ch[1])
         self.dropout2 = nn.Dropout(dropout_prob)
         self.fc3 = nn.Linear(hidden_ch[1], num_classes)  # Output layer
 

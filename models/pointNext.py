@@ -39,7 +39,7 @@ class PointNextModel(nn.Module):
             nn.Linear(512, 256),
             nn.BatchNorm1d(256),
             nn.ReLU(),
-            nn.Dropout(self.config["dropout"]),
+            nn.Dropout(self.config["dp_pc"]),
             nn.Linear(256, self.n_classes),
         )
 

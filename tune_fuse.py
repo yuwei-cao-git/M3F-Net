@@ -60,7 +60,8 @@ def main(args):
         "lead_loss_weight": tune.loguniform(1.0, 4.0),
         "batch_size": tune.choice([16, 32, 64]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
-        "dropout": tune.choice([0.3, 0.5, 0.7]),  # dropout rate
+        "dp_fuse": tune.choice([0.3, 0.5, 0.7]),  # dropout rate
+        "dp_pc": tune.choice([0.3, 0.5, 0.7]),  # dropout rate
         "weighted_loss": tune.choice([True, False]),
         "train_weights": class_weights,
         "img_transforms": "compose",  # tune.choice([None, "random", "compose"]),  # augment

@@ -73,7 +73,7 @@ class SuperpixelModel(pl.LightningModule):
                         dim=self.config["fusion_dim"],
                         hidden_ch=self.config["linear_layers_dims"],
                         num_classes=self.config["n_classes"],
-                        drop=self.config["dropout"],
+                        drop=self.config["dp_fuse"],
                     )
                 else:
                     in_ch = 512 + self.config["emb_dims"]
