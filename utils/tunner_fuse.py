@@ -47,7 +47,7 @@ def train_func(config):
     # Initialize WandB, CSV Loggers
     wandb_logger = WandbLogger(
         project="M3F-Net-fuse",
-        group="tune_v4",
+        group="tune_v5",
         save_dir=log_dir,
         log_model=True,
     )
@@ -108,7 +108,7 @@ def train_func(config):
         trainer.test(model, data_module)
 
     # Load the saved model
-    # model = SuperpixelModel.load_from_checkpoint("final_model.ckpt")
+    # model = SuperpixelModel.load_from_checkpoint("final_model.pt")
 
     time.sleep(5)  # Wait for wandb to finish logging
     # wandb.finish()

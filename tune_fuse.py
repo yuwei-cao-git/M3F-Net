@@ -86,11 +86,11 @@ def main(args):
         "mamba_fuse": tune.choice([True, False]),
         "fusion_dim": tune.choice([128, 256]),
         "resolution": 20,  # tune.choice([10, 20]),
-        "use_mf": tune.choice([True, False]),
-        "spatial_attention": tune.choice([True, False]),
-        "use_residual": tune.choice([True, False]),
+        "use_mf": False,  # tune.choice([True, False]),
+        "spatial_attention": False,  # tune.choice([True, False]),
+        "use_residual": True,  # tune.choice([True, False]),
         "epochs": 150,  # args.max_epochs,
-        "eval": True,  # run testing
+        "eval": False,  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu
         "gpus": torch.cuda.device_count(),
         "n_samples": 30,
