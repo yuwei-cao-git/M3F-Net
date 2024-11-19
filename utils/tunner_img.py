@@ -7,13 +7,14 @@ import os
 import wandb
 import time
 from dataset.s2 import TreeSpeciesDataModule
+from .common import generate_eva
 
 
 def train_func(config):
     seed_everything(1)
 
     wandb_logger = WandbLogger(
-        project="M3F-Net-ray",
+        project="M3F-Net-img",
         name=f"trial_{tune.Trainable().trial_id}",
         save_dir=config["save_dir"],
         log_model=True,
@@ -60,9 +61,21 @@ def train_func(config):
     # Save the best model after training
     trainer.save_checkpoint(
         os.path.join(
-            config["save_dir"], f"trial_{tune.Trainable().trial_id}", "final_model.pt"
+            config["save_dir"],
+            f"trial_{tune.Trainable().trial_id}",
+            "checkpoints",
+            "final_model.pt",
         )
     )
+
+    # using a pandas DataFrame to recode best results
+    if model.best_test_outputs is not None:
+        output_dir = os.path.join(
+            config["save_dir"],
+            f"trial_{tune.Trainable().trial_id}",
+            "outputs",
+        )
+        generate_eva(model, trainer, config["classes"], output_dir)
 
     time.sleep(5)  # Wait for wandb to finish logging
     wandb.finish()

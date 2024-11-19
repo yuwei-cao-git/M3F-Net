@@ -110,7 +110,11 @@ class Model(pl.LightningModule):
         self.learning_rate = self.config["learning_rate"]
         self.scheduler_type = self.config["scheduler"]
 
-        # self.save_hyperparameters(ignore=["loss_weight"])
+        # Containers for validation predictions and true labels
+        self.val_preds = []
+        self.true_labels = []
+        self.best_test_outputs = None
+        self.best_val_metric = None
 
     def forward(self, inputs):
         # Optionally pass inputs through MF module
@@ -178,7 +182,9 @@ class Model(pl.LightningModule):
 
         # Compute the masked loss
         loss = self.criterion(valid_outputs, valid_targets)
-
+        if stage == "val":
+            self.val_preds.append(valid_outputs)
+            self.true_labels.append(valid_targets)
         # Round outputs to two decimal place
         valid_outputs = torch.round(valid_outputs, decimals=1)
 
@@ -257,20 +263,34 @@ class Model(pl.LightningModule):
 
         return self.compute_loss_and_metrics(outputs, targets, masks, stage="val")
 
-    """
     def on_validation_epoch_end(self):
-        # Compute the average of r2 for the validation stage
-        avg_r2 = torch.stack(self.val_r2).mean()
-        sys_r2 = self.r2_calc.compute()
-        
-        # Log averaged metrics
-        self.log("val_r2_epoch", avg_r2, sync_dist=True)
-        self.log("sys_r2", sys_r2, sync_dist=True)
-        
-        # Clear the lists for the next epoch
-        self.val_r2.clear()
-        self.r2_calc.reset()
-    """
+        # Get the current validation metric (e.g., 'val_r2')
+        val_r2 = self.trainer.callback_metrics.get("val_r2")
+
+        if val_r2 is None:
+            # If val_r2 is not available, return
+            return
+
+        # Determine if current epoch has the best validation metric
+        is_best = False
+        if self.best_val_metric is None or val_r2 > self.best_val_metric:
+            is_best = True
+            self.best_val_metric = val_r2
+
+        if is_best:
+            # Concatenate all predictions and true labels
+            preds_all = torch.cat(self.val_preds)
+            true_labels_all = torch.cat(self.true_labels)
+
+            # Store the tensors without converting to NumPy arrays
+            self.best_test_outputs = {
+                "preds_all": preds_all.detach().cpu(),
+                "true_labels_all": true_labels_all.detach().cpu(),
+            }
+
+        # Clear buffers for the next epoch
+        self.val_preds.clear()
+        self.true_labels.clear()
 
     def test_step(self, batch, batch_idx):
         inputs, targets, masks = batch

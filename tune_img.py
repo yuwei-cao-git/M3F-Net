@@ -16,15 +16,15 @@ def main():
         os.makedirs(save_dir)
     config = {
         "data_dir": data_dir,
-        "learning_rate": tune.loguniform(1e-5, 1e-1),
+        "learning_rate": tune.loguniform(1e-5, 1e-2),
         "batch_size": tune.choice([32, 64, 128]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
         "epochs": 150,
         "gpus": torch.cuda.device_count(),
         "use_mf": tune.choice([True, False]),
         "use_residual": tune.choice([True, False]),
-        "n_bands": 12,
         "n_classes": 9,
+        "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
         "resolution": tune.choice([10, 20]),
         "scheduler": "asha",  # tune.choice(["plateau", "steplr", "cosine"]),
         "transforms": tune.choice(["random", "compose"]),

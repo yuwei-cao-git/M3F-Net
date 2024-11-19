@@ -102,16 +102,9 @@ class SuperpixelModel(pl.LightningModule):
 
         # Containers for validation predictions and true labels
         self.val_preds = []
-        self.val_pixel_preds = []
         self.true_labels = []
-        self.true_pixel_labels = []
         self.best_test_outputs = None
         self.best_val_metric = None
-
-        # Species class names
-        self.species_names = self.config[
-            "classes"
-        ]  # Ensure this is a list of species names
 
         # Optimizer and scheduler settings
         self.optimizer_type = self.config["optimizer"]
