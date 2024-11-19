@@ -8,7 +8,7 @@ from .unet import UNet
 from .ResUnet import ResUnet
 from .pointNext import PointNextModel
 
-from torchmetrics.regression import R2Score
+from torchmetrics.regression import R2Score, MeanSquaredError
 from torchmetrics.classification import MulticlassF1Score, Accuracy
 from .loss import apply_mask, calc_loss
 
@@ -89,8 +89,7 @@ class SuperpixelModel(pl.LightningModule):
 
         # Metrics
         self.train_r2 = R2Score()
-        if self.config.get("leading_loss", False):
-            self.ce_loss = nn.CrossEntropyLoss(reduction="mean")
+        self.leading_loss = self.config["leading_loss"]
 
         self.val_r2 = R2Score()
         self.val_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
@@ -119,7 +118,8 @@ class SuperpixelModel(pl.LightningModule):
         self.pc_loss_weight = self.config.get("pc_loss_weight", 1.0)
         self.img_loss_weight = self.config.get("img_loss_weight", 1.0)
         self.fuse_loss_weight = self.config.get("fuse_loss_weight", 1.0)
-        if self.config.get("leading_loss", False):
+        if self.leading_loss:
+            self.ce_loss = nn.CrossEntropyLoss(reduction="mean")
             self.lead_loss_weight = self.config.get("lead_loss_weight", 1.0)
 
     def forward(self, images, pc_feat, xyz):
@@ -224,7 +224,7 @@ class SuperpixelModel(pl.LightningModule):
             else:
                 loss_point = self.criterion(pc_preds, labels)
 
-            if self.config.get("leading_loss", False) and stage == "train":
+            if self.leading_loss and stage == "train":
                 loss += 0.5 * self.pc_loss_weight * loss_point
                 loss += (
                     0.5
@@ -313,7 +313,7 @@ class SuperpixelModel(pl.LightningModule):
                 fuse_preds = F.softmax(fuse_logits, dim=1)
                 loss_fuse = self.criterion(fuse_preds, labels)
 
-                if self.config.get("leading_loss", False) and stage == "train":
+                if self.leading_loss and stage == "train":
                     loss += 0.5 * self.fuse_loss_weight * loss_fuse
                     loss += (
                         0.5
