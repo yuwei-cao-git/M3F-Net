@@ -98,4 +98,4 @@ def train(config):
     trainer.test(model, data_module)
 
     # Load the saved model
-    # model = SuperpixelModel.load_from_checkpoint("final_model.ckpt")
+    # model = SuperpixelModel.load_from_checkpoint("final_model.pt")

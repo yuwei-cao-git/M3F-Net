@@ -39,7 +39,7 @@ def main():
     parser.add_argument(
         "--max_epochs",
         type=int,
-        default=200,
+        default=150,
         help="Number of epochs to train the model",
     )
     parser.add_argument(
@@ -66,15 +66,15 @@ def main():
         "--fuse_lr", type=float, default=0.001, help="initial learning rate"
     )
     parser.add_argument(
-        "--pc_loss_weight", type=float, default=1.0, help="initial learning rate"
+        "--pc_loss_weight", type=float, default=2.5, help="initial learning rate"
     )
     parser.add_argument(
-        "--img_loss_weight", type=float, default=1.0, help="initial learning rate"
+        "--img_loss_weight", type=float, default=2.0, help="initial learning rate"
     )
     parser.add_argument(
-        "--fuse_loss_weight", type=float, default=2.0, help="initial learning rate"
+        "--fuse_loss_weight", type=float, default=3.0, help="initial learning rate"
     )
-    parser.add_argument("--leading_loss", default=False)
+    parser.add_argument("--leading_loss", action="store_true")
     parser.add_argument(
         "--lead_loss_weight", type=float, default=1.0, help="initial learning rate"
     )
@@ -110,7 +110,7 @@ def main():
     )
     parser.add_argument(
         "--linear_layers_dims",
-        default=[128, 128],
+        default=[256, 128],
         help="dims used for the superpixels classify head",
     )
     parser.add_argument(

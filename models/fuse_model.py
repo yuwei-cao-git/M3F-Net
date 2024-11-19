@@ -366,11 +366,12 @@ class SuperpixelModel(pl.LightningModule):
 
         # Log all metrics
         for key, value in logs.items():
-            if "loss" in key:
+            if "r2" in key:
                 self.log(
                     key,
                     value,
                     on_step=True,
+                    on_epoch=True,
                     prog_bar=True,
                     logger=True,
                     sync_dist=True,
@@ -379,6 +380,7 @@ class SuperpixelModel(pl.LightningModule):
                 self.log(
                     key,
                     value,
+                    on_step=True,
                     on_epoch=True,
                     prog_bar=False,
                     logger=True,
