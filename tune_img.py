@@ -5,23 +5,37 @@ from ray.tune.schedulers import ASHAScheduler
 from ray.air.integrations.wandb import WandbLoggerCallback
 import os
 import torch
+import argparse
 
 # local machine: wandb login --cloud --relogin
 
+# Create argument parser
+parser = argparse.ArgumentParser(description="Train model with given parameters")
+parser.add_argument("--data_dir", type=str, default=None, help="path to data dir")
+parser.add_argument(
+    "--max_epochs", type=int, default=10, help="Number of epochs to train the model"
+)
 
-def main():
-    data_dir = os.path.join(os.getcwd(), "data")
+
+def main(args):
+    # data_dir = os.path.join(os.getcwd(), "data")
+    data_dir = (
+        args.data_dir
+        if args.data_dir is not None
+        else os.path.join(os.getcwd(), "data")
+    )
     save_dir = os.path.join(os.getcwd(), "logs", "ray_results")
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     config = {
         "data_dir": data_dir,
         "learning_rate": tune.loguniform(1e-5, 1e-2),
-        "batch_size": tune.choice([32, 64, 128]),
+        "batch_size": 16,  # tune.choice([32, 64, 128]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
-        "epochs": 150,
+        "epochs": args.max_epochs,
         "gpus": torch.cuda.device_count(),
         "use_mf": tune.choice([True, False]),
+        "spatial_attention": tune.choice([True, False]),
         "use_residual": tune.choice([True, False]),
         "n_classes": 9,
         "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
@@ -50,8 +64,8 @@ def main():
                 log_to_file=("my_stdout.log", "my_stderr.log"),
                 callbacks=[
                     WandbLoggerCallback(
-                        project="M3F-Net-ray",
-                        group="r2_torchmetric",
+                        project="M3F-Net-img",
+                        group="v1",
                         api_key=os.environ["WANDB_API_KEY"],
                         log_config=True,
                         save_checkpoints=True,
@@ -81,4 +95,5 @@ if __name__ == "__main__":
             runtime_env={"env_vars": {"WANDB_MODE": "disabled", "WANDB_API_KEY": "abcd"}}
         )
     """
-    main()
+    params = parser.parse_args()
+    main(params)
