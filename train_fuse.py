@@ -126,8 +126,8 @@ def main():
     params = vars(parser.parse_args())
     params["save_dir"] = os.path.join(os.getcwd(), "fuse_train_logs")
     params["data_dir"] = (
-        params.data_dir
-        if params.data_dir is not None
+        params["data_dir"]
+        if params["data_dir"] is not None
         else os.path.join(os.getcwd(), "data")
     )
     class_weights = [
