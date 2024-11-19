@@ -74,7 +74,7 @@ def main():
     parser.add_argument(
         "--fuse_loss_weight", type=float, default=2.0, help="initial learning rate"
     )
-    parser.add_argument("--leading_loss", default=True)
+    parser.add_argument("--leading_loss", default=False)
     parser.add_argument(
         "--lead_loss_weight", type=float, default=1.0, help="initial learning rate"
     )

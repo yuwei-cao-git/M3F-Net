@@ -29,7 +29,8 @@ echo "Start transfer data..."
 mkdir -p data/20m
 # extract an archive to a different directory, the ‘-C’ option is followed by the destination path
 # tar -xf $project/data/10m/fusion.tar -C ./data/10m/fusion
-tar -xf $project/data/20m/fusion.tar -C ./data/20m
+tar -xf $project/M3F-Net/data/20m/fusion.tar -C ./data/20m
+ls ./data/20m/fusion
 echo "Data transfered"
 
 # Load python module, and additional required modules
