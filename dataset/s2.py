@@ -38,8 +38,8 @@ class TreeSpeciesDataset(Dataset):
         return len(self.tile_names)
 
     def __getitem__(self, idx):
-        # tile_name = self.tile_names[idx].split(" ")[0] + ".tif"
-        tile_name = self.tile_names[idx]
+        tile_name = self.tile_names[idx].split(" ")[0] + ".tif"
+        # tile_name = self.tile_names[idx]
         input_data_list = []
 
         # Load data from each dataset (spring, summer, fall, winter, etc.)
@@ -126,7 +126,11 @@ class TreeSpeciesDataModule(pl.LightningDataModule):
 
     def train_dataloader(self):
         return DataLoader(
-            self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=8
+            self.train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=8,
+            drop_last=True,
         )
 
     def val_dataloader(self):
