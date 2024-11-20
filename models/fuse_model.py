@@ -273,7 +273,10 @@ class SuperpixelModel(pl.LightningModule):
         if self.config["mode"] == "fuse":
             if self.config.get("fuse_feature", False):
                 # Compute fusion loss
-                loss_fuse = self.criterion(fuse_preds, labels)
+                if self.config["weighted_loss"] and stage == "train":
+                    loss_fuse = calc_loss(labels, fuse_preds, self.weights)
+                else:
+                    loss_fuse = self.criterion(fuse_preds, labels)
                 loss += self.fuse_loss_weight * loss_fuse
 
                 # Compute R² metric
