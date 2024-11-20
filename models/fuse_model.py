@@ -366,7 +366,7 @@ class SuperpixelModel(pl.LightningModule):
         )
         print(test_true.shape)
         last_epoch_val_r2 = r2_score(
-            torch.round(test_pred.flatten(), decimals=2), test_true.flatten()
+            torch.round(test_pred.flatten(), decimals=1), test_true.flatten()
         )
         self.log("ave_val_r2", last_epoch_val_r2, sync_dist=True)
         print(f"average r2 score at epoch {self.current_epoch}: {last_epoch_val_r2}")

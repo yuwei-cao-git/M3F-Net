@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import pytorch_lightning as pl
 import torchvision.transforms.v2 as transforms
 
@@ -8,8 +7,9 @@ from .blocks import MF
 from .unet import UNet
 from .ResUnet import ResUnet
 
-# from .metrics import r2_score_torch
+from torchmetrics import MeanSquaredError
 from torchmetrics.regression import R2Score
+from torchmetrics.functional import r2_score
 from torchmetrics.classification import MulticlassF1Score
 
 
@@ -93,7 +93,7 @@ class Model(pl.LightningModule):
             )
 
         # Loss function
-        self.criterion = nn.MSELoss()
+        self.criterion = MeanSquaredError()
 
         # Metrics
         self.train_r2 = R2Score()
@@ -265,23 +265,22 @@ class Model(pl.LightningModule):
 
     def on_validation_epoch_end(self):
         # Get the current validation metric (e.g., 'val_r2')
-        val_r2 = self.trainer.callback_metrics.get("val_r2")
-
-        if val_r2 is None:
-            # If val_r2 is not available, return
-            return
+        # Concatenate all predictions and true labels
+        preds_all = torch.cat(self.val_preds)
+        true_labels_all = torch.cat(self.true_labels)
+        last_epoch_val_r2 = r2_score(
+            torch.round(preds_all.flatten(), decimals=1), true_labels_all.flatten()
+        )
+        self.log("ave_val_r2", last_epoch_val_r2, sync_dist=True)
+        print(f"average r2 score at epoch {self.current_epoch}: {last_epoch_val_r2}")
 
         # Determine if current epoch has the best validation metric
         is_best = False
-        if self.best_val_metric is None or val_r2 > self.best_val_metric:
+        if self.best_val_metric is None or last_epoch_val_r2 > self.best_val_metric:
             is_best = True
-            self.best_val_metric = val_r2
+            self.best_val_metric = last_epoch_val_r2
 
         if is_best:
-            # Concatenate all predictions and true labels
-            preds_all = torch.cat(self.val_preds)
-            true_labels_all = torch.cat(self.true_labels)
-
             # Store the tensors without converting to NumPy arrays
             self.best_test_outputs = {
                 "preds_all": preds_all,

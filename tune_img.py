@@ -24,14 +24,14 @@ def main(args):
         if args.data_dir is not None
         else os.path.join(os.getcwd(), "data")
     )
-    save_dir = os.path.join(os.getcwd(), "logs", "ray_results")
+    save_dir = os.path.join(os.getcwd(), "img_logs", "ray_results")
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     config = {
         "mode": "img",
         "data_dir": data_dir,
-        "learning_rate": tune.loguniform(1e-5, 1e-2),
-        "batch_size": tune.choice([32, 64, 128]),
+        "learning_rate": tune.loguniform(1e-5, 1e-3),
+        "batch_size": 16,  # tune.choice([32, 64, 128]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
         "epochs": args.max_epochs,
         "gpus": torch.cuda.device_count(),
