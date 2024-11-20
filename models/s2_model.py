@@ -174,7 +174,7 @@ class Model(pl.LightningModule):
         Returns:
         - loss: The computed masked loss.
         """
-        outputs = F.softmax(outputs, dim=1)
+        # outputs = F.softmax(outputs, dim=1)
 
         valid_outputs, valid_targets = self.apply_mask(
             outputs, targets, masks, multi_class=True

@@ -53,7 +53,7 @@ def main():
     parser.add_argument("--optimizer", default="adam", choices=["adam", "adamW", "sgd"])
     parser.add_argument(
         "--scheduler",
-        default="plateau",
+        default="steplr",
         choices=["plateau", "steplr", "asha", "cosine"],
     )
     parser.add_argument(
@@ -65,19 +65,11 @@ def main():
     parser.add_argument(
         "--fuse_lr", type=float, default=0.001, help="initial learning rate"
     )
-    parser.add_argument(
-        "--pc_loss_weight", type=float, default=2.5, help="initial learning rate"
-    )
-    parser.add_argument(
-        "--img_loss_weight", type=float, default=2.0, help="initial learning rate"
-    )
-    parser.add_argument(
-        "--fuse_loss_weight", type=float, default=3.0, help="initial learning rate"
-    )
+    parser.add_argument("--pc_loss_weight", type=float, default=2.0)
+    parser.add_argument("--img_loss_weight", type=float, default=2.0)
+    parser.add_argument("--fuse_loss_weight", type=float, default=3.0)
     parser.add_argument("--leading_loss", action="store_true")
-    parser.add_argument(
-        "--lead_loss_weight", type=float, default=1.0, help="initial learning rate"
-    )
+    parser.add_argument("--lead_loss_weight", type=float, default=1.0)
     parser.add_argument("--weighted_loss", default=True)
     parser.add_argument("--patience", type=int, default=10)
     parser.add_argument("--step_size", type=int, default=10)
@@ -110,7 +102,7 @@ def main():
     )
     parser.add_argument(
         "--linear_layers_dims",
-        default=[256, 128],
+        default=[128, 128],
         help="dims used for the superpixels classify head",
     )
     parser.add_argument(

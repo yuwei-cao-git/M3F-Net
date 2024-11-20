@@ -6,6 +6,7 @@ from lightning.pytorch.loggers import WandbLogger
 from models.fuse_model import SuperpixelModel
 from dataset.superpixel import SuperpixelDataModule
 import os
+import wandb
 from .common import generate_eva, PointCloudLogger
 
 
@@ -48,16 +49,16 @@ def train(config):
     # point_logger = PointCloudLogger(trainer=Trainer)
     # Define a checkpoint callback to save the best model
     checkpoint_callback = ModelCheckpoint(
-        monitor="fuse_val_r2",  # Track the validation loss
+        monitor="val_loss",  # Track the validation loss
         dirpath=chk_dir,
-        filename="best-model-{epoch:02d}-{fuse_val_r2:.2f}",
+        filename="best-model-{epoch:02d}-{val_loss:.2f}",
         save_top_k=1,  # Only save the best model
-        mode="max",  # We want to minimize the validation loss
+        mode="min",  # We want to minimize the validation loss
     )
     early_stopping = EarlyStopping(
-        monitor="fuse_val_r2",  # Metric to monitor
+        monitor="val_loss",  # Metric to monitor
         patience=10,  # Number of epochs with no improvement after which training will be stopped
-        mode="max",  # Set "min" for validation loss
+        mode="min",  # Set "min" for validation loss
         verbose=True,
     )
 
@@ -89,7 +90,15 @@ def train(config):
             save_dir,
             "outputs",
         )
-        generate_eva(model, trainer, config["classes"], output_dir)
+        evaluation_results = generate_eva(model, config["classes"], output_dir)
+        artifact = wandb.Artifact("best_leading_species_outputs", type="dataset")
+        artifact.add_file(os.path.join(output_dir, "best_sp_outputs.csv"))
+        wandb_logger.experiment.log_artifact(artifact)
+        wandb_logger.log_metrics(
+            {
+                "Confusion Matrix": evaluation_results["Confusion Matrix"],
+            }
+        )
 
     # Save the best model after training
     trainer.save_checkpoint(os.path.join(chk_dir, "final_model.pt"))

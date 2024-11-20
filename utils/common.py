@@ -165,15 +165,15 @@ def evaluate_model(sp_output_csv, classes):
     return evaluation_results
 
 
-def generate_eva(model, trainer, classes, output_dir):
+def generate_eva(model, classes, output_dir):
     outputs = model.best_test_outputs
     # Access the stored tensors
     preds_all = outputs["preds_all"]
     true_labels_all = outputs["true_labels_all"]
 
     # Convert tensors to NumPy arrays
-    preds_all_np = preds_all.numpy()
-    true_labels_all_np = true_labels_all.numpy()
+    preds_all_np = preds_all.detach().cpu().numpy()
+    true_labels_all_np = true_labels_all.detach().cpu().numpy()
 
     # Create CSV files
     if not os.path.exists(output_dir):
@@ -187,15 +187,6 @@ def generate_eva(model, trainer, classes, output_dir):
         classes=classes,
         filepath=sp_output_csv,
     )
-
-    # Log CSV files to wandb
-    if isinstance(trainer.logger, pl.loggers.WandbLogger):
-        wandb_logger = trainer.logger
-
-        # Log the superpixel outputs CSV
-        artifact_sp = wandb.Artifact(name="best_sp_outputs", type="dataset")
-        artifact_sp.add_file(sp_output_csv)
-        wandb_logger.experiment.log_artifact(artifact_sp)
 
     # Compute metrics using Evaluation class or function
     evaluation_results = evaluate_model(
@@ -223,6 +214,7 @@ def generate_eva(model, trainer, classes, output_dir):
     print("R2 Scores per Species:")
     for species, r2 in evaluation_results["R2 Scores per Species"].items():
         print(f"{species}: {r2:.4f}")
+    return evaluation_results
 
 
 class PointCloudLogger(Callback):

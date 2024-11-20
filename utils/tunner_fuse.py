@@ -61,9 +61,9 @@ def train_func(config):
         mode="max",  # We want to minimize the validation loss
     )
     early_stopping = EarlyStopping(
-        monitor="fuse_val_r2",  # Metric to monitor
+        monitor="val_loss",  # Metric to monitor
         patience=10,  # Number of epochs with no improvement after which training will be stopped
-        mode="max",  # Set "min" for validation loss
+        mode="min",  # Set "min" for validation loss
         verbose=True,
     )
     # Initialize the DataModule
@@ -95,14 +95,23 @@ def train_func(config):
             "final_model.pt",
         )
     )
+    """
     # using a pandas DataFrame to recode best results
     if model.best_test_outputs is not None:
         output_dir = os.path.join(
             save_dir,
             "outputs",
         )
-        generate_eva(model, trainer, config["classes"], output_dir)
-
+        evaluation_results = generate_eva(model, config["classes"], output_dir)
+        artifact = wandb.Artifact("best_leading_species_outputs", type="dataset")
+        artifact.add_file(os.path.join(output_dir, "best_sp_outputs.csv"))
+        wandb_logger.experiment.log_artifact(artifact)
+        wandb_logger.log_metrics(
+            {
+                "Confusion Matrix": evaluation_results["Confusion Matrix"],
+            }
+        )
+    """
     # Test the model after training
     if config["eval"]:
         trainer.test(model, data_module)
