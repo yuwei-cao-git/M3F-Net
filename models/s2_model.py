@@ -41,7 +41,7 @@ class Model(pl.LightningModule):
         if self.use_mf:
             # MF Module for seasonal fusion (each season has `n_bands` channels)
             self.mf_module = MF(
-                channels=self.n_bands, spatial_att=self.spatial_attention
+                mode="img", channels=self.n_bands, spatial_att=self.spatial_attention
             )
             total_input_channels = (
                 64  # MF module outputs 64 channels after processing four seasons

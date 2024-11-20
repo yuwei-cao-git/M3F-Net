@@ -13,7 +13,7 @@ import argparse
 parser = argparse.ArgumentParser(description="Train model with given parameters")
 parser.add_argument("--data_dir", type=str, default=None, help="path to data dir")
 parser.add_argument(
-    "--max_epochs", type=int, default=10, help="Number of epochs to train the model"
+    "--max_epochs", type=int, default=150, help="Number of epochs to train the model"
 )
 
 
@@ -28,9 +28,10 @@ def main(args):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     config = {
+        "mode": "img",
         "data_dir": data_dir,
         "learning_rate": tune.loguniform(1e-5, 1e-2),
-        "batch_size": 16,  # tune.choice([32, 64, 128]),
+        "batch_size": tune.choice([32, 64, 128]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
         "epochs": args.max_epochs,
         "gpus": torch.cuda.device_count(),

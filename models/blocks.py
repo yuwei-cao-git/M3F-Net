@@ -135,10 +135,11 @@ class ChannelSpatialSELayer3D(nn.Module):
 
 class MF(nn.Module):  # Multi-Feature (MF) module for seasonal attention-based fusion
     def __init__(
-        self, channels=12, reduction=16, spatial_att=False
+        self, mode="img", channels=12, reduction=16, spatial_att=False
     ):  # Each season has 13 channels
         super(MF, self).__init__()
         # Channel attention for each season (spring, summer, autumn, winter)
+        self.mode = mode
         self.channels = channels
         self.reduction = reduction
         self.spatial_attention = spatial_att
@@ -162,7 +163,10 @@ class MF(nn.Module):  # Multi-Feature (MF) module for seasonal attention-based f
             )  # Since we have 4 seasons with 16 channels each, we get a total of 64 channels
 
     def forward(self, x):  # x is a list of 4 inputs (spring, summer, autumn, winter)
-        spring, summer, autumn, winter = torch.unbind(x, dim=1)  # Unpack the inputs
+        if self.mode == "fuse":
+            spring, summer, autumn, winter = torch.unbind(x, dim=1)  # Unpack the inputs
+        else:
+            spring, summer, autumn, winter = x
 
         # Apply attention maps
         spring_mask = torch.mul(
