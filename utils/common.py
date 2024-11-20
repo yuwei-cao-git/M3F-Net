@@ -143,7 +143,7 @@ def evaluate_model(sp_output_csv, classes):
     cm = confusion_matrix(true_leading, pred_leading, labels=class_indices)
 
     # Compute Overall R² Score
-    sp_pred_rounded = sp_pred.round(1)
+    sp_pred_rounded = sp_pred.round(2)
     all_r2 = r2_score(sp_true.flatten(), sp_pred_rounded.flatten())
 
     # Compute R² Score per Species
