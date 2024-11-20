@@ -60,7 +60,7 @@ def train_func(config):
             "outputs",
         )
         sp_df = generate_eva(model, config["classes"], output_dir)
-        wandb_logger.log_text(key="preds", dataframe=sp_df)
+        # wandb_logger.log_text(key="preds", dataframe=sp_df) # WARNING:root:Truncating wandb.Table object to 200000 rows.
 
     # Report the final metric to Ray Tune
     final_result = trainer.callback_metrics["val_r2"].item()
