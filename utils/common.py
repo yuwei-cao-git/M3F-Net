@@ -236,7 +236,7 @@ class PointCloudLogger(Callback):
             ]
             # Log point clouds
             wandb_logger.log(
-                {"point_cloud": [wandb.Object3D(pc) for pc in point_clouds]}
+                {"point_cloud": [wandb.Object3D(pc) for pc in point_clouds]}, caption=captions_1
             )
 
             # Log images

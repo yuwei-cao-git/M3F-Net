@@ -76,7 +76,15 @@ def train_func(config):
             f"trial_{tune.Trainable().trial_id}",
             "outputs",
         )
-        generate_eva(model, trainer, config["classes"], output_dir)
+        evaluation_results = generate_eva(model, config["classes"], output_dir)
+        artifact = wandb.Artifact("best_outputs", type="dataset")
+        artifact.add_file(os.path.join(output_dir, "best_sp_outputs.csv"))
+        wandb_logger.experiment.log_artifact(artifact)
+        wandb_logger.log_metrics(
+            {
+                "Confusion Matrix": evaluation_results["Confusion Matrix"],
+            }
+        )
 
     time.sleep(5)  # Wait for wandb to finish logging
     wandb.finish()
