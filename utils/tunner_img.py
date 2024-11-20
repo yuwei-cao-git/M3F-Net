@@ -52,6 +52,23 @@ def train_func(config):
     # Train the model
     trainer.fit(model, data_module)
 
+    # using a pandas DataFrame to recode best results
+    if model.best_test_outputs is not None:
+        output_dir = os.path.join(
+            config["save_dir"],
+            f"trial_{tune.Trainable().trial_id}",
+            "outputs",
+        )
+        evaluation_results = generate_eva(model, config["classes"], output_dir)
+        artifact = wandb.Artifact("best_outputs", type="dataset")
+        artifact.add_file(os.path.join(output_dir, "best_sp_outputs.csv"))
+        wandb_logger.experiment.log_artifact(artifact)
+        wandb_logger.log_metrics(
+            {
+                "Confusion Matrix": evaluation_results["Confusion Matrix"],
+            }
+        )
+        
     # Report the final metric to Ray Tune
     final_result = trainer.callback_metrics["val_r2"].item()
     train.report({"val_r2": final_result})
@@ -68,15 +85,6 @@ def train_func(config):
             "final_model.pt",
         )
     )
-
-    # using a pandas DataFrame to recode best results
-    if model.best_test_outputs is not None:
-        output_dir = os.path.join(
-            config["save_dir"],
-            f"trial_{tune.Trainable().trial_id}",
-            "outputs",
-        )
-        generate_eva(model, trainer, config["classes"], output_dir)
-
+    
     time.sleep(5)  # Wait for wandb to finish logging
     wandb.finish()

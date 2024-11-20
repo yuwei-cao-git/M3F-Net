@@ -284,8 +284,8 @@ class Model(pl.LightningModule):
 
             # Store the tensors without converting to NumPy arrays
             self.best_test_outputs = {
-                "preds_all": preds_all.detach().cpu(),
-                "true_labels_all": true_labels_all.detach().cpu(),
+                "preds_all": preds_all,
+                "true_labels_all": true_labels_all,
             }
 
         # Clear buffers for the next epoch
