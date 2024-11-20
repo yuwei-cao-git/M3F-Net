@@ -84,6 +84,17 @@ def train_func(config):
     # Train the model
     trainer.fit(model, data_module)
 
+    # using a pandas DataFrame to recode best results
+    if model.best_test_outputs is not None:
+        output_dir = os.path.join(
+            save_dir,
+            "outputs",
+        )
+        sp_df = generate_eva(model, config["classes"], output_dir)
+        wandb_logger.log_text(key="preds", dataframe=sp_df)
+    else:
+        print("No best test output found!")
+
     # Report the final metric to Ray Tune
     final_result = trainer.callback_metrics["fuse_val_r2"].item()
     train.report({"fuse_val_r2": final_result})
@@ -95,23 +106,7 @@ def train_func(config):
             "final_model.pt",
         )
     )
-    """
-    # using a pandas DataFrame to recode best results
-    if model.best_test_outputs is not None:
-        output_dir = os.path.join(
-            save_dir,
-            "outputs",
-        )
-        evaluation_results = generate_eva(model, config["classes"], output_dir)
-        artifact = wandb.Artifact("best_leading_species_outputs", type="dataset")
-        artifact.add_file(os.path.join(output_dir, "best_sp_outputs.csv"))
-        wandb_logger.experiment.log_artifact(artifact)
-        wandb_logger.log_metrics(
-            {
-                "Confusion Matrix": evaluation_results["Confusion Matrix"],
-            }
-        )
-    """
+
     # Test the model after training
     if config["eval"]:
         trainer.test(model, data_module)

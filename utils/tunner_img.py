@@ -33,8 +33,8 @@ def train_func(config):
 
     # Define a checkpoint callback to save the best model
     checkpoint_callback = ModelCheckpoint(
-        monitor="val_loss",  # Track the validation loss
-        filename="best-model-{epoch:02d}-{val_loss:.2f}",
+        monitor="val_r2",  # Track the validation loss
+        filename="best-model-{epoch:02d}-{val_r2:.2f}",
         save_top_k=1,  # Only save the best model
         mode="min",  # We want to minimize the validation loss
     )
@@ -59,16 +59,9 @@ def train_func(config):
             f"trial_{tune.Trainable().trial_id}",
             "outputs",
         )
-        evaluation_results = generate_eva(model, config["classes"], output_dir)
-        artifact = wandb.Artifact("best_outputs", type="dataset")
-        artifact.add_file(os.path.join(output_dir, "best_sp_outputs.csv"))
-        wandb_logger.experiment.log_artifact(artifact)
-        wandb_logger.log_metrics(
-            {
-                "Confusion Matrix": evaluation_results["Confusion Matrix"],
-            }
-        )
-        
+        sp_df = generate_eva(model, config["classes"], output_dir)
+        wandb_logger.log_text(key="preds", dataframe=sp_df)
+
     # Report the final metric to Ray Tune
     final_result = trainer.callback_metrics["val_r2"].item()
     train.report({"val_r2": final_result})

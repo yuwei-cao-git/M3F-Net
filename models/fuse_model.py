@@ -8,6 +8,7 @@ from .ResUnet import ResUnet
 from .pointNext import PointNextModel
 
 from torchmetrics.regression import R2Score
+from torchmetrics.functional import r2_score
 from torchmetrics.classification import MulticlassF1Score
 from .loss import apply_mask, calc_loss
 
@@ -109,6 +110,10 @@ class SuperpixelModel(pl.LightningModule):
         self.pc_loss_weight = self.config.get("pc_loss_weight", 2.0)
         self.img_loss_weight = self.config.get("img_loss_weight", 1.0)
         self.fuse_loss_weight = self.config.get("fuse_loss_weight", 1.0)
+
+        self.best_test_r2 = 0.0
+        self.best_test_outputs = None
+        self.validation_step_outputs = []
 
     def forward(self, images, pc_feat, xyz):
         image_outputs = None
@@ -282,9 +287,13 @@ class SuperpixelModel(pl.LightningModule):
                         f"fuse_{stage}_r2": fuse_r2,
                     }
                 )
+                if stage == "val":
+                    self.validation_step_outputs.append(
+                        {"val_target": labels, "val_pred": fuse_preds}
+                    )
 
         # Compute RMSE
-        rmse = torch.sqrt(loss)
+        rmse = torch.sqrt(loss_fuse)
         logs.update(
             {
                 f"{stage}_loss": loss,
@@ -299,7 +308,7 @@ class SuperpixelModel(pl.LightningModule):
                 value,
                 on_step=True,
                 on_epoch=True,
-                prog_bar=True,
+                prog_bar="r2" in key,
                 logger=True,
                 sync_dist=True,
             )
@@ -347,6 +356,29 @@ class SuperpixelModel(pl.LightningModule):
             stage="val",
         )
         return loss
+
+    def on_validation_epoch_end(self):
+        test_true = torch.cat(
+            [output["val_target"] for output in self.validation_step_outputs], dim=0
+        )
+        test_pred = torch.cat(
+            [output["val_pred"] for output in self.validation_step_outputs], dim=0
+        )
+        print(test_true.shape)
+        last_epoch_val_r2 = r2_score(
+            torch.round(test_pred.flatten(), decimals=2), test_true.flatten()
+        )
+        self.log("ave_val_r2", last_epoch_val_r2, sync_dist=True)
+        print(f"average r2 score at epoch {self.current_epoch}: {last_epoch_val_r2}")
+
+        if last_epoch_val_r2 > self.best_test_r2:
+            self.best_test_r2 = last_epoch_val_r2
+            self.best_test_outputs = {
+                "preds_all": test_pred,
+                "true_labels_all": test_true,
+            }
+
+        self.validation_step_outputs.clear()
 
     def test_step(self, batch, batch_idx):
         images = batch["images"] if "images" in batch else None

@@ -162,7 +162,7 @@ def evaluate_model(sp_output_csv, classes):
         "R2 Scores per Species": species_r2_scores,
     }
 
-    return evaluation_results
+    return evaluation_results, sp_df
 
 
 def generate_eva(model, classes, output_dir):
@@ -189,7 +189,7 @@ def generate_eva(model, classes, output_dir):
     )
 
     # Compute metrics using Evaluation class or function
-    evaluation_results = evaluate_model(
+    evaluation_results, sp_df = evaluate_model(
         sp_output_csv=sp_output_csv,
         classes=classes,
     )
@@ -214,7 +214,7 @@ def generate_eva(model, classes, output_dir):
     print("R2 Scores per Species:")
     for species, r2 in evaluation_results["R2 Scores per Species"].items():
         print(f"{species}: {r2:.4f}")
-    return evaluation_results
+    return sp_df
 
 
 class PointCloudLogger(Callback):
@@ -236,7 +236,8 @@ class PointCloudLogger(Callback):
             ]
             # Log point clouds
             wandb_logger.log(
-                {"point_cloud": [wandb.Object3D(pc) for pc in point_clouds]}, caption=captions_1
+                {"point_cloud": [wandb.Object3D(pc) for pc in point_clouds]},
+                caption=captions_1,
             )
 
             # Log images

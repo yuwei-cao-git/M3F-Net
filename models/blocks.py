@@ -542,7 +542,7 @@ class MLP(nn.Module):
         self.bn1 = nn.BatchNorm1d(hidden_ch[0])
         self.dropout1 = nn.Dropout(dropout_prob)
         self.fc2 = nn.Linear(hidden_ch[0], hidden_ch[1])
-        self.bn1 = nn.BatchNorm1d(hidden_ch[1])
+        self.bn2 = nn.BatchNorm1d(hidden_ch[1])
         self.dropout2 = nn.Dropout(dropout_prob)
         self.fc3 = nn.Linear(hidden_ch[1], num_classes)  # Output layer
 

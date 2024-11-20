@@ -55,8 +55,8 @@ def main(args):
         tuner = tune.Tuner(
             trainable_with_gpu,
             tune_config=tune.TuneConfig(
-                metric="val_r2",
-                mode="max",
+                metric="val_loss",
+                mode="min",
                 scheduler=scheduler,
                 num_samples=config["n_samples"],
             ),

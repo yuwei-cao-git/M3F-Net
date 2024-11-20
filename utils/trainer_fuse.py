@@ -49,9 +49,9 @@ def train(config):
     # point_logger = PointCloudLogger(trainer=Trainer)
     # Define a checkpoint callback to save the best model
     checkpoint_callback = ModelCheckpoint(
-        monitor="val_loss",  # Track the validation loss
+        monitor="fuse_val_r2",  # Track the validation loss
         dirpath=chk_dir,
-        filename="best-model-{epoch:02d}-{val_loss:.2f}",
+        filename="best-model-{epoch:02d}-{fuse_val_r2:.2f}",
         save_top_k=1,  # Only save the best model
         mode="min",  # We want to minimize the validation loss
     )
@@ -90,15 +90,8 @@ def train(config):
             save_dir,
             "outputs",
         )
-        evaluation_results = generate_eva(model, config["classes"], output_dir)
-        artifact = wandb.Artifact("best_leading_species_outputs", type="dataset")
-        artifact.add_file(os.path.join(output_dir, "best_sp_outputs.csv"))
-        wandb_logger.experiment.log_artifact(artifact)
-        wandb_logger.log_metrics(
-            {
-                "Confusion Matrix": evaluation_results["Confusion Matrix"],
-            }
-        )
+        sp_df = generate_eva(model, config["classes"], output_dir)
+        wandb_logger.log_text(key="preds", dataframe=sp_df)
 
     # Save the best model after training
     trainer.save_checkpoint(os.path.join(chk_dir, "final_model.pt"))
