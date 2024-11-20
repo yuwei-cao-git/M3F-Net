@@ -66,7 +66,7 @@ def main(args):
                 callbacks=[
                     WandbLoggerCallback(
                         project="M3F-Net-img",
-                        group="v1",
+                        group="v2",
                         api_key=os.environ["WANDB_API_KEY"],
                         log_config=True,
                         save_checkpoints=True,
