@@ -46,8 +46,8 @@ def train_func(config):
 
     # Initialize WandB, CSV Loggers
     wandb_logger = WandbLogger(
-        project="M3F-Net-fuse",
-        group="tune_v5",
+        project="M3F-Net-fuse-v2",
+        group="tune_group",
         save_dir=log_dir,
         log_model=True,
     )

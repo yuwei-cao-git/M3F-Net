@@ -144,7 +144,7 @@ def evaluate_model(sp_output_csv, classes):
 
     # Compute Overall R² Score
     sp_pred_rounded = sp_pred.round(1)
-    all_r2 = r2_score(sp_true, sp_pred_rounded, multioutput="uniform_average")
+    all_r2 = r2_score(sp_true.flatten(), sp_pred_rounded.flatten())
 
     # Compute R² Score per Species
     species_r2_scores = {}

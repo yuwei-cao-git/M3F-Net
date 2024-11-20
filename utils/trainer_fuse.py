@@ -41,7 +41,7 @@ def train(config):
 
     # Initialize WandB, CSV Loggers
     wandb_logger = WandbLogger(
-        project="M3F-Net-fuse",
+        project="M3F-Net-fuse-v2",
         group="train_group",
         save_dir=log_dir,
         log_model=True,

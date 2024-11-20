@@ -102,7 +102,7 @@ def main():
     )
     parser.add_argument(
         "--linear_layers_dims",
-        default=[128, 128],
+        default=[256, 128],
         help="dims used for the superpixels classify head",
     )
     parser.add_argument(

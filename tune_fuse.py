@@ -50,9 +50,9 @@ def main(args):
     class_weights = torch.from_numpy(np.array(class_weights)).float()
     config = {
         "mode": "fuse",  # tune.choice(["img", "pc", "fuse"]),
-        "img_lr": tune.loguniform(1e-5, 1e-2),
-        "pc_lr": tune.loguniform(1e-5, 1e-2),
-        "fuse_lr": tune.loguniform(1e-5, 1e-2),
+        "img_lr": tune.loguniform(1e-5, 1e-3),
+        "pc_lr": tune.loguniform(1e-5, 1e-3),
+        "fuse_lr": tune.loguniform(1e-5, 1e-3),
         "pc_loss_weight": tune.loguniform(1.0, 4.0),
         "img_loss_weight": tune.loguniform(1.0, 4.0),
         "fuse_loss_weight": tune.loguniform(1.0, 4.0),
@@ -89,11 +89,11 @@ def main(args):
         "use_mf": False,  # tune.choice([True, False]),
         "spatial_attention": False,  # tune.choice([True, False]),
         "use_residual": True,  # tune.choice([True, False]),
-        "epochs": 150,  # args.max_epochs,
+        "epochs": args.max_epochs,
         "eval": False,  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu
         "gpus": torch.cuda.device_count(),
-        "n_samples": 30,
+        "n_samples": 20,
         "data_dir": data_dir,
     }
     try:
@@ -104,8 +104,8 @@ def main(args):
         tuner = tune.Tuner(
             trainable_with_gpu,
             tune_config=tune.TuneConfig(
-                metric="fuse_val_r2",
-                mode="max",
+                metric="val_loss",
+                mode="min",
                 scheduler=asha_scheduler,
                 num_samples=config["n_samples"],
             ),
@@ -114,8 +114,8 @@ def main(args):
                 log_to_file=("my_stdout.log", "my_stderr.log"),
                 callbacks=[
                     WandbLoggerCallback(
-                        project="M3F-Net-fuse",
-                        group="tune_v5",
+                        project="M3F-Net-fuse-v2",
+                        group="tune_group",
                         api_key=os.environ["WANDB_API_KEY"],
                         log_config=True,
                         save_checkpoints=True,
