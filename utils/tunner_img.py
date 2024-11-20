@@ -85,6 +85,6 @@ def train_func(config):
             "final_model.pt",
         )
     )
-    
+
     time.sleep(5)  # Wait for wandb to finish logging
     wandb.finish()
