@@ -266,12 +266,15 @@ class Model(pl.LightningModule):
     def on_validation_epoch_end(self):
         # Get the current validation metric (e.g., 'val_r2')
         # Concatenate all predictions and true labels
+        sys_r2 = self.val_r2.compute()
         preds_all = torch.cat(self.val_preds)
         true_labels_all = torch.cat(self.true_labels)
         last_epoch_val_r2 = r2_score(
             torch.round(preds_all.flatten(), decimals=1), true_labels_all.flatten()
         )
         self.log("ave_val_r2", last_epoch_val_r2, sync_dist=True)
+        self.log("sys_r2", sys_r2, sync_dist=True)
+        
         print(f"average r2 score at epoch {self.current_epoch}: {last_epoch_val_r2}")
 
         # Determine if current epoch has the best validation metric
@@ -290,6 +293,7 @@ class Model(pl.LightningModule):
         # Clear buffers for the next epoch
         self.val_preds.clear()
         self.true_labels.clear()
+        self.val_r2.reset()
 
     def test_step(self, batch, batch_idx):
         inputs, targets, masks = batch

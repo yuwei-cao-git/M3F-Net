@@ -248,7 +248,12 @@ class SuperpixelModel(pl.LightningModule):
             )
 
             # Compute pixel-level loss
-            loss_pixel = self.criterion(valid_pixel_preds, valid_pixel_true)
+            # loss_pixel = self.criterion(valid_pixel_preds, valid_pixel_true)
+            if self.config["weighted_loss"] and stage == "train":
+                self.weights = self.weights.to(pc_preds.device)
+                loss_pixel = calc_loss(valid_pixel_true, valid_pixel_preds, self.weights)
+            else:
+                loss_pixel = self.criterion(valid_pixel_preds, valid_pixel_true)
             loss += self.img_loss_weight * loss_pixel
 
             # Compute R² metric
