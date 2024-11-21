@@ -226,7 +226,9 @@ class SuperpixelModel(pl.LightningModule):
             pc_f1 = f1_metric(pred_lead_pc_labels, true_labels)
 
             if self.config["leading_loss"] and stage == "train":
-                loss_leads = self.criterion(pred_lead_pc_labels, true_labels)
+                correct = (pred_lead_pc_labels.view(-1) == true_labels.view(-1)).float()
+                loss_leads = 1 - correct.mean()  # 1 - accuracy as pseudo-loss
+
                 loss += self.leading_loss_weight * loss_leads
 
             # Log metrics
@@ -267,9 +269,8 @@ class SuperpixelModel(pl.LightningModule):
             img_f1 = f1_metric(valid_pixel_lead_preds, valid_pixel_lead_true)
 
             if self.config["leading_loss"] and stage == "train":
-                loss_pixel_leads = self.criterion(
-                    valid_pixel_lead_preds, valid_pixel_lead_true
-                )
+                correct = (valid_pixel_lead_preds.view(-1) == valid_pixel_lead_true.view(-1)).float()
+                loss_pixel_leads = 1 - correct.mean()  # 1 - accuracy as pseudo-loss
                 loss += self.leading_loss_weight * loss_pixel_leads
 
             # Log metrics
