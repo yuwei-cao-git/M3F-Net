@@ -110,6 +110,8 @@ class SuperpixelModel(pl.LightningModule):
         self.pc_loss_weight = self.config.get("pc_loss_weight", 2.0)
         self.img_loss_weight = self.config.get("img_loss_weight", 1.0)
         self.fuse_loss_weight = self.config.get("fuse_loss_weight", 1.0)
+        if self.config["leading_loss"]:
+            self.leading_loss_weight = self.config.get("lead_loss_weight", 0.1)
 
         self.best_test_r2 = 0.0
         self.best_test_outputs = None
@@ -223,6 +225,10 @@ class SuperpixelModel(pl.LightningModule):
             pred_lead_pc_labels = torch.argmax(pc_preds, dim=1)
             pc_f1 = f1_metric(pred_lead_pc_labels, true_labels)
 
+            if self.config["leading_loss"] and stage == "train":
+                loss_leads = self.criterion(pred_lead_pc_labels, true_labels)
+                loss += self.leading_loss_weight * loss_leads
+
             # Log metrics
             logs.update(
                 {
@@ -260,6 +266,12 @@ class SuperpixelModel(pl.LightningModule):
             )
             img_f1 = f1_metric(valid_pixel_lead_preds, valid_pixel_lead_true)
 
+            if self.config["leading_loss"] and stage == "train":
+                loss_pixel_leads = self.criterion(
+                    valid_pixel_lead_preds, valid_pixel_lead_true
+                )
+                loss += self.leading_loss_weight * loss_pixel_leads
+
             # Log metrics
             logs.update(
                 {
@@ -283,11 +295,16 @@ class SuperpixelModel(pl.LightningModule):
                 fuse_preds_rounded = torch.round(fuse_preds, decimals=1)
                 fuse_r2 = r2_metric(fuse_preds_rounded.view(-1), labels.view(-1))
 
+                # Compute F1 score
+                pred_lead_fuse_labels = torch.argmax(fuse_preds, dim=1)
+                fuse_f1 = f1_metric(pred_lead_fuse_labels, true_labels)
+
                 # Log metrics
                 logs.update(
                     {
                         f"fuse_{stage}_loss": loss_fuse,
                         f"fuse_{stage}_r2": fuse_r2,
+                        f"fuse_{stage}_f1": fuse_f1,
                     }
                 )
                 if stage == "val":
