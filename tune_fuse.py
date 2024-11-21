@@ -57,7 +57,7 @@ def main(args):
         "img_loss_weight": tune.loguniform(1.0, 4.0),
         "fuse_loss_weight": tune.loguniform(1.0, 4.0),
         "leading_loss": tune.choice([True, False]),
-        "lead_loss_weight": tune.loguniform(1.0, 4.0),
+        "lead_loss_weight": tune.loguniform(0.1, 0.5),
         "batch_size": tune.choice([16, 32, 64]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
         "dp_fuse": tune.choice([0.3, 0.5, 0.7]),  # dropout rate
@@ -66,8 +66,8 @@ def main(args):
         "train_weights": class_weights,
         "img_transforms": "compose",  # tune.choice([None, "random", "compose"]),  # augment
         "pc_transforms": True,  # tune.choice([True, False]),  # number of augmentations
-        "rotate": True,  # tune.choice([True, False]),
-        "pc_norm": True,  # tune.choice([True, False]),
+        "rotate": tune.choice([True, False]),
+        "pc_norm": tune.choice([True, False]),
         "scheduler": "asha",  # tune.choice(["plateau", "steplr", "cosine"]),
         "patience": 10,  # patience
         "step_size": 10,  # tune.choice([10, 20]), # step size
@@ -80,15 +80,15 @@ def main(args):
         "emb_dims": tune.choice([512, 768, 1024]),  # dimension of embeddings
         "encoder": tune.choice(["s", "b", "l", "xl"]),
         "linear_layers_dims": tune.choice(
-            [[1024, 256], [512, 128], [256, 128], [128, 128], [256, 64]]
+            [[1024, 256], [512, 256], [512, 128], [256, 128], [128, 128], [256, 64]]
         ),
         "fuse_feature": True,  # tune.choice([True, False]),
         "mamba_fuse": tune.choice([True, False]),
         "fusion_dim": tune.choice([128, 256]),
         "resolution": 20,  # tune.choice([10, 20]),
-        "use_mf": False,  # tune.choice([True, False]),
-        "spatial_attention": False,  # tune.choice([True, False]),
-        "use_residual": True,  # tune.choice([True, False]),
+        "use_mf": tune.choice([True, False]),
+        "spatial_attention": tune.choice([True, False]),
+        "use_residual": tune.choice([True, False]),
         "epochs": args.max_epochs,
         "eval": False,  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu
