@@ -327,9 +327,9 @@ class SuperpixelModel(pl.LightningModule):
             self.log(
                 key,
                 value,
-                on_step=True,
+                on_step="loss" in key,
                 on_epoch=True,
-                prog_bar="r2" in key,
+                prog_bar="val_r2" in key,
                 logger=True,
                 sync_dist=True,
             )
@@ -379,19 +379,22 @@ class SuperpixelModel(pl.LightningModule):
         return loss
 
     def on_validation_epoch_end(self):
+        sys_r2 = self.val_r2.compute()
         test_true = torch.cat(
             [output["val_target"] for output in self.validation_step_outputs], dim=0
         )
         test_pred = torch.cat(
             [output["val_pred"] for output in self.validation_step_outputs], dim=0
         )
-        print(test_true.shape)
+        
         last_epoch_val_r2 = r2_score(
             torch.round(test_pred.flatten(), decimals=1), test_true.flatten()
         )
         self.log("ave_val_r2", last_epoch_val_r2, sync_dist=True)
+        self.log("sys_r2", sys_r2, sync_dist=True)
+        
         print(f"average r2 score at epoch {self.current_epoch}: {last_epoch_val_r2}")
-
+        print(f"system r2 score at epoch {self.current_epoch}: {sys_r2}")
         if last_epoch_val_r2 > self.best_test_r2:
             self.best_test_r2 = last_epoch_val_r2
             self.best_test_outputs = {
@@ -400,6 +403,7 @@ class SuperpixelModel(pl.LightningModule):
             }
 
         self.validation_step_outputs.clear()
+        self.val_r2.reset()
 
     def test_step(self, batch, batch_idx):
         images = batch["images"] if "images" in batch else None
