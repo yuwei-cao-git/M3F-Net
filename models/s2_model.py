@@ -221,7 +221,7 @@ class Model(pl.LightningModule):
             logger=True,
             sync_dist=sync_state,
             on_step=True,
-            on_epoch=(stage == "val"),
+            on_epoch=True,
         )
         self.log(
             f"{stage}_rmse",
@@ -238,7 +238,7 @@ class Model(pl.LightningModule):
             prog_bar=True,
             sync_dist=sync_state,
             on_step=True,
-            on_epoch=(stage != "train"),
+            on_epoch=True,
         )
         self.log(
             f"{stage}_f1",

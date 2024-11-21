@@ -59,7 +59,7 @@ def train_func(config):
             f"trial_{tune.Trainable().trial_id}",
             "outputs",
         )
-        sp_df = generate_eva(model, config["classes"], output_dir)
+        _ = generate_eva(model, config["classes"], output_dir)
         # wandb_logger.log_text(key="preds", dataframe=sp_df) # WARNING:root:Truncating wandb.Table object to 200000 rows.
 
     # Report the final metric to Ray Tune
