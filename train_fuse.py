@@ -69,7 +69,7 @@ def main():
     parser.add_argument("--img_loss_weight", type=float, default=2.0)
     parser.add_argument("--fuse_loss_weight", type=float, default=3.0)
     parser.add_argument("--leading_loss", action="store_true")
-    parser.add_argument("--lead_loss_weight", type=float, default=1.0)
+    parser.add_argument("--lead_loss_weight", type=float, default=0.1)
     parser.add_argument("--weighted_loss", default=True)
     parser.add_argument("--patience", type=int, default=10)
     parser.add_argument("--step_size", type=int, default=10)
