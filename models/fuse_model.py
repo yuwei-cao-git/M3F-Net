@@ -218,7 +218,7 @@ class SuperpixelModel(pl.LightningModule):
             loss += self.pc_loss_weight * loss_point
 
             # Compute R² metric
-            pc_preds_rounded = torch.round(pc_preds, decimals=1)
+            pc_preds_rounded = torch.round(pc_preds, decimals=2)
             pc_r2 = r2_metric(pc_preds_rounded.view(-1), labels.view(-1))
 
             # Compute F1 score
@@ -252,7 +252,7 @@ class SuperpixelModel(pl.LightningModule):
             loss += self.img_loss_weight * loss_pixel
 
             # Compute R² metric
-            valid_pixel_preds_rounded = torch.round(valid_pixel_preds, decimals=1)
+            valid_pixel_preds_rounded = torch.round(valid_pixel_preds, decimals=2)
             pixel_r2 = r2_metric(
                 valid_pixel_preds_rounded.view(-1), valid_pixel_true.view(-1)
             )
@@ -293,7 +293,7 @@ class SuperpixelModel(pl.LightningModule):
                 loss += self.fuse_loss_weight * loss_fuse
 
                 # Compute R² metric
-                fuse_preds_rounded = torch.round(fuse_preds, decimals=1)
+                fuse_preds_rounded = torch.round(fuse_preds, decimals=2)
                 fuse_r2 = r2_metric(fuse_preds_rounded.view(-1), labels.view(-1))
 
                 # Compute F1 score
