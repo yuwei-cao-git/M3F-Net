@@ -51,9 +51,6 @@ pip install --no-index ray[tune] tensorboardX lightning pytorch_lightning torch 
 pip install --no-index seaborn scikit-learn --no-index
 pip install laspy[laszip]
 
-#Import pyarrow seperately
-python -c "import pyarrow"
-
 # Set environment variables
 export TORCH_NCCL_BLOCKING_WAIT=1  #Set this environment variable if you wish to use the NCCL backend for inter-GPU communication.
 export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MASTER_ADDR environment variable.

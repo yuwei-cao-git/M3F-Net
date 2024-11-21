@@ -48,6 +48,7 @@ def train_func(config):
     wandb_logger = WandbLogger(
         project="M3F-Net-fuse-v2",
         group="tune_group",
+        name=f"trial_{tune.Trainable().trial_id}",
         save_dir=log_dir,
         log_model=True,
     )

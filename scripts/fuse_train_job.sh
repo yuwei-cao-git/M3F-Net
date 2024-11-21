@@ -60,16 +60,17 @@ wandb login
 
 #Run python script
 echo "Start runing model.................................................................................."
-srun python train_fuse.py --max_epochs 200 --batch_size 16 --encoder 'b' --pc_loss_weight 3 --fuse_loss_weight 2 --img_loss_weight 1 --lead_loss_weight 1
+srun python train_fuse.py --max_epochs 150 --batch_size 16 --encoder 'b' --use_residual --pc_loss_weight 3.1 --fuse_loss_weight 2.0 --img_loss_weight 1.1 --img_lr 6e-4
 #wandb sync ./logs/ray_results/wandb/*
 
-tar -cf ~/scratch/fuse_train_logs/${next_output_dir}/tmp.tar /tmp/ray/*
 tar -cf ~/scratch/fuse_train_logs/${next_output_dir}/logs.tar ./fuse_train_logs/*
+tar -xf ~/scratch/fuse_train_logs/${next_output_dir}/logs.tar -C ~/scratch/fuse_train_logs/${next_output_dir}
+mv ~/scratch/fuse_train_logs/${next_output_dir}/fuse_train_logs/ -r ~/scratch/fuse_train_logs/${next_output_dir}
 
 # Check the exit status
 if [ $job_failed -ne 0 ]; then
     echo "Job failed, deleting directory: ${next_output_dir}"
-    rm -r "${next_output_dir}"
+    # rm -r "${next_output_dir}"
 else
     echo "Job completed successfully."
 fi
