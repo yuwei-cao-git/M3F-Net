@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=ray_tune_img
-#SBATCH --output=ray_tune_img_%j.out
-#SBATCH --error=ray_tune_img_%j.err
-#SBATCH --time=00:30:00        # Specify run time 
+#SBATCH --job-name=ray_img_tune
+#SBATCH --output=img_tune_%j.out
+#SBATCH --error=img_tune_%j.err
+#SBATCH --time=10:00:00        # Specify run time 
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
@@ -10,7 +10,7 @@
 #SBATCH --mem=128G
 
 next_output_dir=$(date +%Y%m%d%H%M%S)
-mkdir ~/scratch/img_tune_logs/${next_output_dir}
+mkdir ~/scratch/tune_img/${next_output_dir}
 echo "created output dir"
 
 # Trap the exit status of the job
@@ -28,28 +28,21 @@ echo "Source code cloned!"
 mkdir -p data/10m
 mkdir -p data/20m
 # extract an archive to a different directory, the ‘-C’ option is followed by the destination path
-tar -xf $project/data/10m.tar -C ./data/10m
-tar -xf $project/data/20m.tar -C ./data/20m
+tar -xf $project/M3F-Net/data/10m.tar -C ./data/10m
+tar -xf $project/M3F-Net/data/20m.tar -C ./data/20m
 echo "Data transfered"
 
 # Load python module, and additional required modules
-
-# srun -N $SLURM_NNODES -n $SLURM_NNODES config_env.sh
-# srun config_env.sh
-# source $SLURM_TMPDIR/env/bin/activate
-# module python StdEnv gcc arrow
-
-module purge
-# module load gcc/9.3.0 arrow python/3.10 scipy-stack/2022a
+module purge 
 module load python StdEnv gcc arrow
-
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
-#pip install --no-index ray[all]
+pip install --no-index ray[all]
 pip install --no-index ray[tune] tensorboardX lightning pytorch_lightning torch torchaudio torchdata torcheval torchmetrics torchtext torchvision rasterio imageio wandb numpy pandas
-pip install --no-index seaborn scikit-learn --no-index
-pip install laspy[laszip]
+pip install --no-index torchsummary scikit-learn seaborn
+pip install pointnext==0.0.5 mamba-ssm[causal-conv1d]==2.2.2 laspy[laszip]
+# pip install -r requirements.txt
 
 # Set environment variables
 export TORCH_NCCL_BLOCKING_WAIT=1  #Set this environment variable if you wish to use the NCCL backend for inter-GPU communication.
@@ -59,16 +52,15 @@ export WANDB_API_KEY=*
 wandb login
 #Run python script
 echo "Start runing model.................................................................................."
-srun python ray_img_tune.py
-#wandb sync ./logs/ray_results/wandb/*
+srun python tune_img.py
 
-tar -cf ~/scratch/img_tune_logs/${next_output_dir}/tmp.tar /tmp/ray/*
-tar -cf ~/scratch/img_tune_logs/${next_output_dir}/logs.tar ./logs/ray_results/*
-
+cd $SLURM_TMPDIR
+tar -cf ~/scratch/tune_img/${next_output_dir}/logs.tar ./img_logs/ray_results/*
+tar -xf ~/scratch/tune_img/${next_output_dir}/logs.tar -C ~/scratch/tune_img/{next_output_dir}
 # Check the exit status
 if [ $job_failed -ne 0 ]; then
     echo "Job failed, deleting directory: ${next_output_dir}"
-    rm -r "${next_output_dir}"
+    # rm -r "${next_output_dir}"
 else
     echo "Job completed successfully."
 fi

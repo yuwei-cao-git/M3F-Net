@@ -2,7 +2,7 @@
 #SBATCH --job-name=fuse_train
 #SBATCH --output=train_fuse_%j.out
 #SBATCH --error=train_fuse_%j.err
-#SBATCH --time=02:30:00        # Specify run time 
+#SBATCH --time=02:00:00        # Specify run time 
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
@@ -60,7 +60,7 @@ wandb login
 
 #Run python script
 echo "Start runing model.................................................................................."
-srun python train_fuse.py --max_epochs 150 --batch_size 16 --encoder 'b' --use_residual --pc_loss_weight 3.1 --fuse_loss_weight 2.0 --img_loss_weight 1.1 --img_lr 6e-4
+srun python train_fuse.py --max_epochs 150 --batch_size 32 --encoder 'xl' --weighted_loss False
 #wandb sync ./logs/ray_results/wandb/*
 
 tar -cf ~/scratch/fuse_train_logs/${next_output_dir}/logs.tar ./fuse_train_logs/*
@@ -76,3 +76,6 @@ else
 fi
 
 echo "theend"
+
+
+
