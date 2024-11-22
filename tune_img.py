@@ -31,7 +31,7 @@ def main(args):
         "mode": "img",
         "data_dir": data_dir,
         "learning_rate": tune.loguniform(1e-5, 1e-3),
-        "batch_size": tune.choice([32, 64, 128]),
+        "batch_size": tune.choice([32, 64]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
         "epochs": args.max_epochs,
         "gpus": torch.cuda.device_count(),
@@ -44,7 +44,7 @@ def main(args):
         "scheduler": "asha",  # tune.choice(["plateau", "steplr", "cosine"]),
         "transforms": tune.choice(["random", "compose"]),
         "save_dir": save_dir,
-        "n_samples": 20,
+        "n_samples": 30,
     }
     try:
         # wandb.init(project='M3F-Net-ray')

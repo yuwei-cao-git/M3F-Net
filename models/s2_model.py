@@ -274,7 +274,7 @@ class Model(pl.LightningModule):
         )
         self.log("ave_val_r2", last_epoch_val_r2, sync_dist=True)
         self.log("sys_r2", sys_r2, sync_dist=True)
-        
+
         print(f"average r2 score at epoch {self.current_epoch}: {last_epoch_val_r2}")
 
         # Determine if current epoch has the best validation metric
