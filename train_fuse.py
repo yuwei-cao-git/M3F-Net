@@ -50,9 +50,7 @@ def main():
     parser.add_argument("--encoder", default="xl", choices=["s", "b", "l", "xl"])
 
     parser.add_argument("--fusion_dim", default=128)
-    parser.add_argument(
-        "--optimizer", default="adamW", choices=["adam", "adamW", "sgd"]
-    )
+    parser.add_argument("--optimizer", default="adam", choices=["adam", "adamW", "sgd"])
     parser.add_argument(
         "--scheduler",
         default="steplr",
@@ -104,7 +102,7 @@ def main():
     )
     parser.add_argument(
         "--linear_layers_dims",
-        default=[1024, 256],
+        default=[256, 128],
         help="dims used for the superpixels classify head",
     )
     parser.add_argument(

@@ -11,6 +11,7 @@ from torchmetrics.regression import R2Score
 from torchmetrics.functional import r2_score
 from torchmetrics.classification import MulticlassF1Score
 from .loss import apply_mask, calc_loss
+from ray.tune.schedulers import ASHAScheduler
 
 
 class SuperpixelModel(pl.LightningModule):
@@ -251,7 +252,9 @@ class SuperpixelModel(pl.LightningModule):
             # loss_pixel = self.criterion(valid_pixel_preds, valid_pixel_true)
             if self.config["weighted_loss"] and stage == "train":
                 self.weights = self.weights.to(pc_preds.device)
-                loss_pixel = calc_loss(valid_pixel_true, valid_pixel_preds, self.weights)
+                loss_pixel = calc_loss(
+                    valid_pixel_true, valid_pixel_preds, self.weights
+                )
             else:
                 loss_pixel = self.criterion(valid_pixel_preds, valid_pixel_true)
             loss += self.img_loss_weight * loss_pixel
@@ -274,7 +277,9 @@ class SuperpixelModel(pl.LightningModule):
             img_f1 = f1_metric(valid_pixel_lead_preds, valid_pixel_lead_true)
 
             if self.config["leading_loss"] and stage == "train":
-                correct = (valid_pixel_lead_preds.view(-1) == valid_pixel_lead_true.view(-1)).float()
+                correct = (
+                    valid_pixel_lead_preds.view(-1) == valid_pixel_lead_true.view(-1)
+                ).float()
                 loss_pixel_leads = 1 - correct.mean()  # 1 - accuracy as pseudo-loss
                 loss += self.leading_loss_weight * loss_pixel_leads
 
@@ -391,13 +396,13 @@ class SuperpixelModel(pl.LightningModule):
         test_pred = torch.cat(
             [output["val_pred"] for output in self.validation_step_outputs], dim=0
         )
-        
+
         last_epoch_val_r2 = r2_score(
             torch.round(test_pred.flatten(), decimals=1), test_true.flatten()
         )
         self.log("ave_val_r2", last_epoch_val_r2, sync_dist=True)
         self.log("sys_r2", sys_r2, sync_dist=True)
-        
+
         print(f"average r2 score at epoch {self.current_epoch}: {last_epoch_val_r2}")
         print(f"system r2 score at epoch {self.current_epoch}: {sys_r2}")
         if last_epoch_val_r2 > self.best_test_r2:
@@ -493,6 +498,15 @@ class SuperpixelModel(pl.LightningModule):
                 eta_min=0,
                 last_epoch=-1,
                 verbose=False,
+            )
+            return {"optimizer": optimizer, "lr_scheduler": scheduler}
+        elif self.scheduler_type == "asha":
+            scheduler = ASHAScheduler(
+                metric="val_loss",
+                mode="min",
+                max_t=1,
+                grace_period=1,
+                reduction_factor=2,
             )
             return {"optimizer": optimizer, "lr_scheduler": scheduler}
         else:
