@@ -9,7 +9,8 @@ def main():
     # Create argument parser
     # Define a custom argument type for a list of integers
     def list_of_ints(arg):
-        return list(map(int, arg.split(',')))
+        return list(map(int, arg.split(",")))
+
     parser = argparse.ArgumentParser(description="Train model with given parameters")
 
     # Add arguments
@@ -106,7 +107,6 @@ def main():
     parser.add_argument(
         "--linear_layers_dims",
         type=list_of_ints,
-        default=256,128
     )
     parser.add_argument(
         "--img_transforms", default="compose", choices=["compose", "random", None]
