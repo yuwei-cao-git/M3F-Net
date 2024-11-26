@@ -95,6 +95,7 @@ def main(args):
         "gpus": torch.cuda.device_count(),
         "n_samples": 20,
         "data_dir": data_dir,
+        "vote": tune.choice([True, False]),
     }
     try:
         asha_scheduler = ASHAScheduler(max_t=1, grace_period=1, reduction_factor=2)

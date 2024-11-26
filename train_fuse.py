@@ -113,6 +113,10 @@ def main():
     parser.add_argument("--pc_norm", default=True)
     parser.add_argument("--gpus", type=int, default=torch.cuda.device_count())
     parser.add_argument("--num_workers", type=int, default=8)
+    parser.add_argument(
+        "--vote",
+        action="store_true",
+    )
 
     # Parse arguments
     params = vars(parser.parse_args())
