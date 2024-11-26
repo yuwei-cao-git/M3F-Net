@@ -528,7 +528,7 @@ class MambaLayer(nn.Module):
         sequence = []
         for i in range(start, stop, step):
             sequence.append(i)
-        return sequence
+        return sequence  # 1, 3, 5, 7
 
 
 class MLP(nn.Module):
