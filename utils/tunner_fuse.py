@@ -99,6 +99,7 @@ def train_func(config):
     # Report the final metric to Ray Tune
     final_result = trainer.callback_metrics["fuse_val_r2"].item()
     train.report({"fuse_val_r2": final_result})
+    print("Best Hyperparameters:", final_result.config)
 
     # Save the best model after training
     trainer.save_checkpoint(

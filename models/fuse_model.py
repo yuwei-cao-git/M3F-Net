@@ -25,6 +25,7 @@ class SuperpixelModel(pl.LightningModule):
         self.use_mamba_fuse = self.config["mamba_fuse"]
         self.fuse_feature = self.config["fuse_feature"]
         self.f = self.config["linear_layers_dims"]  # f = [512, 128]
+        self.vote = self.config["vote"]
         if self.config["mode"] != "pts":
             # Initialize s2 model
             if self.config["resolution"] == 10:
@@ -225,7 +226,6 @@ class SuperpixelModel(pl.LightningModule):
 
             # Compute F1 score
             pred_lead_pc_labels = torch.argmax(pc_preds, dim=1)
-            pc_f1 = f1_metric(pred_lead_pc_labels, true_labels)
 
             if self.config["leading_loss"] and stage == "train":
                 correct = (pred_lead_pc_labels.view(-1) == true_labels.view(-1)).float()
@@ -238,7 +238,6 @@ class SuperpixelModel(pl.LightningModule):
                 {
                     f"pc_{stage}_loss": loss_point,
                     f"pc_{stage}_r2": pc_r2,
-                    f"pc_{stage}_f1": pc_f1,
                 }
             )
 
@@ -275,7 +274,6 @@ class SuperpixelModel(pl.LightningModule):
                 img_masks,
                 multi_class=False,
             )
-            img_f1 = f1_metric(valid_pixel_lead_preds, valid_pixel_lead_true)
 
             if self.config["leading_loss"] and stage == "train":
                 correct = (
@@ -289,7 +287,6 @@ class SuperpixelModel(pl.LightningModule):
                 {
                     f"pixel_{stage}_loss": loss_pixel,
                     f"pixel_{stage}_r2": pixel_r2,
-                    f"pixel_{stage}_f1": img_f1,
                 }
             )
 
@@ -309,7 +306,24 @@ class SuperpixelModel(pl.LightningModule):
 
                 # Compute F1 score
                 pred_lead_fuse_labels = torch.argmax(fuse_preds, dim=1)
-                fuse_f1 = f1_metric(pred_lead_fuse_labels, true_labels)
+                if self.vote:
+                    predictions = torch.stack(
+                        [
+                            valid_pixel_lead_preds,
+                            pred_lead_pc_labels,
+                            pred_lead_fuse_labels,
+                        ]
+                    )
+                    from scipy.stats import mode
+
+                    final_class_preds, _ = mode(predictions, axis=0)
+                    final_class_preds = torch.from_numpy(final_class_preds).to(
+                        true_labels.device
+                    )
+                    fuse_f1 = f1_metric(final_class_preds, true_labels)
+                else:
+
+                    fuse_f1 = f1_metric(pred_lead_fuse_labels, true_labels)
 
                 # Log metrics
                 logs.update(
@@ -402,10 +416,8 @@ class SuperpixelModel(pl.LightningModule):
             torch.round(test_pred.flatten(), decimals=1), test_true.flatten()
         )
         self.log("ave_val_r2", last_epoch_val_r2, sync_dist=True)
-        self.log("sys_r2", sys_r2, sync_dist=True)
 
         print(f"average r2 score at epoch {self.current_epoch}: {last_epoch_val_r2}")
-        print(f"system r2 score at epoch {self.current_epoch}: {sys_r2}")
         if last_epoch_val_r2 > self.best_test_r2:
             self.best_test_r2 = last_epoch_val_r2
             self.best_test_outputs = {
@@ -499,15 +511,6 @@ class SuperpixelModel(pl.LightningModule):
                 eta_min=0,
                 last_epoch=-1,
                 verbose=False,
-            )
-            return {"optimizer": optimizer, "lr_scheduler": scheduler}
-        elif self.scheduler_type == "asha":
-            scheduler = ASHAScheduler(
-                metric="val_loss",
-                mode="min",
-                max_t=1,
-                grace_period=1,
-                reduction_factor=2,
             )
             return {"optimizer": optimizer, "lr_scheduler": scheduler}
         else:
