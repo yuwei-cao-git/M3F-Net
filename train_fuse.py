@@ -49,11 +49,11 @@ def main():
     parser.add_argument(
         "--batch_size", type=int, default=8, help="Number of epochs to train the model"
     )
-    parser.add_argument("--emb_dims", default=768)
-    parser.add_argument("--num_points", default=7168)
+    parser.add_argument("--emb_dims", type=int, default=768)
+    parser.add_argument("--num_points", type=int, default=7168)
     parser.add_argument("--encoder", default="xl", choices=["s", "b", "l", "xl"])
 
-    parser.add_argument("--fusion_dim", default=128)
+    parser.add_argument("--fusion_dim", type=int, default=128)
     parser.add_argument("--optimizer", default="adam", choices=["adam", "adamW", "sgd"])
     parser.add_argument(
         "--scheduler",
@@ -79,8 +79,8 @@ def main():
     parser.add_argument("--step_size", type=int, default=10)
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--weight_decay", type=float, default=1e-4)
-    parser.add_argument("--dp_fuse", default=0.7)
-    parser.add_argument("--dp_pc", default=0.5)
+    parser.add_argument("--dp_fuse", type=float, default=0.7)
+    parser.add_argument("--dp_pc", type=float, default=0.5)
     parser.add_argument(
         "--use_mf", action="store_true", help="Use multi-fusion (set flag to enable)"
     )
@@ -104,10 +104,7 @@ def main():
         action="store_true",
         help="Use mamba fusion (set flag to enable)",
     )
-    parser.add_argument(
-        "--linear_layers_dims",
-        default=[256,128]
-    )
+    parser.add_argument("--linear_layers_dims", type=list_of_ints)
     parser.add_argument(
         "--img_transforms", default="compose", choices=["compose", "random", None]
     )
