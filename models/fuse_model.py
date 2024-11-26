@@ -44,6 +44,7 @@ class SuperpixelModel(pl.LightningModule):
                 total_input_channels = (
                     self.n_bands * 4
                 )  # If no MF module, concatenating all seasons directly
+                self.spatial_attention = False
 
             # Define the U-Net architecture with or without Residual connections
             if self.use_residual:
