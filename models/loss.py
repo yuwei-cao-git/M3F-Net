@@ -89,21 +89,35 @@ def apply_mask(outputs, targets, mask, multi_class=True, keep_shp=False):
     else:
         expanded_mask = mask
 
-    # Apply mask to exclude invalid data points
-    valid_outputs = outputs[~expanded_mask]
-    valid_targets = targets[~expanded_mask]
-    # Reshape to (-1, num_classes)
-    if multi_class:
-        if keep_shp:
-            # Set invalid outputs and targets to zero
-            outputs = outputs.clone()
-            targets = targets.clone()
-            outputs[expanded_mask] = 0
-            targets[expanded_mask] = 0
-            return outputs, targets
-
-        else:
+    if keep_shp:
+        # Set invalid outputs and targets to zero
+        outputs = outputs.clone()
+        targets = targets.clone()
+        outputs[expanded_mask] = 0
+        targets[expanded_mask] = 0
+        return outputs, targets
+    else:
+        # Apply mask to exclude invalid data points
+        valid_outputs = outputs[~expanded_mask]
+        valid_targets = targets[~expanded_mask]
+        # Reshape to (-1, num_classes)
+        if multi_class:
             valid_outputs = valid_outputs.view(-1, num_classes)
             valid_targets = valid_targets.view(-1, num_classes)
+        return valid_outputs, valid_targets
 
-            return valid_outputs, valid_targets
+# contrastive loss
+def aggregate_to_superpixels(pred_pixel_labels, img_masks, fusion_preds, lambda_contrastive):
+    # Aggregate per-pixel predictions
+    valid_pixel_preds, _ = apply_mask(
+                pred_pixel_labels, pred_pixel_labels, img_masks, multi_class=False, keep_shp=True
+            )
+    aggregated_pixel_preds = valid_pixel_preds.mean(dim=[2, 3])  # Shape: (N, C)
+
+    # Compute contrastive loss
+    contrastive_loss = F.mse_loss(fusion_preds, aggregated_pixel_preds)
+
+    # Total loss
+    lambda_contrastive = lambda_contrastive
+
+    return lambda_contrastive * contrastive_loss

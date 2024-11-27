@@ -14,6 +14,7 @@ from .loss import apply_mask, calc_loss
 
 import os
 from utils.common import generate_eva
+import wandb
 
 
 class SuperpixelModel(pl.LightningModule):
@@ -103,7 +104,6 @@ class SuperpixelModel(pl.LightningModule):
         self.test_r2 = R2Score()
         self.test_f1 = MulticlassF1Score(num_classes=self.config["n_classes"], average='weighted')
         self.test_oa = MulticlassAccuracy(num_classes=self.config["n_classes"])
-        
         
         self.confmat = ConfusionMatrix(task="multiclass", num_classes=self.config["n_classes"])
 
@@ -440,8 +440,19 @@ class SuperpixelModel(pl.LightningModule):
             )
             _ = generate_eva(self.best_test_outputs, self.config["classes"], output_dir)
             cm = self.confmat(torch.argmax(test_pred, dim=1), torch.argmax(test_true, dim=1))
-            print("test torchmetric function")
+            print("Confusion Matrix at best R²:")
             print(cm)
+            cm_array = cm.cpu().numpy()
+
+            # Convert to Pandas DataFrame and add species names
+            import pandas as pd
+
+            species_names = self.config["classes"]
+            cm_df = pd.DataFrame(cm_array, index=species_names, columns=species_names)
+
+            # Log the confusion matrix as a WandB Table
+            cm_table = wandb.Table(dataframe=cm_df)
+            self.logger.experiment.log({'confusion_matrix': cm_table})
             
 
         self.validation_step_outputs.clear()
