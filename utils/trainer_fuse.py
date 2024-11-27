@@ -51,7 +51,7 @@ def train(config):
     checkpoint_callback = ModelCheckpoint(
         monitor="fuse_val_r2",  # Track the validation loss
         dirpath=chk_dir,
-        filename="best-model-{epoch:02d}-{fuse_val_r2:.2f}",
+        filename="final_model",
         save_top_k=1,  # Only save the best model
         mode="min",  # We want to minimize the validation loss
     )
