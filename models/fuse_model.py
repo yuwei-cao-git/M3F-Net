@@ -9,9 +9,8 @@ from .pointNext import PointNextModel
 
 from torchmetrics.regression import R2Score
 from torchmetrics.functional import r2_score
-from torchmetrics.classification import MulticlassF1Score
+from torchmetrics.classification import MulticlassF1Score, MulticlassAccuracy, ConfusionMatrix
 from .loss import apply_mask, calc_loss
-from ray.tune.schedulers import ASHAScheduler
 
 import os
 from utils.common import generate_eva
@@ -95,13 +94,18 @@ class SuperpixelModel(pl.LightningModule):
 
         # Metrics
         self.train_r2 = R2Score()
-        self.train_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
+        self.train_f1 = MulticlassF1Score(num_classes=self.config["n_classes"], average='weighted')
 
         self.val_r2 = R2Score()
-        self.val_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
+        self.val_f1 = MulticlassF1Score(num_classes=self.config["n_classes"], average='weighted')
+        self.val_oa = MulticlassAccuracy(num_classes=self.config["n_classes"])
 
         self.test_r2 = R2Score()
-        self.test_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
+        self.test_f1 = MulticlassF1Score(num_classes=self.config["n_classes"], average='weighted')
+        self.test_oa = MulticlassAccuracy(num_classes=self.config["n_classes"])
+        
+        
+        self.confmat = ConfusionMatrix(task="multiclass", num_classes=self.config["n_classes"])
 
         # Optimizer and scheduler settings
         self.optimizer_type = self.config["optimizer"]
@@ -209,9 +213,11 @@ class SuperpixelModel(pl.LightningModule):
         elif stage == "val":
             r2_metric = self.val_r2
             f1_metric = self.val_f1
+            oa_metric = self.val_oa
         else:  # stage == "test"
             r2_metric = self.test_r2
             f1_metric = self.test_f1
+            oa_metric = self.test_oa
 
         # Point cloud stream
         if self.config["mode"] != "img":
@@ -268,7 +274,6 @@ class SuperpixelModel(pl.LightningModule):
                 valid_pixel_preds_rounded.view(-1), valid_pixel_true.view(-1)
             )
 
-            # Compute F1 score
             pred_lead_pixel_labels = torch.argmax(pixel_preds, dim=1)
             true_lead_pixel_labels = torch.argmax(pixel_labels, dim=1)
             valid_pixel_lead_preds, valid_pixel_lead_true = apply_mask(
@@ -324,9 +329,10 @@ class SuperpixelModel(pl.LightningModule):
                         true_labels.device
                     )
                     fuse_f1 = f1_metric(final_class_preds, true_labels)
+                    fuse_oa = oa_metric(final_class_preds, true_labels)
                 else:
-
                     fuse_f1 = f1_metric(pred_lead_fuse_labels, true_labels)
+                    fuse_oa = oa_metric(pred_lead_fuse_labels, true_labels)
 
                 # Log metrics
                 logs.update(
@@ -334,6 +340,7 @@ class SuperpixelModel(pl.LightningModule):
                         f"fuse_{stage}_loss": loss_fuse,
                         f"fuse_{stage}_r2": fuse_r2,
                         f"fuse_{stage}_f1": fuse_f1,
+                        f'fuse_{stage}_oa': fuse_oa,
                     }
                 )
                 if stage == "val":
@@ -357,7 +364,7 @@ class SuperpixelModel(pl.LightningModule):
                 value,
                 on_step="loss" in key,
                 on_epoch=True,
-                prog_bar="val_r2" in key,
+                prog_bar="val" in key,
                 logger=True,
                 sync_dist=True,
             )
@@ -407,7 +414,7 @@ class SuperpixelModel(pl.LightningModule):
         return loss
 
     def on_validation_epoch_end(self):
-        sys_r2 = self.val_r2.compute()
+        # sys_r2 = self.val_r2.compute()
         test_true = torch.cat(
             [output["val_target"] for output in self.validation_step_outputs], dim=0
         )
@@ -432,6 +439,10 @@ class SuperpixelModel(pl.LightningModule):
                 "outputs",
             )
             _ = generate_eva(self.best_test_outputs, self.config["classes"], output_dir)
+            cm = self.confmat(torch.argmax(test_pred, dim=1), torch.argmax(test_true, dim=1))
+            print("test torchmetric function")
+            print(cm)
+            
 
         self.validation_step_outputs.clear()
         self.val_r2.reset()

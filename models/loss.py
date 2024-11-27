@@ -67,7 +67,7 @@ class RMSELoss(nn.Module):
         return torch.sqrt(self.mse(outputs, targets, mask))
 
 
-def apply_mask(outputs, targets, mask, multi_class=True):
+def apply_mask(outputs, targets, mask, multi_class=True, keep_shp=False):
     """
     Applies the mask to outputs and targets to exclude invalid data points.
 
@@ -94,7 +94,16 @@ def apply_mask(outputs, targets, mask, multi_class=True):
     valid_targets = targets[~expanded_mask]
     # Reshape to (-1, num_classes)
     if multi_class:
-        valid_outputs = valid_outputs.view(-1, num_classes)
-        valid_targets = valid_targets.view(-1, num_classes)
+        if keep_shp:
+            # Set invalid outputs and targets to zero
+            outputs = outputs.clone()
+            targets = targets.clone()
+            outputs[expanded_mask] = 0
+            targets[expanded_mask] = 0
+            return outputs, targets
 
-    return valid_outputs, valid_targets
+        else:
+            valid_outputs = valid_outputs.view(-1, num_classes)
+            valid_targets = valid_targets.view(-1, num_classes)
+
+            return valid_outputs, valid_targets
