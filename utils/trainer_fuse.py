@@ -90,7 +90,7 @@ def train(config):
             save_dir,
             "outputs",
         )
-        sp_df = generate_eva(model, config["classes"], output_dir)
+        sp_df = generate_eva(model.best_test_outputs, config["classes"], output_dir)
         wandb_logger.log_text(key="preds", dataframe=sp_df)
 
     # Save the best model after training

@@ -13,6 +13,9 @@ from torchmetrics.classification import MulticlassF1Score
 from .loss import apply_mask, calc_loss
 from ray.tune.schedulers import ASHAScheduler
 
+import os
+from utils.common import generate_eva
+
 
 class SuperpixelModel(pl.LightningModule):
     def __init__(self, config):
@@ -424,6 +427,11 @@ class SuperpixelModel(pl.LightningModule):
                 "preds_all": test_pred,
                 "true_labels_all": test_true,
             }
+            output_dir = os.path.join(
+                self.config["save_dir"],
+                "outputs",
+            )
+            _ = generate_eva(self.best_test_outputs, self.config["classes"], output_dir)
 
         self.validation_step_outputs.clear()
         self.val_r2.reset()

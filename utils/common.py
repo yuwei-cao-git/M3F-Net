@@ -165,8 +165,7 @@ def evaluate_model(sp_output_csv, classes):
     return evaluation_results, sp_df
 
 
-def generate_eva(model, classes, output_dir):
-    outputs = model.best_test_outputs
+def generate_eva(outputs, classes, output_dir):
     # Access the stored tensors
     preds_all = outputs["preds_all"]
     true_labels_all = outputs["true_labels_all"]
