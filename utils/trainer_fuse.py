@@ -6,7 +6,6 @@ from lightning.pytorch.loggers import WandbLogger
 from models.fuse_model import SuperpixelModel
 from dataset.superpixel import SuperpixelDataModule
 import os
-import wandb
 from .common import generate_eva, PointCloudLogger
 
 
@@ -49,14 +48,14 @@ def train(config):
     # point_logger = PointCloudLogger(trainer=Trainer)
     # Define a checkpoint callback to save the best model
     checkpoint_callback = ModelCheckpoint(
-        monitor="fuse_val_r2",  # Track the validation loss
+        monitor="ave_val_r2",  # Track the validation loss
         dirpath=chk_dir,
         filename="final_model",
         save_top_k=1,  # Only save the best model
         mode="min",  # We want to minimize the validation loss
     )
     early_stopping = EarlyStopping(
-        monitor="fuse_val_r2",  # Metric to monitor
+        monitor="ave_val_r2",  # Metric to monitor
         patience=10,  # Number of epochs with no improvement after which training will be stopped
         mode="max",  # Set "min" for validation loss
         verbose=True,

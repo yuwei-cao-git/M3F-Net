@@ -280,7 +280,7 @@ class SuperpixelModel(pl.LightningModule):
                 pred_lead_pixel_labels,
                 true_lead_pixel_labels,
                 img_masks,
-                multi_class=False,
+                multi_class=True,
             )
 
             if self.config["leading_loss"] and stage == "train":
