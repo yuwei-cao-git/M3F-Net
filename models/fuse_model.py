@@ -379,7 +379,7 @@ class SuperpixelModel(pl.LightningModule):
                 value,
                 on_step="loss" in key,
                 on_epoch=True,
-                prog_bar="val" in key,
+                prog_bar="val_r2" in key,
                 logger=True,
                 sync_dist=True,
             )

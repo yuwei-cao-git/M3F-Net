@@ -127,15 +127,15 @@ def main():
         else os.path.join(os.getcwd(), "data")
     )
     class_weights = [
-        0.02303913,
-        0.13019594,
-        0.05610016,
-        0.07134316,
-        0.12228734,
-        0.08862843,
-        0.01239567,
-        0.48842124,
-        0.00758894,
+        0.13429631,
+        0.02357711,
+        0.05467328,
+        0.04353036,
+        0.02462899,
+        0.03230562,
+        0.2605792,
+        0.00621396,
+        0.42019516,
     ]
     class_weights = torch.from_numpy(np.array(class_weights)).float()
     params["train_weights"] = class_weights

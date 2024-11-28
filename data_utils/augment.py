@@ -120,7 +120,7 @@ def point_jitter(coords, std=0.01, clip=0.05, x=None):
     return coords, x
 
 
-def random_scale(coords, lo=0.8, hi=1.25, x=None):
+def random_scale(coords, lo=0.9, hi=1.1, x=None):
     scaler = np.random.uniform(lo, hi)
     aug_coords = coords * scaler
     if x is None:
@@ -230,9 +230,9 @@ def pointCloudTransform(xyz, pc_feat, target, rot=True):
     n = random.randint(round(len(xyz) * 0.9), len(xyz))
     aug_xyz, aug_feats = point_removal(xyz, n, x=pc_feat)
     aug_xyz, aug_feats = random_noise(aug_xyz, n=(len(xyz) - n), x=aug_feats)
-    aug_xyz, aug_feats = random_scale(aug_xyz, x=aug_feats)
+    # aug_xyz, aug_feats = random_scale(aug_xyz, x=aug_feats)
     aug_xyz, aug_feats = point_translate(aug_xyz, x=aug_feats)
-    aug_xyz, aug_feats = point_jitter(aug_xyz, x=aug_feats)
+    # aug_xyz, aug_feats = point_jitter(aug_xyz, x=aug_feats)
     if rot:
         aug_xyz, aug_feats = point_rotate_perturbation(aug_xyz, x=aug_feats)
         aug_xyz, aug_feats = rotate_points(aug_xyz, x=aug_feats)

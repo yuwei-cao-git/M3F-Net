@@ -37,65 +37,66 @@ def main(args):
         else os.path.join(os.getcwd(), "data")
     )
     class_weights = [
-        0.02303913,
-        0.13019594,
-        0.05610016,
-        0.07134316,
-        0.12228734,
-        0.08862843,
-        0.01239567,
-        0.48842124,
-        0.00758894,
+        0.13429631,
+        0.02357711,
+        0.05467328,
+        0.04353036,
+        0.02462899,
+        0.03230562,
+        0.2605792,
+        0.00621396,
+        0.42019516,
     ]
     class_weights = torch.from_numpy(np.array(class_weights)).float()
     config = {
         "mode": "fuse",  # tune.choice(["img", "pc", "fuse"]),
-        "img_lr": tune.loguniform(1e-5, 1e-3),
-        "pc_lr": tune.loguniform(1e-5, 1e-3),
-        "fuse_lr": tune.loguniform(1e-5, 1e-3),
-        "pc_loss_weight": tune.loguniform(1.0, 4.0),
-        "img_loss_weight": tune.loguniform(1.0, 4.0),
-        "fuse_loss_weight": tune.loguniform(1.0, 4.0),
-        "leading_loss": tune.choice([True, False]),
-        "lead_loss_weight": tune.loguniform(0.1, 0.5),
-        "batch_size": tune.choice([16, 32, 64]),
-        "optimizer": tune.choice(["adam", "sgd", "adamW"]),
-        "dp_fuse": tune.choice([0.3, 0.5, 0.7]),  # dropout rate
-        "dp_pc": tune.choice([0.3, 0.5, 0.7]),  # dropout rate
-        "weighted_loss": tune.choice([True, False]),
+        "img_lr": 5e-4,  # tune.loguniform(1e-5, 1e-3),
+        "pc_lr": 1e-5,  # tune.loguniform(1e-5, 1e-3),
+        "fuse_lr": 0.00001,  # tune.loguniform(1e-5, 1e-3),
+        "pc_loss_weight": 1.8,  # tune.loguniform(1.0, 4.0),
+        "img_loss_weight": 1.3,  # tune.loguniform(1.0, 4.0),
+        "fuse_loss_weight": 1.1,  # tune.loguniform(1.0, 4.0),
+        "leading_loss": True,  # tune.choice([True, False]),
+        "lead_loss_weight": 0.2,  # tune.loguniform(0.1, 0.5),
+        "batch_size": 32,  # tune.choice([16, 32, 64]),
+        "optimizer": "adamW",  # tune.choice(["adam", "sgd", "adamW"]),
+        "dp_fuse": 0.7,  # tune.choice([0.3, 0.5, 0.7]),  # dropout rate
+        "dp_pc": 0.5,  # tune.choice([0.3, 0.5, 0.7]),  # dropout rate
+        "weighted_loss": False,  # tune.choice([True, False]),
         "train_weights": class_weights,
         "img_transforms": "compose",  # tune.choice([None, "random", "compose"]),  # augment
         "pc_transforms": True,  # tune.choice([True, False]),  # number of augmentations
-        "rotate": tune.choice([True, False]),
-        "pc_norm": tune.choice([True, False]),
+        "rotate": False,  # tune.choice([True, False]),
+        "pc_norm": True,  # tune.choice([True, False]),
         "scheduler": "asha",  # tune.choice(["plateau", "steplr", "cosine"]),
         "patience": 10,  # patience
         "step_size": 10,  # tune.choice([10, 20]), # step size
         "momentum": 0.9,  # sgd momentum
-        "weight_decay": tune.choice([1e-4, 1e-6]),  # sgd momentum
+        "weight_decay": 1e-4,  # tune.choice([1e-4, 1e-6]),  # sgd momentum
         "save_dir": save_dir,
         "n_classes": 9,
         "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
         "num_points": 7168,  # number of points
-        "emb_dims": tune.choice([512, 768, 1024]),  # dimension of embeddings
-        "encoder": tune.choice(["s", "b", "l", "xl"]),
-        "linear_layers_dims": tune.choice(
-            [[1024, 256], [512, 256], [512, 128], [256, 128], [128, 128], [256, 64]]
-        ),
+        "emb_dims": 768,  # tune.choice([512, 768, 1024]),  # dimension of embeddings
+        "encoder": "xl",  # tune.choice(["s", "b", "l", "xl"]),
+        "linear_layers_dims": [
+            1024,
+            256,
+        ],  # tune.choice([[1024, 256], [512, 256], [512, 128], [256, 128], [128, 128], [256, 64]]),
         "fuse_feature": True,  # tune.choice([True, False]),
-        "mamba_fuse": tune.choice([True, False]),
-        "fusion_dim": tune.choice([128, 256]),
+        "mamba_fuse": True,  # tune.choice([True, False]),
+        "fusion_dim": 128,  # tune.choice([128, 256]),
         "resolution": 20,  # tune.choice([10, 20]),
-        "use_mf": tune.choice([True, False]),
-        "spatial_attention": tune.choice([True, False]),
-        "use_residual": tune.choice([True, False]),
+        "use_mf": False,  # tune.choice([True, False]),
+        "spatial_attention": False,  # tune.choice([True, False]),
+        "use_residual": False,  # tune.choice([True, False]),
         "epochs": args.max_epochs,
-        "eval": False,  # run testing
+        "eval": tune.choice([True, False]),  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu
         "gpus": torch.cuda.device_count(),
-        "n_samples": 20,
+        "n_samples": 2,
         "data_dir": data_dir,
-        "vote": tune.choice([True, False]),
+        "vote": False,  # tune.choice([True, False]),
     }
     try:
         asha_scheduler = ASHAScheduler(max_t=1, grace_period=1, reduction_factor=2)
@@ -105,8 +106,8 @@ def main(args):
         tuner = tune.Tuner(
             trainable_with_gpu,
             tune_config=tune.TuneConfig(
-                metric="val_loss",
-                mode="min",
+                metric="ave_val_r2",
+                mode="max",
                 scheduler=asha_scheduler,
                 num_samples=config["n_samples"],
             ),
@@ -128,7 +129,7 @@ def main(args):
         results = tuner.fit()
         print(
             "Best trial config: {}".format(
-                results.get_best_result("fuse_val_r2", "max").config
+                results.get_best_result("ave_val_r2", "max").config
             )
         )
     except Exception as e:

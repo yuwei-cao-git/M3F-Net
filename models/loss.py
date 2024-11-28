@@ -67,6 +67,20 @@ class RMSELoss(nn.Module):
         return torch.sqrt(self.mse(outputs, targets, mask))
 
 
+def weighted_categorical_crossentropy(y_true, y_pred, weights):
+    # y_true and y_pred are tensors of shape (batch_size, num_classes)
+    # weights is a tensor of shape (num_classes,)
+    loss = -torch.sum(weights * y_true * torch.log(y_pred + 1e-8), dim=1)
+    return torch.mean(loss)
+
+
+def weighted_kl_divergence(y_true, y_pred, weights):
+    loss = torch.sum(
+        weights * y_true * torch.log((y_true + 1e-8) / (y_pred + 1e-8)), dim=1
+    )
+    return torch.mean(loss)
+
+
 def apply_mask(outputs, targets, mask, multi_class=True, keep_shp=False):
     """
     Applies the mask to outputs and targets to exclude invalid data points.
@@ -106,12 +120,19 @@ def apply_mask(outputs, targets, mask, multi_class=True, keep_shp=False):
             valid_targets = valid_targets.view(-1, num_classes)
         return valid_outputs, valid_targets
 
+
 # contrastive loss
-def aggregate_to_superpixels(pred_pixel_labels, img_masks, fusion_preds, lambda_contrastive):
+def aggregate_to_superpixels(
+    pred_pixel_labels, img_masks, fusion_preds, lambda_contrastive
+):
     # Aggregate per-pixel predictions
     valid_pixel_preds, _ = apply_mask(
-                pred_pixel_labels, pred_pixel_labels, img_masks, multi_class=False, keep_shp=True
-            )
+        pred_pixel_labels,
+        pred_pixel_labels,
+        img_masks,
+        multi_class=False,
+        keep_shp=True,
+    )
     aggregated_pixel_preds = valid_pixel_preds.mean(dim=[2, 3])  # Shape: (N, C)
 
     # Compute contrastive loss
