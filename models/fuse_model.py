@@ -459,6 +459,9 @@ class SuperpixelModel(pl.LightningModule):
             )
             print("Confusion Matrix at best R²:")
             print(cm)
+            print(
+                f"r2_score per class check: {r2_score(torch.round(test_pred, decimals=1), test_true, multioutput='raw_values')}"
+            )
             cm_array = cm.cpu().numpy()
 
             # Convert to Pandas DataFrame and add species names
@@ -469,7 +472,9 @@ class SuperpixelModel(pl.LightningModule):
 
             # Log the confusion matrix as a WandB Table
             cm_table = wandb.Table(dataframe=cm_df)
-            self.logger.experiment.log({"confusion_matrix": cm_table})
+            self.logger.experiment.log(
+                {f"confusion_matrix at epoch {self.current_epoch}": cm_table}
+            )
 
         self.validation_step_outputs.clear()
         self.val_r2.reset()

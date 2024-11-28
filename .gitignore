@@ -36,3 +36,4 @@ key.txt
 *.ipynb
 augmentation
 data_processing
+record.md
