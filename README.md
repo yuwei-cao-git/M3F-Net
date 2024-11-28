@@ -1,6 +1,7 @@
 # M3F-Net
 
-## Data
+## Data Structure
+
 data/
 ├── preprocessed_tiles/
 │   ├── tile_1.npz
