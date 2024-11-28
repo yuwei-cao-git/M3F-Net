@@ -9,7 +9,11 @@ from .pointNext import PointNextModel
 
 from torchmetrics.regression import R2Score
 from torchmetrics.functional import r2_score
-from torchmetrics.classification import MulticlassF1Score, MulticlassAccuracy, ConfusionMatrix
+from torchmetrics.classification import (
+    MulticlassF1Score,
+    MulticlassAccuracy,
+    ConfusionMatrix,
+)
 from .loss import apply_mask, calc_loss
 
 import os
@@ -95,17 +99,26 @@ class SuperpixelModel(pl.LightningModule):
 
         # Metrics
         self.train_r2 = R2Score()
-        self.train_f1 = MulticlassF1Score(num_classes=self.config["n_classes"], average='weighted')
+        self.train_f1 = MulticlassF1Score(
+            num_classes=self.config["n_classes"], average="weighted"
+        )
+        self.train_oa = MulticlassAccuracy(num_classes=self.config["n_classes"])
 
         self.val_r2 = R2Score()
-        self.val_f1 = MulticlassF1Score(num_classes=self.config["n_classes"], average='weighted')
+        self.val_f1 = MulticlassF1Score(
+            num_classes=self.config["n_classes"], average="weighted"
+        )
         self.val_oa = MulticlassAccuracy(num_classes=self.config["n_classes"])
 
         self.test_r2 = R2Score()
-        self.test_f1 = MulticlassF1Score(num_classes=self.config["n_classes"], average='weighted')
+        self.test_f1 = MulticlassF1Score(
+            num_classes=self.config["n_classes"], average="weighted"
+        )
         self.test_oa = MulticlassAccuracy(num_classes=self.config["n_classes"])
-        
-        self.confmat = ConfusionMatrix(task="multiclass", num_classes=self.config["n_classes"])
+
+        self.confmat = ConfusionMatrix(
+            task="multiclass", num_classes=self.config["n_classes"]
+        )
 
         # Optimizer and scheduler settings
         self.optimizer_type = self.config["optimizer"]
@@ -210,6 +223,7 @@ class SuperpixelModel(pl.LightningModule):
         if stage == "train":
             r2_metric = self.train_r2
             f1_metric = self.train_f1
+            oa_metric = self.train_oa
         elif stage == "val":
             r2_metric = self.val_r2
             f1_metric = self.val_f1
@@ -280,7 +294,8 @@ class SuperpixelModel(pl.LightningModule):
                 pred_lead_pixel_labels,
                 true_lead_pixel_labels,
                 img_masks,
-                multi_class=True,
+                multi_class=False,
+                keep_shp=False,
             )
 
             if self.config["leading_loss"] and stage == "train":
@@ -340,7 +355,7 @@ class SuperpixelModel(pl.LightningModule):
                         f"fuse_{stage}_loss": loss_fuse,
                         f"fuse_{stage}_r2": fuse_r2,
                         f"fuse_{stage}_f1": fuse_f1,
-                        f'fuse_{stage}_oa': fuse_oa,
+                        f"fuse_{stage}_oa": fuse_oa,
                     }
                 )
                 if stage == "val":
@@ -439,7 +454,9 @@ class SuperpixelModel(pl.LightningModule):
                 "outputs",
             )
             _ = generate_eva(self.best_test_outputs, self.config["classes"], output_dir)
-            cm = self.confmat(torch.argmax(test_pred, dim=1), torch.argmax(test_true, dim=1))
+            cm = self.confmat(
+                torch.argmax(test_pred, dim=1), torch.argmax(test_true, dim=1)
+            )
             print("Confusion Matrix at best R²:")
             print(cm)
             cm_array = cm.cpu().numpy()
@@ -452,8 +469,7 @@ class SuperpixelModel(pl.LightningModule):
 
             # Log the confusion matrix as a WandB Table
             cm_table = wandb.Table(dataframe=cm_df)
-            self.logger.experiment.log({'confusion_matrix': cm_table})
-            
+            self.logger.experiment.log({"confusion_matrix": cm_table})
 
         self.validation_step_outputs.clear()
         self.val_r2.reset()
