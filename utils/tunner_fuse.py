@@ -57,7 +57,7 @@ def train_func(config):
     checkpoint_callback = ModelCheckpoint(
         monitor="ave_val_r2",  # Track the validation loss
         dirpath=chk_dir,
-        filename="best-model",
+        filename="final_model",
         save_top_k=1,  # Only save the best model
         mode="max",  # We want to minimize the validation loss
     )
@@ -105,7 +105,7 @@ def train_func(config):
     trainer.save_checkpoint(
         os.path.join(
             chk_dir,
-            "final_model.pt",
+            "final_model.ckpt",
         )
     )
 
@@ -114,7 +114,7 @@ def train_func(config):
         trainer.test(model, data_module)
 
     # Load the saved model
-    # model = SuperpixelModel.load_from_checkpoint("final_model.pt")
+    # model = SuperpixelModel.load_from_checkpoint("final_model.ckpt")
 
     time.sleep(5)  # Wait for wandb to finish logging
     # wandb.finish()
