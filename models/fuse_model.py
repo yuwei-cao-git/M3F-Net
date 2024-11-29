@@ -71,7 +71,9 @@ class SuperpixelModel(pl.LightningModule):
                 if self.config["pc_model"] == "pointnext":
                     self.pc_model = PointNextModel(self.config, in_dim=6)
                 else:
-                    self.pc_model = DGCNN(self.config)
+                    self.pc_model = DGCNN(
+                        self.config, n_classes=self.config["n_classes"]
+                    )
             else:
                 self.pc_model = PointNextModel(self.config, in_dim=3)
 

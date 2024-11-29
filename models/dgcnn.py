@@ -45,10 +45,10 @@ def get_graph_feature(x, k=20, idx=None):
 
 # DGCNN Model
 class DGCNN(L.LightningModule):
-    def __init__(self, args, output_channels=40):
+    def __init__(self, args, n_classes=40):
         super(DGCNN, self).__init__()
         self.args = args  # find what args are and how to form them
-        self.k = args["k"]
+        self.k = 20
 
         # Batch Norm
         self.bn1 = nn.BatchNorm2d(64)
@@ -93,11 +93,11 @@ class DGCNN(L.LightningModule):
         # Linear Layers
         self.linear1 = nn.Linear(args["emb_dims"] * 2, 512, bias=False)
         self.linear2 = nn.Linear(512, 256)
-        self.linear3 = nn.Linear(256, output_channels)
+        self.linear3 = nn.Linear(256, n_classes)
 
         # Dropout
-        self.dp1 = nn.Dropout(p=args["dropout"])
-        self.dp2 = nn.Dropout(p=args["dropout"])
+        self.dp1 = nn.Dropout(p=args["dp_pc"])
+        self.dp2 = nn.Dropout(p=args["dp_pc"])
 
     def forward(self, x):
         batch_size = x.size(0)
