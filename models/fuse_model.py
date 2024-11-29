@@ -6,18 +6,17 @@ from .blocks import MF, MLPBlock, MambaFusionBlock
 from .unet import UNet
 from .ResUnet import ResUnet
 from .pointNext import PointNextModel
+from .dgcnn import DGCNN
 
 from torchmetrics.regression import R2Score
 from torchmetrics.functional import r2_score
 from torchmetrics.classification import (
     MulticlassF1Score,
-    MulticlassAccuracy,
     ConfusionMatrix,
 )
 from .loss import apply_mask, calc_loss
 
 import os
-from utils.common import generate_eva
 import wandb
 
 
@@ -69,7 +68,10 @@ class SuperpixelModel(pl.LightningModule):
         if self.config["mode"] != "img":
             # Initialize point cloud stream model
             if self.config["pc_norm"]:
-                self.pc_model = PointNextModel(self.config, in_dim=6)
+                if self.config["pc_model"] == "pointnext":
+                    self.pc_model = PointNextModel(self.config, in_dim=6)
+                else:
+                    self.pc_model = DGCNN(self.config)
             else:
                 self.pc_model = PointNextModel(self.config, in_dim=3)
 
@@ -102,19 +104,16 @@ class SuperpixelModel(pl.LightningModule):
         self.train_f1 = MulticlassF1Score(
             num_classes=self.config["n_classes"], average="weighted"
         )
-        self.train_oa = MulticlassAccuracy(num_classes=self.config["n_classes"])
 
         self.val_r2 = R2Score()
         self.val_f1 = MulticlassF1Score(
             num_classes=self.config["n_classes"], average="weighted"
         )
-        self.val_oa = MulticlassAccuracy(num_classes=self.config["n_classes"])
 
         self.test_r2 = R2Score()
         self.test_f1 = MulticlassF1Score(
             num_classes=self.config["n_classes"], average="weighted"
         )
-        self.test_oa = MulticlassAccuracy(num_classes=self.config["n_classes"])
 
         self.confmat = ConfusionMatrix(
             task="multiclass", num_classes=self.config["n_classes"]
@@ -223,15 +222,12 @@ class SuperpixelModel(pl.LightningModule):
         if stage == "train":
             r2_metric = self.train_r2
             f1_metric = self.train_f1
-            oa_metric = self.train_oa
         elif stage == "val":
             r2_metric = self.val_r2
             f1_metric = self.val_f1
-            oa_metric = self.val_oa
         else:  # stage == "test"
             r2_metric = self.test_r2
             f1_metric = self.test_f1
-            oa_metric = self.test_oa
 
         # Point cloud stream
         if self.config["mode"] != "img":
@@ -344,10 +340,8 @@ class SuperpixelModel(pl.LightningModule):
                         true_labels.device
                     )
                     fuse_f1 = f1_metric(final_class_preds, true_labels)
-                    fuse_oa = oa_metric(final_class_preds, true_labels)
                 else:
                     fuse_f1 = f1_metric(pred_lead_fuse_labels, true_labels)
-                    fuse_oa = oa_metric(pred_lead_fuse_labels, true_labels)
 
                 # Log metrics
                 logs.update(
@@ -355,7 +349,6 @@ class SuperpixelModel(pl.LightningModule):
                         f"fuse_{stage}_loss": loss_fuse,
                         f"fuse_{stage}_r2": fuse_r2,
                         f"fuse_{stage}_f1": fuse_f1,
-                        f"fuse_{stage}_oa": fuse_oa,
                     }
                 )
                 if stage == "val":
@@ -453,10 +446,13 @@ class SuperpixelModel(pl.LightningModule):
                 self.config["save_dir"],
                 "outputs",
             )
-            _ = generate_eva(self.best_test_outputs, self.config["classes"], output_dir)
+            # _ = generate_eva(self.best_test_outputs, self.config["classes"], output_dir)
+
             cm = self.confmat(
                 torch.argmax(test_pred, dim=1), torch.argmax(test_true, dim=1)
             )
+
+            print(f"F1 Score:{self.val_f1.compute()}")
             print("Confusion Matrix at best R²:")
             print(cm)
             print(
@@ -478,6 +474,7 @@ class SuperpixelModel(pl.LightningModule):
 
         self.validation_step_outputs.clear()
         self.val_r2.reset()
+        self.val_f1.reset()
 
     def test_step(self, batch, batch_idx):
         images = batch["images"] if "images" in batch else None

@@ -117,6 +117,9 @@ def main():
         "--vote",
         action="store_true",
     )
+    parser.add_argument(
+        "--pc_model", default="pointnext", choices=["pointnext", "dgcnn"]
+    )
 
     # Parse arguments
     params = vars(parser.parse_args())

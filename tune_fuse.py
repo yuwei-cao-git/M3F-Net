@@ -97,6 +97,7 @@ def main(args):
         "n_samples": 2,
         "data_dir": data_dir,
         "vote": False,  # tune.choice([True, False]),
+        "pc_model": "pointnext",  # tune.choise(["pointnetxt", "dgcnn"])
     }
     try:
         asha_scheduler = ASHAScheduler(max_t=1, grace_period=1, reduction_factor=2)

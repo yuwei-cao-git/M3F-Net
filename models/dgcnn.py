@@ -1,30 +1,22 @@
 # Adapted from https://github.com/WangYueFt/dgcnn/tree/master/pytorch
 
-# Notes:
-# line 7 in get_graph_feature do I need to change the device for data parallel
-
-# import copy
-# import math
-# import os
-# import sys
-
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import lightning as L
-from common.loss_utils import calc_loss
+
 
 # K-Nearest Neighbours
 def knn(x, k):
     inner = -2 * torch.matmul(x.transpose(2, 1), x)
-    xx = torch.sum(x ** 2, dim=1, keepdim=True)
+    xx = torch.sum(x**2, dim=1, keepdim=True)
     pairwise_distance = -xx - inner - xx.transpose(2, 1)
 
     idx = pairwise_distance.topk(k=k, dim=-1)[
         1
     ]  # k largest elements along given dimension
     return idx
+
 
 # Get Graph Features
 def get_graph_feature(x, k=20, idx=None):
@@ -49,6 +41,7 @@ def get_graph_feature(x, k=20, idx=None):
     feature = torch.cat((feature - x, x), dim=3).permute(0, 3, 1, 2).contiguous()
 
     return feature
+
 
 # DGCNN Model
 class DGCNN(L.LightningModule):
@@ -129,13 +122,14 @@ class DGCNN(L.LightningModule):
 
         x1 = F.adaptive_max_pool1d(x, 1).view(batch_size, -1)
         x2 = F.adaptive_avg_pool1d(x, 1).view(batch_size, -1)
-        x = torch.cat((x1, x2), 1)
+        feat = torch.cat((x1, x2), 1)
 
         # Classify
-        x = F.leaky_relu(self.bn6(self.linear1(x)), negative_slope=0.2)
+        x = F.leaky_relu(self.bn6(self.linear1(feat)), negative_slope=0.2)
         x = self.dp1(x)
         x = F.leaky_relu(self.bn7(self.linear2(x)), negative_slope=0.2)
         x = self.dp2(x)
         x = self.linear3(x)
+        preds = F.softmax(x, dim=1)
 
-        return x
+        return preds, feat
