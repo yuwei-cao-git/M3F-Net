@@ -55,14 +55,14 @@ def train_func(config):
 
     # Define a checkpoint callback to save the best model
     checkpoint_callback = ModelCheckpoint(
-        monitor="ave_val_r2",  # Track the validation loss
+        monitor="fuse_val_r2",  # Track the validation loss
         dirpath=chk_dir,
         filename="final_model",
         save_top_k=1,  # Only save the best model
         mode="max",  # We want to minimize the validation loss
     )
     early_stopping = EarlyStopping(
-        monitor="ave_val_r2",  # Metric to monitor
+        monitor="fuse_val_r2",  # Metric to monitor
         patience=10,  # Number of epochs with no improvement after which training will be stopped
         mode="max",  # Set "min" for validation loss
         verbose=True,
@@ -97,8 +97,8 @@ def train_func(config):
         print("No best test output found!")
 
     # Report the final metric to Ray Tune
-    final_result = trainer.callback_metrics["ave_val_r2"].item()
-    train.report({"ave_val_r2": final_result})
+    final_result = trainer.callback_metrics["fuse_val_r2"].item()
+    train.report({"fuse_val_r2": final_result})
     print("Best Hyperparameters:", final_result.config)
 
     # Save the best model after training

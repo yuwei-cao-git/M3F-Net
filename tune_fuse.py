@@ -107,7 +107,7 @@ def main(args):
         tuner = tune.Tuner(
             trainable_with_gpu,
             tune_config=tune.TuneConfig(
-                metric="ave_val_r2",
+                metric="fuse_val_r2",
                 mode="max",
                 scheduler=asha_scheduler,
                 num_samples=config["n_samples"],
@@ -130,7 +130,7 @@ def main(args):
         results = tuner.fit()
         print(
             "Best trial config: {}".format(
-                results.get_best_result("ave_val_r2", "max").config
+                results.get_best_result("fuse_val_r2", "max").config
             )
         )
     except Exception as e:
