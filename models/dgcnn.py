@@ -24,7 +24,7 @@ def get_graph_feature(x, k=20, idx=None):
     num_points = x.size(2)  # number of points
     x = x.view(batch_size, -1, num_points)
     if idx is None:  # get idx of not given
-        idx = knn(x, k=k)  # knn
+        idx = knn(x[:, 0:3], k=k)  # knn
     device = x.device  # use the same device as the input tensor
 
     idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
@@ -61,7 +61,7 @@ class DGCNN(L.LightningModule):
 
         # Sequential Layers
         self.conv1 = nn.Sequential(
-            nn.Conv2d(6, 64, kernel_size=1, bias=False),
+            nn.Conv2d(18, 64, kernel_size=1, bias=False),
             self.bn1,
             nn.LeakyReLU(negative_slope=0.2),
         )

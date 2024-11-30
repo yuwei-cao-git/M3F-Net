@@ -67,15 +67,12 @@ class SuperpixelModel(pl.LightningModule):
 
         if self.config["mode"] != "img":
             # Initialize point cloud stream model
-            if self.config["pc_norm"]:
-                if self.config["pc_model"] == "pointnext":
-                    self.pc_model = PointNextModel(self.config, in_dim=6)
-                else:
-                    self.pc_model = DGCNN(
-                        self.config, n_classes=self.config["n_classes"]
-                    )
+            if self.config["pc_model"] == "pointnext":
+                self.pc_model = PointNextModel(
+                    self.config, in_dim=6 if self.config.get("pc_norm", False) else 3
+                )
             else:
-                self.pc_model = PointNextModel(self.config, in_dim=3)
+                self.pc_model = DGCNN(self.config, n_classes=self.config["n_classes"])
 
         if self.config["mode"] == "fuse":
             # Fusion and classification layers with additional linear layer
@@ -160,7 +157,10 @@ class SuperpixelModel(pl.LightningModule):
 
         if self.config["mode"] != "img":
             # Process point clouds
-            point_outputs, pc_emb = self.pc_model(pc_feat, xyz)
+            if self.config["pc_model"] == "pointnext":
+                point_outputs, pc_emb = self.pc_model(pc_feat, xyz)
+            else:
+                point_outputs, pc_emb = self.pc_model(torch.cat([pc_feat, xyz], dim=1))
 
         if self.config["mode"] == "fuse":
             if self.fuse_feature:
