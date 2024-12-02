@@ -80,7 +80,11 @@ class SuperpixelModel(pl.LightningModule):
                 if self.use_mamba_fuse:
                     self.fuse_head = MambaFusionBlock(
                         in_img_chs=512,
-                        in_pc_chs=self.config["emb_dims"],
+                        in_pc_chs=(
+                            self.config["emb_dims"]
+                            if self.config.get("pc_model", "pointnetxt") == "pointnetxt"
+                            else self.config["emb_dims"] * 2
+                        ),
                         dim=self.config["fusion_dim"],
                         hidden_ch=self.config["linear_layers_dims"],
                         num_classes=self.config["n_classes"],
