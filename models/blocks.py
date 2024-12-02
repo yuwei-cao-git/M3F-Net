@@ -496,10 +496,9 @@ class MambaLayer(nn.Module):
             expand=expand,
         )
 
-    def forward(self, x, point_cloud):
+    def forward(self, x, pc_emb):
         # Pool over points (max pooling over point cloud features)
         B, C, H, W = x.shape
-        pc_emb = torch.max(point_cloud, dim=2)[0]  # Shape: (batch_size, feature_dim)
         # Expand point cloud features to (B, C_point, H, W)
         point_cloud_expanded = pc_emb.unsqueeze(-1).unsqueeze(-1)
         point_cloud_expanded = point_cloud_expanded.expand(-1, -1, H, W)

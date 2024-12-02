@@ -159,6 +159,7 @@ class SuperpixelModel(pl.LightningModule):
             # Process point clouds
             if self.config["pc_model"] == "pointnext":
                 point_outputs, pc_emb = self.pc_model(pc_feat, xyz)
+                pc_emb = torch.max(pc_emb, dim=2)[0]  # Shape: (batch_size, feature_dim)
             else:
                 point_outputs, pc_emb = self.pc_model(torch.cat([pc_feat, xyz], dim=1))
 
