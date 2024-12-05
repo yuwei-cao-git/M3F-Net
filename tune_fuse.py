@@ -50,23 +50,23 @@ def main(args):
     class_weights = torch.from_numpy(np.array(class_weights)).float()
     config = {
         "mode": "fuse",  # tune.choice(["img", "pc", "fuse"]),
-        "img_lr": 5e-4,  # tune.loguniform(1e-5, 1e-3),
-        "pc_lr": 1e-5,  # tune.loguniform(1e-5, 1e-3),
-        "fuse_lr": 0.00001,  # tune.loguniform(1e-5, 1e-3),
-        "pc_loss_weight": 1.8,  # tune.loguniform(1.0, 4.0),
-        "img_loss_weight": 1.3,  # tune.loguniform(1.0, 4.0),
-        "fuse_loss_weight": 1.1,  # tune.loguniform(1.0, 4.0),
-        "leading_loss": True,  # tune.choice([True, False]),
-        "lead_loss_weight": 0.2,  # tune.loguniform(0.1, 0.5),
-        "batch_size": 32,  # tune.choice([16, 32, 64]),
-        "optimizer": "adamW",  # tune.choice(["adam", "sgd", "adamW"]),
-        "dp_fuse": 0.7,  # tune.choice([0.3, 0.5, 0.7]),  # dropout rate
-        "dp_pc": 0.5,  # tune.choice([0.3, 0.5, 0.7]),  # dropout rate
-        "weighted_loss": False,  # tune.choice([True, False]),
+        "img_lr": tune.grid_search([1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3]),
+        "pc_lr": tune.grid_search([1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3]),
+        "fuse_lr": tune.grid_search([1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3]),
+        "pc_loss_weight": tune.grid_search([1.0, 1.5, 2.0, 2.5, 3, 3.5, 4.0]),
+        "img_loss_weight": tune.grid_search([1.0, 1.5, 2.0, 2.5, 3, 3.5, 4.0]),
+        "fuse_loss_weight": tune.grid_search([1.0, 1.5, 2.0, 2.5, 3, 3.5, 4.0]),
+        "leading_loss": tune.choice([True, False]),
+        "lead_loss_weight": tune.grid_search([0.1, 0.2, 0.3, 0.4, 0.5]),
+        "batch_size": tune.choice([16, 32, 64]),
+        "optimizer": tune.choice(["adam", "sgd", "adamW"]),
+        "dp_fuse": tune.choice([0.3, 0.5, 0.7]),  # dropout rate
+        "dp_pc": tune.choice([0.3, 0.5, 0.7]),  # dropout rate
+        "weighted_loss": tune.choice([True, False]),
         "train_weights": class_weights,
         "img_transforms": "compose",  # tune.choice([None, "random", "compose"]),  # augment
         "pc_transforms": True,  # tune.choice([True, False]),  # number of augmentations
-        "rotate": False,  # tune.choice([True, False]),
+        "rotate": tune.choice([True, False]),
         "pc_norm": True,  # tune.choice([True, False]),
         "scheduler": "asha",  # tune.choice(["plateau", "steplr", "cosine"]),
         "patience": 10,  # patience
@@ -77,17 +77,24 @@ def main(args):
         "n_classes": 9,
         "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
         "num_points": 7168,  # number of points
-        "emb_dims": 768,  # tune.choice([512, 768, 1024]),  # dimension of embeddings
-        "encoder": "xl",  # tune.choice(["s", "b", "l", "xl"]),
-        "linear_layers_dims": [
-            1024,
-            256,
-        ],  # tune.choice([[1024, 256], [512, 256], [512, 128], [256, 128], [128, 128], [256, 64]]),
+        "emb_dims": tune.choice([512, 768, 1024]),  # dimension of embeddings
+        "encoder": tune.choice(["s", "b", "l", "xl"]),
+        "linear_layers_dims": tune.choice(
+            [
+                [1024, 256],
+                [1024, 128],
+                [512, 256],
+                [512, 128],
+                [256, 128],
+                [128, 128],
+                [256, 64],
+            ]
+        ),
         "fuse_feature": True,  # tune.choice([True, False]),
-        "mamba_fuse": True,  # tune.choice([True, False]),
-        "fusion_dim": 128,  # tune.choice([128, 256]),
+        "mamba_fuse": tune.choice([True, False]),
+        "fusion_dim": tune.choice([128, 256]),
         "resolution": 20,  # tune.choice([10, 20]),
-        "use_mf": False,  # tune.choice([True, False]),
+        "use_mf": tune.choice([True, False]),
         "spatial_attention": False,  # tune.choice([True, False]),
         "use_residual": False,  # tune.choice([True, False]),
         "epochs": args.max_epochs,
@@ -117,7 +124,7 @@ def main(args):
                 log_to_file=("my_stdout.log", "my_stderr.log"),
                 callbacks=[
                     WandbLoggerCallback(
-                        project="M3F-Net-fuse-v2",
+                        project="M3F-Net-fuse-v3",
                         group="tune_group",
                         api_key=os.environ["WANDB_API_KEY"],
                         log_config=True,

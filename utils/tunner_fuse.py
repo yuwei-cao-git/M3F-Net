@@ -46,7 +46,7 @@ def train_func(config):
 
     # Initialize WandB, CSV Loggers
     wandb_logger = WandbLogger(
-        project="M3F-Net-fuse-v2",
+        project="M3F-Net-fuse-v3",
         group="tune_group",
         name=f"trial_{tune.Trainable().trial_id}",
         save_dir=log_dir,
@@ -102,13 +102,14 @@ def train_func(config):
     print("Best Hyperparameters:", final_result.config)
 
     # Save the best model after training
+    """
     trainer.save_checkpoint(
         os.path.join(
             chk_dir,
             "final_model.ckpt",
         )
     )
-
+    """
     # Test the model after training
     if config["eval"]:
         trainer.test(model, data_module)
