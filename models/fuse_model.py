@@ -82,7 +82,7 @@ class SuperpixelModel(pl.LightningModule):
                         in_img_chs=512,
                         in_pc_chs=(
                             self.config["emb_dims"]
-                            if self.config.get("pc_model", "pointnetxt") == "pointnetxt"
+                            if self.config.get("pc_model", "pointnetxt") == "pointnext"
                             else self.config["emb_dims"] * 2
                         ),
                         dim=self.config["fusion_dim"],
@@ -91,7 +91,11 @@ class SuperpixelModel(pl.LightningModule):
                         drop=self.config["dp_fuse"],
                     )
                 else:
-                    in_ch = 512 + self.config["emb_dims"]
+                    in_ch = (
+                        512 + self.config["emb_dims"]
+                        if self.config.get("pc_model", "pointnetxt") == "pointnext"
+                        else self.config["emb_dims"] * 2
+                    )
                     self.fuse_head = MLPBlock(
                         config, in_ch, self.config["linear_layers_dims"]
                     )
@@ -333,15 +337,16 @@ class SuperpixelModel(pl.LightningModule):
                 # Compute F1 score
                 pred_lead_fuse_labels = torch.argmax(fuse_preds, dim=1)
                 if self.vote:
+                    from scipy.stats import mode
+
+                    pixel_class_preds, _ = mode(valid_pixel_lead_preds, axis=0)
                     predictions = torch.stack(
                         [
-                            valid_pixel_lead_preds,
+                            pixel_class_preds,
                             pred_lead_pc_labels,
                             pred_lead_fuse_labels,
                         ]
                     )
-                    from scipy.stats import mode
-
                     final_class_preds, _ = mode(predictions, axis=0)
                     final_class_preds = torch.from_numpy(final_class_preds).to(
                         true_labels.device

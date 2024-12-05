@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from mamba_ssm import Mamba
 from einops import rearrange
+import numpy as np
 
 # -----------------------------------------------------------------------------------
 # Parts of the season fusion module
@@ -456,6 +457,16 @@ class MambaLayer(nn.Module):
     ):
         super().__init__()
 
+        # Sample the grids in 2D space
+        xx = np.linspace(-0.3, 0.3, 8, dtype=np.float32)
+        yy = np.linspace(-0.3, 0.3, 8, dtype=np.float32)
+        self.grid = np.meshgrid(xx, yy)  # (2, 8, 8)
+
+        # reshape
+        self.grid = torch.Tensor(self.grid).view(2, -1)  # (2, 8, 8) -> (2, 8 * 8)
+
+        self.m = self.grid.shape[1]
+
         # Pooling scales for the pooling layers
         pool_scales = self.generate_arithmetic_sequence(
             1, last_feat_size, last_feat_size // 4
@@ -463,7 +474,7 @@ class MambaLayer(nn.Module):
         self.pool_len = len(pool_scales)
 
         # Calculate the combined input channels
-        combined_in_chs = in_img_chs + in_pc_chs
+        combined_in_chs = in_img_chs + in_pc_chs + 2
         assert isinstance(combined_in_chs, int) and isinstance(
             combined_in_chs, int
         ), "in_channels and out_channels must be integers"
@@ -499,9 +510,23 @@ class MambaLayer(nn.Module):
     def forward(self, x, pc_emb):
         # Pool over points (max pooling over point cloud features)
         B, C, H, W = x.shape
+        """
         # Expand point cloud features to (B, C_point, H, W)
         point_cloud_expanded = pc_emb.unsqueeze(-1).unsqueeze(-1)
         point_cloud_expanded = point_cloud_expanded.expand(-1, -1, H, W)
+        """
+        # repeat grid for batch operation
+        grid = self.grid.to(x.device)  # (2, 8 * 8)
+        grid = grid.unsqueeze(0).repeat(B, 1, 1)  # (B, 2, 88 * 45)
+
+        # repeat codewords
+        point_cloud_expanded = pc_emb.unsqueeze(2).repeat(
+            1, 1, self.m
+        )  # (B, 512, 8 * 8)
+        # print(point_cloud_expanded.shape)
+        point_cloud_expanded = point_cloud_expanded.view(B, -1, H, W)
+        grid = grid.view(B, -1, H, W)
+        point_cloud_expanded = torch.cat([grid, point_cloud_expanded], dim=1)
 
         # Concatenate image and point cloud features
         combined_features = torch.cat([x, point_cloud_expanded], dim=1)
@@ -585,7 +610,8 @@ class MambaFusionBlock(nn.Module):
         self.mlp_block = MLP(
             in_ch=dim * self.mamba.pool_len
             + in_img_chs
-            + in_pc_chs,  # Adjusted input channels after fusion
+            + in_pc_chs
+            + 2,  # Adjusted input channels after fusion
             hidden_ch=hidden_ch,
             num_classes=num_classes,
             dropout_prob=drop,
