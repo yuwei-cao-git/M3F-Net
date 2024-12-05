@@ -101,7 +101,7 @@ def main(args):
         "eval": tune.choice([True, False]),  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu
         "gpus": torch.cuda.device_count(),
-        "n_samples": 2,
+        "n_samples": 30,
         "data_dir": data_dir,
         "vote": False,  # tune.choice([True, False]),
         "pc_model": "pointnext",  # tune.choise(["pointnetxt", "dgcnn"])
