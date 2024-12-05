@@ -88,26 +88,48 @@ class SuperpixelDataModule(LightningDataModule):
         self.point_cloud_transform = config["pc_transforms"]
         self.aug_rotate = config["pc_transforms"]
         self.aug_norm = config["pc_norm"]
-
+        self.processed_dir = join(config["data_dir"], f'{self.config["resolution"]}m')
+        """
         self.data_dirs = {
             "train": join(
                 config["data_dir"],
                 f"{config['resolution']}m",
-                "fusion",
+                "superpixel_v2",
+                "train",
+            ),
+            "val": join(
+                config["data_dir"],
+                f"{config['resolution']}m",
+                "superpixel_v2",
+                "val",
+            ),
+            "test": join(
+                config["data_dir"],
+                f"{config['resolution']}m",
+                "superpixel_v2",
+                "test",
+            ),
+        }
+        """
+        self.data_dirs = {
+            "train": join(
+                config["data_dir"],
+                f"{config['resolution']}m",
+                "fusion_v2",
                 "train",
                 "superpixel",
             ),
             "val": join(
                 config["data_dir"],
                 f"{config['resolution']}m",
-                "fusion",
+                "fusion_v2",
                 "val",
                 "superpixel",
             ),
             "test": join(
                 config["data_dir"],
                 f"{config['resolution']}m",
-                "fusion",
+                "fusion_v2",
                 "test",
                 "superpixel",
             ),
@@ -132,17 +154,24 @@ class SuperpixelDataModule(LightningDataModule):
             )
             if split == "train":
                 if not (
-                    self.image_transform is None and self.point_cloud_transform is False
+                    self.image_transform is None or self.point_cloud_transform is False
                 ):
-                    aug_dataset = SuperpixelDataset(
+                    aug_img_dataset = SuperpixelDataset(
                         superpixel_files,
                         rotate=self.aug_rotate,
                         normalization=self.aug_norm,
                         image_transform=self.image_transform,
+                        point_cloud_transform=False,
+                    )
+                    aug_pc_dataset = SuperpixelDataset(
+                        superpixel_files,
+                        rotate=self.aug_rotate,
+                        normalization=self.aug_norm,
+                        image_transform=None,
                         point_cloud_transform=self.point_cloud_transform,
                     )
                     self.datasets["train"] = torch.utils.data.ConcatDataset(
-                        [self.datasets["train"], aug_dataset]
+                        [self.datasets["train"], aug_img_dataset, aug_pc_dataset]
                     )
 
     def train_dataloader(self):
