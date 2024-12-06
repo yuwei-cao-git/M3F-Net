@@ -398,14 +398,7 @@ class MLPBlock(nn.Module):
             img_emb.shape[0], -1
         )  # Shape: (batch_size, feature_dim)
 
-        # Pool over points
-        point_cloud_features = torch.max(pc_emb, dim=2)[
-            0
-        ]  # Shape: (batch_size, feature_dim)
-        # Concatenate features
-        combined_features = torch.cat(
-            (image_features_pooled, point_cloud_features), dim=1
-        )
+        combined_features = torch.cat((image_features_pooled, pc_emb), dim=1)
 
         # Fusion and classification with additional layers and regularization
         x = F.relu(self.bn1(self.fc1(combined_features)))  # [batch_size, 512]
