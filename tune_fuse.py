@@ -50,14 +50,14 @@ def main(args):
     class_weights = torch.from_numpy(np.array(class_weights)).float()
     config = {
         "mode": "fuse",  # tune.choice(["img", "pc", "fuse"]),
-        "img_lr": tune.grid_search([1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3]),
-        "pc_lr": tune.grid_search([1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3]),
-        "fuse_lr": tune.grid_search([1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3]),
-        "pc_loss_weight": tune.grid_search([1.0, 1.5, 2.0, 2.5, 3, 3.5, 4.0]),
-        "img_loss_weight": tune.grid_search([1.0, 1.5, 2.0, 2.5, 3, 3.5, 4.0]),
-        "fuse_loss_weight": tune.grid_search([1.0, 1.5, 2.0, 2.5, 3, 3.5, 4.0]),
+        "img_lr": tune.choice([1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3]),
+        "pc_lr": tune.choice([1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3]),
+        "fuse_lr": tune.choice([1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3]),
+        "pc_loss_weight": tune.choice([1.0, 1.5, 2.0, 2.5, 3, 3.5, 4.0]),
+        "img_loss_weight": tune.choice([1.0, 1.5, 2.0, 2.5, 3, 3.5, 4.0]),
+        "fuse_loss_weight": tune.choice([1.0, 1.5, 2.0, 2.5, 3, 3.5, 4.0]),
         "leading_loss": tune.choice([True, False]),
-        "lead_loss_weight": tune.grid_search([0.1, 0.2, 0.3, 0.4, 0.5]),
+        "lead_loss_weight": tune.choice([0.1, 0.2, 0.3, 0.4, 0.5]),
         "batch_size": tune.choice([16, 32, 64]),
         "optimizer": tune.choice(["adam", "sgd", "adamW"]),
         "dp_fuse": tune.choice([0.3, 0.5, 0.7]),  # dropout rate
