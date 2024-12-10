@@ -434,7 +434,7 @@ class SuperpixelModel(pl.LightningModule):
         return loss
 
     def on_validation_epoch_end(self):
-        # sys_r2 = self.val_r2.compute()
+        sys_r2 = self.val_r2.compute()
         test_true = torch.cat(
             [output["val_target"] for output in self.validation_step_outputs], dim=0
         )
@@ -446,6 +446,7 @@ class SuperpixelModel(pl.LightningModule):
             torch.round(test_pred.flatten(), decimals=1), test_true.flatten()
         )
         self.log("ave_val_r2", last_epoch_val_r2, sync_dist=True)
+        self.log("sys_r2", sys_r2, sync_dist=True)
 
         print(f"average r2 score at epoch {self.current_epoch}: {last_epoch_val_r2}")
         if last_epoch_val_r2 > self.best_test_r2:
@@ -454,11 +455,6 @@ class SuperpixelModel(pl.LightningModule):
                 "preds_all": test_pred,
                 "true_labels_all": test_true,
             }
-            output_dir = os.path.join(
-                self.config["save_dir"],
-                "outputs",
-            )
-            # _ = generate_eva(self.best_test_outputs, self.config["classes"], output_dir)
 
             cm = self.confmat(
                 torch.argmax(test_pred, dim=1), torch.argmax(test_true, dim=1)
@@ -470,6 +466,13 @@ class SuperpixelModel(pl.LightningModule):
             print(
                 f"r2_score per class check: {r2_score(torch.round(test_pred, decimals=1), test_true, multioutput='raw_values')}"
             )
+            """
+            output_dir = os.path.join(
+                self.config["save_dir"],
+                "outputs",
+            )
+            # _ = generate_eva(self.best_test_outputs, self.config["classes"], output_dir)
+            
             cm_array = cm.cpu().numpy()
 
             # Convert to Pandas DataFrame and add species names
@@ -483,7 +486,7 @@ class SuperpixelModel(pl.LightningModule):
             self.logger.experiment.log(
                 {f"confusion_matrix at epoch {self.current_epoch}": cm_table}
             )
-
+            """
         self.validation_step_outputs.clear()
         self.val_r2.reset()
         self.val_f1.reset()

@@ -519,10 +519,9 @@ class MambaLayer(nn.Module):
         # print(point_cloud_expanded.shape)
         point_cloud_expanded = point_cloud_expanded.view(B, -1, H, W)
         grid = grid.view(B, -1, H, W)
-        point_cloud_expanded = torch.cat([grid, point_cloud_expanded], dim=1)
 
         # Concatenate image and point cloud features
-        combined_features = torch.cat([x, point_cloud_expanded], dim=1)
+        combined_features = torch.cat([x, grid, point_cloud_expanded], dim=1)
 
         # Pooling and Mamba layers
         res = combined_features
