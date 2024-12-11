@@ -463,6 +463,7 @@ class SuperpixelModel(pl.LightningModule):
             print(f"F1 Score:{self.val_f1.compute()}")
             print("Confusion Matrix at best R²:")
             print(cm)
+            print(f"R2 Score:{sys_r2}")
             print(
                 f"r2_score per class check: {r2_score(torch.round(test_pred, decimals=1), test_true, multioutput='raw_values')}"
             )
