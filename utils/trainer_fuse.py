@@ -11,23 +11,7 @@ from .common import generate_eva, PointCloudLogger
 
 def train(config):
     seed_everything(1)
-    if config["fuse_feature"]:
-        log_name = f"Fuse_ff_pointnext_{config['encoder']}"
-        if config["mamba_fuse"]:
-            log_name = f"Fuse_ff_mamba_pointnext_{config['encoder']}"
-    else:
-        log_name = f"Fuse_pointnext_{config['encoder']}"
-    if config["use_residual"]:
-        log_name += "_ResUnet_"
-    else:
-        log_name += "_Unet_"
-    if config["use_mf"]:
-        log_name += "MF_"
-        if config["spatial_attention"]:
-            log_name += "SES_"
-        else:
-            log_name += "SE_"
-    log_name += str(config["resolution"])
+    log_name = config["log_name"]
     save_dir = os.path.join(config["save_dir"], log_name)
     log_dir = os.path.join(save_dir, "wandblogs")
     chk_dir = os.path.join(save_dir, "checkpoints")

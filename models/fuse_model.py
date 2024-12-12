@@ -18,6 +18,8 @@ from .loss import apply_mask, calc_loss
 
 import os
 import wandb
+import pandas as pd
+import numpy as np
 
 
 class SuperpixelModel(pl.LightningModule):
@@ -388,8 +390,10 @@ class SuperpixelModel(pl.LightningModule):
                 logger=True,
                 sync_dist=True,
             )
-
-        return loss
+        if stage == "test":
+            return labels, fuse_preds, loss
+        else:
+            return loss
 
     def training_step(self, batch, batch_idx):
         images = batch["images"] if "images" in batch else None
@@ -502,7 +506,7 @@ class SuperpixelModel(pl.LightningModule):
         image_masks = batch["nodata_mask"] if "nodata_mask" in batch else None
         pc_feat = batch["pc_feat"] if "pc_feat" in batch else None
 
-        loss = self.forward_and_metrics(
+        labels, fuse_preds, loss = self.forward_and_metrics(
             images,
             image_masks,
             pc_feat,
@@ -511,7 +515,36 @@ class SuperpixelModel(pl.LightningModule):
             per_pixel_labels,
             stage="test",
         )
+
+        self.save_to_file(labels, fuse_preds, self.config["classes"])
         return loss
+
+    def save_to_file(self, labels, outputs, classes):
+        # Convert tensors to numpy arrays or lists as necessary
+        labels = labels.cpu().numpy() if isinstance(labels, torch.Tensor) else labels
+        outputs = (
+            outputs.cpu().numpy() if isinstance(outputs, torch.Tensor) else outputs
+        )
+        num_samples = labels.shape[0]
+        data = {"SampleID": np.arange(num_samples)}
+
+        # Add true and predicted values for each class
+        for i, class_name in enumerate(classes):
+            data[f"True_{class_name}"] = labels[:, i]
+            data[f"Pred_{class_name}"] = outputs[:, i]
+
+        df = pd.DataFrame(data)
+
+        output_dir = os.path.join(
+            self.config["save_dir"],
+            self.config["log_name"],
+            "outputs",
+        )
+        # Save DataFrame to a CSV file
+        df.to_csv(
+            os.path.join(output_dir, "test_outputs.csv"),
+            mode="a",
+        )
 
     def configure_optimizers(self):
         params = []

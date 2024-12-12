@@ -120,6 +120,7 @@ def main():
     parser.add_argument(
         "--pc_model", default="pointnext", choices=["pointnext", "dgcnn"]
     )
+    parser.add_argument("--log_name", default="Fuse_ff_mamba_pointnext_l_Unet_20")
 
     # Parse arguments
     params = vars(parser.parse_args())
