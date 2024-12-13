@@ -50,7 +50,7 @@ class SuperpixelDataset(Dataset):
         nodata_mask = torch.from_numpy(nodata_mask).bool()
 
         # Apply transforms if needed
-        if self.image_transform:
+        if self.image_transform == "random" or self.image_transform == "compose":
             superpixel_images = image_transform(superpixel_images, self.image_transform)
 
         # Apply point cloud transforms if any
