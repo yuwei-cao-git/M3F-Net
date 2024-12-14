@@ -106,7 +106,7 @@ def main():
     )
     parser.add_argument("--linear_layers_dims", type=list_of_ints)
     parser.add_argument(
-        "--img_transforms", default="compose", choices=["compose", "random", None]
+        "--img_transforms", default="compose", choices=["compose", "random", "None"]
     )
     parser.add_argument("--pc_transforms", default=True)
     parser.add_argument("--rotate", default=False)

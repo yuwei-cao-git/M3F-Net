@@ -50,7 +50,7 @@ class SuperpixelDataset(Dataset):
         nodata_mask = torch.from_numpy(nodata_mask).bool()
 
         # Apply transforms if needed
-        if self.image_transform == "random" or self.image_transform == "compose":
+        if self.image_transform != None:
             superpixel_images = image_transform(superpixel_images, self.image_transform)
 
         # Apply point cloud transforms if any
@@ -86,7 +86,9 @@ class SuperpixelDataModule(LightningDataModule):
         self.config = config
         self.batch_size = config["batch_size"]
         self.num_workers = config["num_workers"]
-        self.image_transform = config["img_transforms"]
+        self.image_transform = (
+            config["img_transforms"] if config["img_transforms"] != "None" else None
+        )
         self.point_cloud_transform = config["pc_transforms"]
         self.aug_rotate = config["pc_transforms"]
         self.aug_norm = config["pc_norm"]
