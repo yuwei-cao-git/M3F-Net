@@ -42,7 +42,7 @@ def main(args):
         "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
         "resolution": tune.choice([10, 20]),
         "scheduler": "asha",  # tune.choice(["plateau", "steplr", "cosine"]),
-        "transforms": tune.choice(["random", "compose"]),
+        "transforms": tune.choice(["random", "compose", "None"]),
         "save_dir": save_dir,
         "n_samples": 30,
     }

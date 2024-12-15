@@ -15,7 +15,7 @@ def train_func(config):
 
     wandb_logger = WandbLogger(
         project="M3F-Net-img",
-        group="v2",
+        group="v3",
         name=f"trial_{tune.Trainable().trial_id}",
         save_dir=config["save_dir"],
         log_model=True,
@@ -34,7 +34,7 @@ def train_func(config):
     # Define a checkpoint callback to save the best model
     checkpoint_callback = ModelCheckpoint(
         monitor="val_r2",  # Track the validation loss
-        filename="best-model-{epoch:02d}-{val_r2:.2f}",
+        filename="final_model",
         save_top_k=1,  # Only save the best model
         mode="min",  # We want to minimize the validation loss
     )
