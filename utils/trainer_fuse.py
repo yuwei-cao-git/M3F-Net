@@ -27,7 +27,7 @@ def train(config):
         project="M3F-Net-fuse-v2",
         group="train_group",
         save_dir=log_dir,
-        log_model=True,
+        # log_model=True,
     )
     # point_logger = PointCloudLogger(trainer=Trainer)
     # Define a checkpoint callback to save the best model
@@ -59,7 +59,7 @@ def train(config):
     trainer = Trainer(
         max_epochs=config["max_epochs"],
         logger=[wandb_logger],
-        callbacks=[early_stopping],  # checkpoint_callback],
+        callbacks=early_stopping,  # [early_stopping, checkpoint_callback],
         devices=config["gpus"],
         num_nodes=1,
         strategy="ddp",
