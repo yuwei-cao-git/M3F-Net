@@ -74,13 +74,13 @@ def train(config):
             "outputs",
         )
         sp_df = generate_eva(model.best_test_outputs, config["classes"], output_dir)
-        wandb_logger.log_text(key="preds", dataframe=sp_df)
+        # wandb_logger.log_text(key="preds", dataframe=sp_df)
 
     # Test the model after training
     trainer.test(model, data_module)
 
     # Save the best model after training
-    trainer.save_checkpoint(os.path.join(chk_dir, "final_model.pt"))
+    # trainer.save_checkpoint(os.path.join(chk_dir, "final_model.pt"))
 
     # Load the saved model
     # model = SuperpixelModel.load_from_checkpoint("final_model.pt")
