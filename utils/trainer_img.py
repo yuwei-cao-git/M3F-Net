@@ -23,19 +23,12 @@ def train(args):
     # Define a checkpoint callback to save the best model
     checkpoint_callback = ModelCheckpoint(
         monitor="val_loss",  # Track the validation loss
-        filename="best-model-{epoch:02d}-{val_loss:.2f}",
+        filename="final_model",
         save_top_k=1,  # Only save the best model
         mode="min",  # We want to minimize the validation loss
     )
-    if args["use_residual"]:
-        log_name = "ResUnet_"
-    else:
-        log_name = "Unet_"
-    if args["use_mf"]:
-        log_name += "MF_"
-    log_name += str(args["resolution"])
 
-    wandb_logger = WandbLogger(name=log_name)
+    wandb_logger = WandbLogger(name=args["log_name"])
 
     # Create a PyTorch Lightning Trainer
     trainer = Trainer(
@@ -53,7 +46,7 @@ def train(args):
     trainer.test(model, data_module)
 
     # Save the best model after training
-    trainer.save_checkpoint(os.path.join(args["save_dir"], log_name, "final_model.pt"))
+    trainer.save_checkpoint(os.path.join(args["save_dir"], "final_model.pt"))
 
     # Load the saved model
     # model = UNetLightning.load_from_checkpoint("final_model.ckpt")

@@ -14,8 +14,8 @@ from dataset.pts import PointCloudDataModule
 
 
 parser = argparse.ArgumentParser(description="pytorch-lightning parallel test")
-parser.add_argument("--lr", type=float, default=0.001, help="")
-parser.add_argument("--max_epochs", type=int, default=4, help="")
+parser.add_argument("--lr", type=float, default=0.0005, help="")
+parser.add_argument("--max_epochs", type=int, default=100, help="")
 parser.add_argument("--batch_size", type=int, default=16, help="")
 parser.add_argument("--num_workers", type=int, default=8, help="")
 parser.add_argument("--data_dir", type=str, default="./data")
@@ -27,11 +27,11 @@ def main(params):
     # Initialize WandB, CSV Loggers
     wandb_logger = WandbLogger(project="M3F-Net-pts")
     exp_name = params["exp_name"]
-    exp_dirpath = os.path.join("checkpoints", exp_name)
+    exp_dirpath = os.path.join("pts_logs", exp_name)
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=os.path.join(exp_dirpath, "models"),  # Path to save checkpoints
-        filename="{epoch}-{val_loss:.2f}",  # Filename format (epoch-val_loss)
+        filename="final_model",  # Filename format (epoch-val_loss)
         monitor="val_loss",  # Metric to monitor for "best" model (can be any logged metric)
         mode="min",  # Save model with the lowest "val_loss" (change to "max" for maximizing metrics)
         save_top_k=1,  # Save only the single best model based on the monitored metric
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     class_weights = torch.from_numpy(np.array(class_weights)).float()
     args = parser.parse_args()
     params = {
-        "exp_name": "pointNext_7168_WEIGHTS_AUG2",  # experiment name
+        "exp_name": "pointNext_7168_WEIGHTS",  # experiment name
         "augmentor": True,
         "batch_size": args.batch_size,  # batch size
         "train_weights": class_weights,  # training weights
@@ -80,6 +80,7 @@ if __name__ == "__main__":
         "augment": True,  # augment
         "n_augs": 2,  # number of augmentations
         "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
+        "n_classes": 9,
         "n_gpus": torch.cuda.device_count(),  # number of gpus
         "epochs": args.max_epochs,  # total epochs
         "optimizer": "adam",  # classifier optimizer
@@ -89,12 +90,13 @@ if __name__ == "__main__":
         "step_size": 20,  # step size
         "momentum": 0.9,  # sgd momentum
         "num_points": 7168,  # number of points
-        "dropout": 0.5,  # dropout rate
-        "emb_dims": 1024,  # dimension of embeddings
-        "weighted_loss": False,  # pretrained model path
-        "eval": False,  # run testing
+        "dp_pc": 0.3,  # dropout rate
+        "emb_dims": 512,  # dimension of embeddings
+        "weighted_loss": True,  # pretrained model path
+        "eval": True,  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu
         "encoder": "l",
+        "pc_norm": False,
     }
 
     mn = params["exp_name"]

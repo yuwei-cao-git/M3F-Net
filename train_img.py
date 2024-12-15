@@ -18,7 +18,7 @@ def main():
         help="Mode to run the model: 'img', 'pts', or 'both'",
     )
     # parser.add_argument('--data_dir', type=str, default='./data', help="path to data dir")
-    parser.add_argument("--n_bands", type=int, default=12, help="number bands per tile")
+    parser.add_argument("--n_bands", type=int, default=9, help="number bands per tile")
     parser.add_argument("--n_classes", type=int, default=9, help="number classes")
     parser.add_argument(
         "--learning_rate", type=float, default=0.001, help="initial learning rate"
@@ -47,6 +47,11 @@ def main():
         action="store_true",
         help="Use residual connections (set flag to enable)",
     )
+    parser.add_argument(
+        "--spatial_attention",
+        action="store_true",
+        help="Use spatial attention in mf fusion",
+    )
     parser.add_argument("--transforms", action="store_true")
     parser.add_argument("--gpus", type=int, default=torch.cuda.device_count())
 
@@ -55,7 +60,7 @@ def main():
     params["data_dir"] = (
         "/mnt/d/Sync/research/tree_species_estimation/tree_dataset/rmf/processed"
     )
-    params["save_dir"] = os.path.join(os.getcwd(), "logs", params["log_name"])
+    params["save_dir"] = os.path.join(os.getcwd(), "img_logs", params["log_name"])
     if not os.path.exists(params["save_dir"]):
         os.makedirs(params["save_dir"])
     print(params)

@@ -13,6 +13,7 @@ from torchmetrics.functional import r2_score
 from torchmetrics.classification import (
     MulticlassF1Score,
     ConfusionMatrix,
+    MulticlassAccuracy,
 )
 from .loss import apply_mask, calc_loss
 
@@ -113,16 +114,19 @@ class SuperpixelModel(pl.LightningModule):
         self.train_f1 = MulticlassF1Score(
             num_classes=self.config["n_classes"], average="weighted"
         )
+        self.train_oa = MulticlassAccuracy(num_classes=self.config["n_classes"])
 
         self.val_r2 = R2Score()
         self.val_f1 = MulticlassF1Score(
             num_classes=self.config["n_classes"], average="weighted"
         )
+        self.val_oa = MulticlassAccuracy(num_classes=self.config["n_classes"])
 
         self.test_r2 = R2Score()
         self.test_f1 = MulticlassF1Score(
             num_classes=self.config["n_classes"], average="weighted"
         )
+        self.test_oa = MulticlassAccuracy(num_classes=self.config["n_classes"])
 
         self.confmat = ConfusionMatrix(
             task="multiclass", num_classes=self.config["n_classes"]
@@ -235,12 +239,15 @@ class SuperpixelModel(pl.LightningModule):
         if stage == "train":
             r2_metric = self.train_r2
             f1_metric = self.train_f1
+            oa_metric = self.train_oa
         elif stage == "val":
             r2_metric = self.val_r2
             f1_metric = self.val_f1
+            oa_metric = self.val_oa
         else:  # stage == "test"
             r2_metric = self.test_r2
             f1_metric = self.test_f1
+            oa_metric = self.test_oa
 
         # Point cloud stream
         if self.config["mode"] != "img":
@@ -354,8 +361,10 @@ class SuperpixelModel(pl.LightningModule):
                         true_labels.device
                     )
                     fuse_f1 = f1_metric(final_class_preds, true_labels)
+                    fuse_oa = oa_metric(final_class_preds, true_labels)
                 else:
                     fuse_f1 = f1_metric(pred_lead_fuse_labels, true_labels)
+                    fuse_oa = oa_metric(pred_lead_fuse_labels, true_labels)
 
                 # Log metrics
                 logs.update(
@@ -363,6 +372,7 @@ class SuperpixelModel(pl.LightningModule):
                         f"fuse_{stage}_loss": loss_fuse,
                         f"fuse_{stage}_r2": fuse_r2,
                         f"fuse_{stage}_f1": fuse_f1,
+                        f"fuse_{stage}_oa": fuse_oa,
                     }
                 )
                 if stage == "val":
@@ -465,6 +475,7 @@ class SuperpixelModel(pl.LightningModule):
             )
 
             print(f"F1 Score:{self.val_f1.compute()}")
+            print(f"OA Score:{self.val_oa.compute()}")
             print("Confusion Matrix at best R²:")
             print(cm)
             print(f"R2 Score:{sys_r2}")
@@ -495,6 +506,7 @@ class SuperpixelModel(pl.LightningModule):
         self.validation_step_outputs.clear()
         self.val_r2.reset()
         self.val_f1.reset()
+        self.val_oa.reset()
 
     def test_step(self, batch, batch_idx):
         images = batch["images"] if "images" in batch else None

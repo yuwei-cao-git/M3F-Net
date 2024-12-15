@@ -7,7 +7,7 @@ from .pointNext import PointNextModel
 from .loss import calc_loss
 
 # from sklearn.metrics import r2_score
-
+from torchmetrics.classification import MulticlassF1Score, MulticlassAccuracy
 from torchmetrics.regression import R2Score
 
 
@@ -22,11 +22,16 @@ class PointNeXtLightning(pl.LightningModule):
 
         # Loss function and other parameters
         self.weights = self.params["train_weights"]  # Initialize on CPU
+
         self.train_r2 = R2Score()
 
         self.val_r2 = R2Score()
 
         self.test_r2 = R2Score()
+        self.test_f1 = MulticlassF1Score(
+            num_classes=self.params["n_classes"], average="weighted"
+        )
+        self.test_oa = MulticlassAccuracy(num_classes=self.params["n_classes"])
 
         # Initialize metric storage for different stages (e.g., 'val', 'train')
         # self.val_r2 = []
@@ -71,15 +76,19 @@ class PointNeXtLightning(pl.LightningModule):
         # **Rounding Outputs for R² Score**
         # Round outputs to two decimal place/one
         # r2 = r2_score_torch(targets, torch.round(preds, decimals=1))
-        preds = torch.round(preds, decimals=2)
+        preds_rounded = torch.round(preds, decimals=2)
 
         # Calculate R² and F1 score for valid pixels
         if stage == "train":
-            r2 = self.train_r2(preds.view(-1), targets.view(-1))
+            r2 = self.train_r2(preds_rounded.view(-1), targets.view(-1))
         elif stage == "val":
-            r2 = self.val_r2(preds.view(-1), targets.view(-1))
+            r2 = self.val_r2(preds_rounded.view(-1), targets.view(-1))
         else:
-            r2 = self.test_r2(preds.view(-1), targets.view(-1))
+            r2 = self.test_r2(preds_rounded.view(-1), targets.view(-1))
+            pred_lead = torch.argmax(preds, dim=1)
+            true_lead = torch.argmax(targets, dim=1)
+            f1 = self.test_f1(pred_lead, true_lead)
+            oa = self.test_oa(pred_lead, true_lead)
 
         # Compute RMSE
         rmse = torch.sqrt(loss)
@@ -115,6 +124,23 @@ class PointNeXtLightning(pl.LightningModule):
             on_step=True,
             on_epoch=(stage != "train"),
         )
+        if stage == "test":
+            self.log(
+                "test_f1",
+                f1,
+                logger=True,
+                sync_dist=sync_state,
+                on_step=True,
+                on_epoch=True,
+            )
+            self.log(
+                "test_oa",
+                oa,
+                logger=True,
+                sync_dist=sync_state,
+                on_step=True,
+                on_epoch=True,
+            )
 
         return loss
 

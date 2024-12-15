@@ -11,6 +11,7 @@ from torchmetrics import MeanSquaredError
 from torchmetrics.regression import R2Score
 from torchmetrics.functional import r2_score
 from torchmetrics.classification import MulticlassF1Score
+from torchmetrics.classification import MulticlassAccuracy
 
 
 # Updating UNet to incorporate residual connections and MF module
@@ -104,6 +105,7 @@ class Model(pl.LightningModule):
 
         self.test_r2 = R2Score()
         self.test_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
+        self.test_oa = MulticlassAccuracy(num_classes=self.config["n_classes"])
 
         # Optimizer and scheduler settings
         self.optimizer_type = self.config["optimizer"]
@@ -209,6 +211,7 @@ class Model(pl.LightningModule):
         else:
             r2 = self.test_r2(valid_outputs.view(-1), valid_targets.view(-1))
             f1 = self.test_f1(valid_preds, valid_true)
+            oa = self.test_oa(valid_preds, valid_true)
 
         # Compute RMSE
         rmse = torch.sqrt(loss)
@@ -248,6 +251,14 @@ class Model(pl.LightningModule):
             on_step=True,
             on_epoch=(stage != "train"),
         )
+        if stage == "test":
+            self.log(
+                "test_oa",
+                oa,
+                logger=True,
+                sync_dist=sync_state,
+                on_epoch= True,
+            )
 
         return loss
 
