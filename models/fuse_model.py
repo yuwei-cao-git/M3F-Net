@@ -121,7 +121,7 @@ class SuperpixelModel(pl.LightningModule):
             num_classes=self.config["n_classes"], average="weighted"
         )
         self.val_oa = MulticlassAccuracy(
-            num_classes=self.config["n_classes"], average="none"
+            num_classes=self.config["n_classes"], average="micro"
         )
 
         self.test_r2 = R2Score()
@@ -129,7 +129,7 @@ class SuperpixelModel(pl.LightningModule):
             num_classes=self.config["n_classes"], average="weighted"
         )
         self.test_oa = MulticlassAccuracy(
-            num_classes=self.config["n_classes"], average="none"
+            num_classes=self.config["n_classes"], average="micro"
         )
 
         self.confmat = ConfusionMatrix(
