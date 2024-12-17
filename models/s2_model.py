@@ -98,14 +98,22 @@ class Model(pl.LightningModule):
 
         # Metrics
         self.train_r2 = R2Score()
-        self.train_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
+        self.train_f1 = MulticlassF1Score(
+            num_classes=self.config["n_classes"], average="weighted"
+        )
 
         self.val_r2 = R2Score()
-        self.val_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
+        self.val_f1 = MulticlassF1Score(
+            num_classes=self.config["n_classes"], average="weighted"
+        )
 
         self.test_r2 = R2Score()
-        self.test_f1 = MulticlassF1Score(num_classes=self.config["n_classes"])
-        self.test_oa = MulticlassAccuracy(num_classes=self.config["n_classes"])
+        self.test_f1 = MulticlassF1Score(
+            num_classes=self.config["n_classes"], average="weighted"
+        )
+        self.test_oa = MulticlassAccuracy(
+            num_classes=self.config["n_classes"], average="none"
+        )
 
         # Optimizer and scheduler settings
         self.optimizer_type = self.config["optimizer"]
@@ -257,7 +265,7 @@ class Model(pl.LightningModule):
                 oa,
                 logger=True,
                 sync_dist=sync_state,
-                on_epoch= True,
+                on_epoch=True,
             )
 
         return loss

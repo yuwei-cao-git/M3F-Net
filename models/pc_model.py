@@ -31,7 +31,9 @@ class PointNeXtLightning(pl.LightningModule):
         self.test_f1 = MulticlassF1Score(
             num_classes=self.params["n_classes"], average="weighted"
         )
-        self.test_oa = MulticlassAccuracy(num_classes=self.params["n_classes"])
+        self.test_oa = MulticlassAccuracy(
+            num_classes=self.params["n_classes"], average="none"
+        )
 
         # Initialize metric storage for different stages (e.g., 'val', 'train')
         # self.val_r2 = []

@@ -12,7 +12,7 @@ data/processed/
 data_processing/ref
 data_processing/*
 checkpoints/
-
+pts_logs/
 *log.txt
 *logs
 *.log
