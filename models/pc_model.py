@@ -63,8 +63,8 @@ class PointNeXtLightning(pl.LightningModule):
         """
         point_cloud = point_cloud.permute(0, 2, 1)
         xyz = xyz.permute(0, 2, 1).float()
-        preds = self.forward(point_cloud, xyz)
-        # preds = F.softmax(logits, dim=1)
+        logits = self.forward(point_cloud, xyz)
+        preds = F.softmax(logits, dim=1)
 
         # Compute the loss with the WeightedMSELoss, which will handle the weights
         if self.params["weighted_loss"] and stage == "train":

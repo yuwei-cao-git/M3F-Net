@@ -14,8 +14,8 @@ from dataset.pts import PointCloudDataModule
 
 
 parser = argparse.ArgumentParser(description="pytorch-lightning parallel test")
-parser.add_argument("--lr", type=float, default=0.0005, help="")
-parser.add_argument("--max_epochs", type=int, default=100, help="")
+parser.add_argument("--lr", type=float, default=0.001, help="")
+parser.add_argument("--max_epochs", type=int, default=150, help="")
 parser.add_argument("--batch_size", type=int, default=16, help="")
 parser.add_argument("--num_workers", type=int, default=8, help="")
 parser.add_argument("--data_dir", type=str, default="./data")
@@ -90,8 +90,8 @@ if __name__ == "__main__":
         "step_size": 20,  # step size
         "momentum": 0.9,  # sgd momentum
         "num_points": 7168,  # number of points
-        "dp_pc": 0.3,  # dropout rate
-        "emb_dims": 512,  # dimension of embeddings
+        "dp_pc": 0.5,  # dropout rate
+        "emb_dims": 1024,  # dimension of embeddings
         "weighted_loss": True,  # pretrained model path
         "eval": True,  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu

@@ -37,7 +37,7 @@ def main():
         "--epochs", type=int, default=10, help="Number of epochs to train the model"
     )
     parser.add_argument(
-        "--batch_size", type=int, default=4, help="Number of epochs to train the model"
+        "--batch_size", type=int, default=32, help="Number of epochs to train the model"
     )
     parser.add_argument(
         "--use_mf", action="store_true", help="Use multi-fusion (set flag to enable)"

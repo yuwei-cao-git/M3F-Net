@@ -112,7 +112,7 @@ class Model(pl.LightningModule):
             num_classes=self.config["n_classes"], average="weighted"
         )
         self.test_oa = MulticlassAccuracy(
-            num_classes=self.config["n_classes"], average="none"
+            num_classes=self.config["n_classes"], average="micro"
         )
 
         # Optimizer and scheduler settings
