@@ -1,5 +1,4 @@
 import argparse
-from utils.trainer import train
 import os
 import torch
 from utils.tunner_pts import train_func
