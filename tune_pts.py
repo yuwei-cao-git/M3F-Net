@@ -44,7 +44,7 @@ def main(args):
         "learning_rate": tune.loguniform(1e-5, 1e-3),
         "batch_size": tune.choice([32, 64]),
         "optimizer": tune.choice(["adam", "adamW"]),  # "sgd",
-        "dropout": tune.choice([0.3, 0.5]),  # dropout rate
+        "dp_pc": tune.choice([0.3, 0.5]),  # dropout rate
         "epochs": args.max_epochs,
         "augment": True,  # augment
         "n_classes": 9,
