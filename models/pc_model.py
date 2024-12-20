@@ -32,7 +32,7 @@ class PointNeXtLightning(pl.LightningModule):
             num_classes=self.params["n_classes"], average="weighted"
         )
         self.test_oa = MulticlassAccuracy(
-            num_classes=self.params["n_classes"], average="none"
+            num_classes=self.params["n_classes"], average="micro"
         )
 
         # Initialize metric storage for different stages (e.g., 'val', 'train')
@@ -48,7 +48,7 @@ class PointNeXtLightning(pl.LightningModule):
         Returns:
             logits: Class logits for each point (B, N, num_classes)
         """
-        logits, _ = self.model(point_cloud, xyz)
+        logits = self.model(point_cloud, xyz)
         return logits
 
     def foward_compute_loss_and_metrics(self, point_cloud, xyz, targets, stage="val"):

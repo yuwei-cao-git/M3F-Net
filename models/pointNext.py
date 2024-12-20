@@ -50,7 +50,7 @@ class PointNextModel(nn.Module):
         out = pc_feats.mean(dim=-1)
         out = self.act(out)
         logits = self.cls_head(out)
-        if self.mode == "pts":
+        if self.mode == "pc":
             return logits
         else:
             preds = F.softmax(logits, dim=1)
