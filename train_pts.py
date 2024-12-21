@@ -67,6 +67,7 @@ if __name__ == "__main__":
     class_weights = torch.from_numpy(np.array(class_weights)).float()
     args = parser.parse_args()
     params = {
+        "mode": "pc",
         "exp_name": "pointNext_7168_WEIGHTS",  # experiment name
         "augmentor": True,
         "batch_size": args.batch_size,  # batch size
@@ -92,7 +93,7 @@ if __name__ == "__main__":
         "num_points": 7168,  # number of points
         "dp_pc": 0.5,  # dropout rate
         "emb_dims": 1024,  # dimension of embeddings
-        "weighted_loss": True,  # pretrained model path
+        "weighted_loss": False,  # pretrained model path
         "eval": True,  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu
         "encoder": "l",

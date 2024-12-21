@@ -13,6 +13,7 @@ data_processing/ref
 data_processing/*
 checkpoints/
 pts_logs/
+vis/
 *log.txt
 *logs
 *.log
