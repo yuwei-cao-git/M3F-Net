@@ -85,6 +85,10 @@ class PointNeXtLightning(pl.LightningModule):
             r2 = self.train_r2(preds_rounded.view(-1), targets.view(-1))
         elif stage == "val":
             r2 = self.val_r2(preds_rounded.view(-1), targets.view(-1))
+            pred_lead = torch.argmax(preds, dim=1)
+            true_lead = torch.argmax(targets, dim=1)
+            f1 = self.test_f1(pred_lead, true_lead)
+            oa = self.test_oa(pred_lead, true_lead)
         else:
             r2 = self.test_r2(preds_rounded.view(-1), targets.view(-1))
             pred_lead = torch.argmax(preds, dim=1)
@@ -126,9 +130,9 @@ class PointNeXtLightning(pl.LightningModule):
             on_step=True,
             on_epoch=(stage != "train"),
         )
-        if stage == "test":
+        if stage != "train":
             self.log(
-                "test_f1",
+                "{stage}_f1",
                 f1,
                 logger=True,
                 sync_dist=sync_state,
@@ -136,7 +140,7 @@ class PointNeXtLightning(pl.LightningModule):
                 on_epoch=True,
             )
             self.log(
-                "test_oa",
+                "{stage}_oa",
                 oa,
                 logger=True,
                 sync_dist=sync_state,
@@ -160,17 +164,21 @@ class PointNeXtLightning(pl.LightningModule):
 
         return self.foward_compute_loss_and_metrics(point_cloud, xyz, targets, "val")
 
-    """
     def on_validation_epoch_end(self):
         # Compute the average of loss and r2 for the validation stage
-        avg_r2 = torch.stack(self.val_r2).mean()
-        
+        avg_r2 = self.val_r2.compute()
+        ave_f1 = self.val_f1.compute()
+        ave_oa = self.val_oa.compute()
+
         # Log averaged metrics
-        self.log("val_r2_epoch", avg_r2, prog_bar=True, sync_dist=True)
-        
+        self.log("ave_r2_epoch", avg_r2, prog_bar=True, sync_dist=True)
+        self.log("ave_f1_epoch", ave_f1, prog_bar=False, sync_dist=True)
+        self.log("ave_oa_epoch", ave_oa, prog_bar=False, sync_dist=True)
+
         # Clear the lists for the next epoch
         self.val_r2.clear()
-    """
+        self.val_f1.clear()
+        self.val_oa.clear()
 
     def test_step(self, batch, batch_idx):
         point_cloud, xyz, targets = (
