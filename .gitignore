@@ -38,3 +38,5 @@ key.txt
 augmentation
 data_processing
 record.md
+scripts/local_train.sh
+utils/tester_fuse.py

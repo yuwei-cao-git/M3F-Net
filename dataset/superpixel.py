@@ -33,8 +33,6 @@ class SuperpixelDataset(Dataset):
         superpixel_images = data[
             "superpixel_images"
         ]  # Shape: (num_seasons, num_channels, 128, 128)
-        # Normalize image-
-        # superpixel_images = (superpixel_images - superpixel_images.min()) / (superpixel_images.max() - superpixel_images.min())
         coords = data["point_cloud"]  # Shape: (7168, 3)
         label = data["label"]  # Shape: (num_classes,)
         per_pixel_labels = data["per_pixel_labels"]  # Shape: (num_classes, 128, 128)
@@ -204,7 +202,7 @@ class SuperpixelDataModule(LightningDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            drop_last=True,
+            drop_last=False,
             collate_fn=self.collate_fn,
         )
 

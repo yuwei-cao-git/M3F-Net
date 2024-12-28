@@ -14,9 +14,9 @@ from dataset.pts import PointCloudDataModule
 
 
 parser = argparse.ArgumentParser(description="pytorch-lightning parallel test")
-parser.add_argument("--lr", type=float, default=0.001, help="")
-parser.add_argument("--max_epochs", type=int, default=150, help="")
-parser.add_argument("--batch_size", type=int, default=16, help="")
+parser.add_argument("--lr", type=float, default=0.0005, help="")
+parser.add_argument("--max_epochs", type=int, default=250, help="")
+parser.add_argument("--batch_size", type=int, default=8, help="")
 parser.add_argument("--num_workers", type=int, default=8, help="")
 parser.add_argument("--data_dir", type=str, default="./data")
 
@@ -52,7 +52,6 @@ def main(params):
         logger=[wandb_logger],  # csv_logger
         callbacks=[checkpoint_callback],
         devices=params["n_gpus"],
-        strategy="ddp",
     )
 
     trainer.fit(model, data_module)
@@ -69,7 +68,6 @@ if __name__ == "__main__":
     params = {
         "mode": "pc",
         "exp_name": "pointNext_7168_WEIGHTS",  # experiment name
-        "augmentor": True,
         "batch_size": args.batch_size,  # batch size
         "train_weights": class_weights,  # training weights
         "train_path": os.path.join(args.data_dir, "rmf_laz/train"),
@@ -79,20 +77,20 @@ if __name__ == "__main__":
         "test_path": os.path.join(args.data_dir, "rmf_laz/test"),
         "test_pickle": os.path.join(args.data_dir, "rmf_laz/test/plots_comp.pkl"),
         "augment": True,  # augment
-        "n_augs": 2,  # number of augmentations
+        "n_augs": 1,  # number of augmentations
         "classes": ["BF", "BW", "CE", "LA", "PT", "PJ", "PO", "SB", "SW"],  # classes
         "n_classes": 9,
         "n_gpus": torch.cuda.device_count(),  # number of gpus
         "epochs": args.max_epochs,  # total epochs
-        "optimizer": "adam",  # classifier optimizer
-        "scheduler": "steplr",  # classifier optimizer
+        "optimizer": "adamW",  # classifier optimizer
+        "scheduler": "cosine",  # classifier optimizer
         "learning_rate": args.lr,  # classifier learning rate
         "patience": 10,  # patience
         "step_size": 20,  # step size
         "momentum": 0.9,  # sgd momentum
         "num_points": 7168,  # number of points
-        "dp_pc": 0.5,  # dropout rate
-        "emb_dims": 1024,  # dimension of embeddings
+        "dp_pc": 0.3,  # dropout rate
+        "emb_dims": 768,  # dimension of embeddings
         "weighted_loss": False,  # pretrained model path
         "eval": True,  # run testing
         "num_workers": args.num_workers,  # num_cpu_per_gpu

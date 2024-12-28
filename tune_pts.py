@@ -21,7 +21,7 @@ parser.add_argument(
 )
 parser.add_argument("--data_dir", type=str, default=None, help="path to data dir")
 parser.add_argument(
-    "--max_epochs", type=int, default=10, help="Number of epochs to train the model"
+    "--max_epochs", type=int, default=250, help="Number of epochs to train the model"
 )
 parser.add_argument("--num_workers", type=int, default=8, help="")
 

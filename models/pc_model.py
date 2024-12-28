@@ -10,6 +10,9 @@ from .loss import calc_loss
 from torchmetrics.classification import MulticlassF1Score, MulticlassAccuracy
 from torchmetrics.regression import R2Score
 
+import torch.nn as nn
+import torch.nn.init as init
+
 
 class PointNeXtLightning(pl.LightningModule):
     def __init__(self, params, in_dim):
@@ -26,6 +29,12 @@ class PointNeXtLightning(pl.LightningModule):
         self.train_r2 = R2Score()
 
         self.val_r2 = R2Score()
+        self.val_f1 = MulticlassF1Score(
+            num_classes=self.params["n_classes"], average="weighted"
+        )
+        self.val_oa = MulticlassAccuracy(
+            num_classes=self.params["n_classes"], average="micro"
+        )
 
         self.test_r2 = R2Score()
         self.test_f1 = MulticlassF1Score(
@@ -49,7 +58,8 @@ class PointNeXtLightning(pl.LightningModule):
             logits: Class logits for each point (B, N, num_classes)
         """
         logits = self.model(point_cloud, xyz)
-        return logits
+        preds = F.softmax(logits, dim=1)
+        return preds
 
     def foward_compute_loss_and_metrics(self, point_cloud, xyz, targets, stage="val"):
         """
@@ -62,9 +72,8 @@ class PointNeXtLightning(pl.LightningModule):
         - loss: The computed loss.
         """
         point_cloud = point_cloud.permute(0, 2, 1)
-        xyz = xyz.permute(0, 2, 1).float()
-        logits = self.forward(point_cloud, xyz)
-        preds = F.softmax(logits, dim=1)
+        xyz = xyz.permute(0, 2, 1)
+        preds = self.forward(point_cloud, xyz)
 
         # Compute the loss with the WeightedMSELoss, which will handle the weights
         if self.params["weighted_loss"] and stage == "train":
@@ -74,10 +83,8 @@ class PointNeXtLightning(pl.LightningModule):
         else:
             loss = F.mse_loss(preds, targets)
 
-        # Calculate R² score for valid pixels
         # **Rounding Outputs for R² Score**
         # Round outputs to two decimal place/one
-        # r2 = r2_score_torch(targets, torch.round(preds, decimals=1))
         preds_rounded = torch.round(preds, decimals=2)
 
         # Calculate R² and F1 score for valid pixels
@@ -87,8 +94,8 @@ class PointNeXtLightning(pl.LightningModule):
             r2 = self.val_r2(preds_rounded.view(-1), targets.view(-1))
             pred_lead = torch.argmax(preds, dim=1)
             true_lead = torch.argmax(targets, dim=1)
-            f1 = self.test_f1(pred_lead, true_lead)
-            oa = self.test_oa(pred_lead, true_lead)
+            f1 = self.val_f1(pred_lead, true_lead)
+            oa = self.val_oa(pred_lead, true_lead)
         else:
             r2 = self.test_r2(preds_rounded.view(-1), targets.view(-1))
             pred_lead = torch.argmax(preds, dim=1)
@@ -99,19 +106,10 @@ class PointNeXtLightning(pl.LightningModule):
         # Compute RMSE
         rmse = torch.sqrt(loss)
 
-        # Store metrics dynamically based on stage (e.g., val_loss, val_r2)
-        # if stage == "val":
-        # getattr(self, f"{stage}_r2").append(r2)
-
         # Log the loss and R² score
         sync_state = True
         self.log(
-            f"{stage}_loss",
-            loss,
-            logger=True,
-            sync_dist=sync_state,
-            on_step=True,
-            on_epoch=(stage == "val"),
+            f"{stage}_loss", loss, logger=True, prog_bar=True, sync_dist=sync_state
         )
         self.log(
             f"{stage}_r2",
@@ -132,19 +130,21 @@ class PointNeXtLightning(pl.LightningModule):
         )
         if stage != "train":
             self.log(
-                "{stage}_f1",
+                f"{stage}_f1",
                 f1,
                 logger=True,
+                prog_bar=True,
                 sync_dist=sync_state,
-                on_step=True,
+                on_step=False,
                 on_epoch=True,
             )
             self.log(
-                "{stage}_oa",
+                f"{stage}_oa",
                 oa,
                 logger=True,
+                prog_bar=True,
                 sync_dist=sync_state,
-                on_step=True,
+                on_step=False,
                 on_epoch=True,
             )
 
@@ -164,22 +164,6 @@ class PointNeXtLightning(pl.LightningModule):
 
         return self.foward_compute_loss_and_metrics(point_cloud, xyz, targets, "val")
 
-    def on_validation_epoch_end(self):
-        # Compute the average of loss and r2 for the validation stage
-        avg_r2 = self.val_r2.compute()
-        ave_f1 = self.val_f1.compute()
-        ave_oa = self.val_oa.compute()
-
-        # Log averaged metrics
-        self.log("ave_r2_epoch", avg_r2, prog_bar=True, sync_dist=True)
-        self.log("ave_f1_epoch", ave_f1, prog_bar=False, sync_dist=True)
-        self.log("ave_oa_epoch", ave_oa, prog_bar=False, sync_dist=True)
-
-        # Clear the lists for the next epoch
-        self.val_r2.clear()
-        self.val_f1.clear()
-        self.val_oa.clear()
-
     def test_step(self, batch, batch_idx):
         point_cloud, xyz, targets = (
             batch  # Assuming batch contains (point_cloud, xyz, labels)
@@ -196,7 +180,9 @@ class PointNeXtLightning(pl.LightningModule):
                 eps=1e-08,
             )
         if self.params["optimizer"] == "AdamW":
-            optimizer = AdamW(self.parameters(), lr=self.params["learning_rate"])
+            optimizer = AdamW(
+                self.parameters(), lr=self.params["learning_rate"], weight_decay=0.05
+            )
         else:
             optimizer = SGD(
                 params=self.parameters(),
@@ -223,7 +209,7 @@ class PointNeXtLightning(pl.LightningModule):
         elif self.params["scheduler"] == "cosine":
             scheduler = CosineAnnealingLR(
                 optimizer,
-                T_max=50,
+                T_max=200,
                 eta_min=0,
                 last_epoch=-1,
                 verbose=False,

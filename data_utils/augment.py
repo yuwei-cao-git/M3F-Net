@@ -203,12 +203,15 @@ class AugmentPointCloudsInPickle(Dataset):
         coords = read_las(file, get_attributes=False)
 
         xyz = coords - np.mean(coords, axis=0)  # centralize coordinates
+        m = np.max(np.linalg.norm(xyz, axis=1, keepdims=True))
+        xyz = xyz / m
 
         # Augmentation
         n = random.randint(round(len(xyz) * 0.9), len(xyz))
         aug_xyz, aug_coords = point_removal(xyz, n, x=coords)
         aug_xyz, aug_coords = random_noise(aug_xyz, n=(len(xyz) - n), x=aug_coords)
-        xyz, coords = rotate_points(aug_xyz, x=aug_coords)
+        xyz, coords = point_translate(aug_xyz, x=aug_coords)
+        # xyz, coords = rotate_points(aug_xyz, x=aug_coords)
 
         # Get Target
         target = pickle_idx["perc_specs"].item()

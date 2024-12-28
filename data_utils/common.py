@@ -103,6 +103,8 @@ class PointCloudsInPickle(Dataset):
         coords = read_las(file, get_attributes=False)
 
         xyz = coords - np.mean(coords, axis=0)  # centralize coordinates
+        m = np.max(np.linalg.norm(xyz, axis=1, keepdims=True))
+        xyz = xyz / m
 
         # impute target
         target = pickle_idx["perc_specs"].item()

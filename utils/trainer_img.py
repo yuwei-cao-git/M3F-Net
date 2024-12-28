@@ -1,5 +1,5 @@
 from pytorch_lightning import Trainer, seed_everything
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import WandbLogger
 from pytorch_lightning.utilities.model_summary import ModelSummary
 from models.s2_model import Model
@@ -19,7 +19,12 @@ def train(config):
     # Use the calculated input channels from the DataModule to initialize the model
     model = Model(config)
     # print(ModelSummary(model, max_depth=-1))  # Prints the full model summary
-
+    early_stopping = EarlyStopping(
+        monitor="val_loss",  # Metric to monitor
+        patience=10,  # Number of epochs with no improvement after which training will be stopped
+        mode="min",  # Set "min" for validation loss
+        verbose=True,
+    )
     # Define a checkpoint callback to save the best model
     checkpoint_callback = ModelCheckpoint(
         monitor="val_loss",  # Track the validation loss
@@ -35,7 +40,7 @@ def train(config):
     trainer = Trainer(
         max_epochs=config["epochs"],
         logger=[wandb_logger],
-        callbacks=[checkpoint_callback],
+        callbacks=[early_stopping, checkpoint_callback],
         devices=config["gpus"],
         num_nodes=1,
         strategy="ddp",

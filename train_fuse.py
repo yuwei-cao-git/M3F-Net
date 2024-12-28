@@ -51,7 +51,7 @@ def main():
     )
     parser.add_argument("--emb_dims", type=int, default=768)
     parser.add_argument("--num_points", type=int, default=7168)
-    parser.add_argument("--encoder", default="xl", choices=["s", "b", "l", "xl"])
+    parser.add_argument("--encoder", default="l", choices=["s", "b", "l", "xl"])
 
     parser.add_argument("--fusion_dim", type=int, default=128)
     parser.add_argument("--optimizer", default="adam", choices=["adam", "adamW", "sgd"])
@@ -73,7 +73,7 @@ def main():
     parser.add_argument("--img_loss_weight", type=float, default=1.28)
     parser.add_argument("--fuse_loss_weight", type=float, default=1.11)
     parser.add_argument("--leading_loss", action="store_true")
-    parser.add_argument("--lead_loss_weight", type=float, default=0.19)
+    parser.add_argument("--lead_loss_weight", type=float, default=0.15)
     parser.add_argument("--weighted_loss", default=True)
     parser.add_argument("--patience", type=int, default=10)
     parser.add_argument("--step_size", type=int, default=10)

@@ -11,9 +11,7 @@ class WeightedMSELoss(nn.Module):
     def forward(self, y_pred, y_true):
         squared_errors = torch.square(y_pred - y_true)
         weighted_squared_errors = squared_errors * self.weights
-        loss = torch.mean(
-            weighted_squared_errors
-        )  # for multi-gpu, should it set to sum?
+        loss = torch.mean(weighted_squared_errors)
         return loss
 
 

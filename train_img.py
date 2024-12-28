@@ -21,7 +21,7 @@ def main():
     parser.add_argument("--n_bands", type=int, default=9, help="number bands per tile")
     parser.add_argument("--n_classes", type=int, default=9, help="number classes")
     parser.add_argument(
-        "--learning_rate", type=float, default=0.001, help="initial learning rate"
+        "--learning_rate", type=float, default=0.0001, help="initial learning rate"
     )
     parser.add_argument("--optimizer", type=str, default="adam", help="optimizer")
     parser.add_argument("--scheduler", type=str, default="steplr", help="scheduler")
@@ -34,7 +34,7 @@ def main():
         help="Resolution to use for the data",
     )
     parser.add_argument(
-        "--epochs", type=int, default=10, help="Number of epochs to train the model"
+        "--epochs", type=int, default=100, help="Number of epochs to train the model"
     )
     parser.add_argument(
         "--batch_size", type=int, default=32, help="Number of epochs to train the model"
