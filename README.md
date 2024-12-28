@@ -53,7 +53,3 @@ We acknowledge the open code provided by [PointNext](https://github.com/kentechx
 
 ## License  
 This project is licensed under the [MIT License](LICENSE).  
-
----  
-
-Let me know if there’s anything you’d like to add or modify!
