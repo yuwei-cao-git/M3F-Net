@@ -9,6 +9,7 @@ class PointNextModel(nn.Module):
         self.config = config
         self.n_classes = config["n_classes"]
         self.mode = config["mode"]
+        self.task = config["task"]
 
         # Initialize the PointNext encoder and decoder
         if config["encoder"] == "s":
@@ -50,8 +51,12 @@ class PointNextModel(nn.Module):
         out = pc_feats.mean(dim=-1)
         out = self.act(out)
         logits = self.cls_head(out)
-        if self.mode == "pc":
-            return logits
+
+        if self.task == "classify":
+            return logits, pc_feats
         else:
-            preds = F.softmax(logits, dim=1)
-            return preds, pc_feats
+            if self.mode == "pc":
+                return logits
+            else:
+                preds = F.softmax(logits, dim=1)
+                return preds, pc_feats

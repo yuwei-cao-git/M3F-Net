@@ -271,9 +271,28 @@ class SuperpixelModel(pl.LightningModule):
             pred_lead_pc_labels = torch.argmax(pc_preds, dim=1)
 
             if self.config["leading_loss"] and stage == "train":
-                correct = (pred_lead_pc_labels.view(-1) == true_labels.view(-1)).float()
-                loss_leads = 1 - correct.mean()  # 1 - accuracy as pseudo-loss
-
+                incorrect = (
+                    pred_lead_pc_labels.view(-1) != true_labels.view(-1)
+                ).float()
+                if self.config["leading_class_weights"]:
+                    incorrect = incorrect.squeeze()
+                    class_weights = torch.tensor(
+                        [
+                            0.64776265,
+                            0.00496458,
+                            0.01286589,
+                            0.01814702,
+                            0.00474632,
+                            0.00590281,
+                            0.04318462,
+                            0.00104648,
+                            0.26137963,
+                        ]
+                    ).to(true_labels.device)
+                    weights = class_weights[true_labels.squeeze()]
+                    loss_leads = (incorrect * weights).mean()
+                else:
+                    loss_leads = incorrect.mean()
                 loss += self.leading_loss_weight * loss_leads
 
             # Log metrics
@@ -317,6 +336,7 @@ class SuperpixelModel(pl.LightningModule):
                 multi_class=False,
                 keep_shp=False,
             )
+            # print(valid_pixel_lead_preds.shape) # torch.Size([16, 128, 128])
 
             if self.config["leading_loss"] and stage == "train":
                 correct = (
@@ -349,26 +369,9 @@ class SuperpixelModel(pl.LightningModule):
 
                 # Compute F1 score
                 pred_lead_fuse_labels = torch.argmax(fuse_preds, dim=1)
-                if self.vote:
-                    from scipy.stats import mode
 
-                    pixel_class_preds, _ = mode(valid_pixel_lead_preds, axis=0)
-                    predictions = torch.stack(
-                        [
-                            pixel_class_preds,
-                            pred_lead_pc_labels,
-                            pred_lead_fuse_labels,
-                        ]
-                    )
-                    final_class_preds, _ = mode(predictions, axis=0)
-                    final_class_preds = torch.from_numpy(final_class_preds).to(
-                        true_labels.device
-                    )
-                    fuse_f1 = f1_metric(final_class_preds, true_labels)
-                    fuse_oa = oa_metric(final_class_preds, true_labels)
-                else:
-                    fuse_f1 = f1_metric(pred_lead_fuse_labels, true_labels)
-                    fuse_oa = oa_metric(pred_lead_fuse_labels, true_labels)
+                fuse_f1 = f1_metric(pred_lead_fuse_labels, true_labels)
+                fuse_oa = oa_metric(pred_lead_fuse_labels, true_labels)
 
                 # Log metrics
                 logs.update(

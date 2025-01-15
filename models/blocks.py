@@ -381,8 +381,9 @@ class UpSampleConcat(nn.Module):
 
 
 class MLPBlock(nn.Module):
-    def __init__(self, config, in_ch, hidden_ch):
+    def __init__(self, config, in_ch, hidden_ch, return_logits=False):
         super(MLPBlock, self).__init__()
+        self.return_logits = return_logits
         self.fc1 = nn.Linear(in_ch, hidden_ch[0])
         self.bn1 = nn.BatchNorm1d(hidden_ch[0])
         self.dropout1 = nn.Dropout(p=config["dp_fuse"])
@@ -406,9 +407,11 @@ class MLPBlock(nn.Module):
         x = F.relu(self.bn2(self.fc2(x)))  # [batch_size, 128]
         x = self.dropout2(x)
         logits = self.fc3(x)  # [batch_size, num_classes]
-        class_output = F.softmax(logits, dim=1)
-
-        return class_output
+        if self.return_logits:
+            return logits
+        else:
+            class_output = F.softmax(logits, dim=1)
+            return class_output
 
 
 class ConvBNReLU(nn.Sequential):
@@ -549,9 +552,15 @@ class MambaLayer(nn.Module):
 
 class MLP(nn.Module):
     def __init__(
-        self, in_ch=1024, hidden_ch=[128, 128], num_classes=9, dropout_prob=0.1
+        self,
+        in_ch=1024,
+        hidden_ch=[128, 128],
+        num_classes=9,
+        dropout_prob=0.1,
+        return_logits=False,
     ):
         super(MLP, self).__init__()
+        self.return_logits = return_logits
         self.conv = ConvBNReLU(in_ch, in_ch, kernel_size=3)
         self.pooling = nn.AdaptiveAvgPool2d(1)
         self.fc1 = nn.Linear(in_ch, hidden_ch[0])
@@ -570,8 +579,11 @@ class MLP(nn.Module):
         x = F.relu(self.bn2(self.fc2(x)))
         x = self.dropout2(x)
         logits = self.fc3(x)  # [batch_size, num_classes]
-        class_output = F.softmax(logits, dim=1)
-        return class_output
+        if self.return_logits:
+            return logits
+        else:
+            class_output = F.softmax(logits, dim=1)
+            return class_output
 
 
 class MambaFusionBlock(nn.Module):
@@ -587,6 +599,7 @@ class MambaFusionBlock(nn.Module):
         d_conv=4,
         expand=2,
         last_feat_size=8,
+        return_logits=False,
     ):
         super(MambaFusionBlock, self).__init__()
         self.mamba = MambaLayer(
@@ -607,6 +620,7 @@ class MambaFusionBlock(nn.Module):
             hidden_ch=hidden_ch,
             num_classes=num_classes,
             dropout_prob=drop,
+            return_logits=return_logits,
         )
 
     def forward(self, img_emb, pc_emb):

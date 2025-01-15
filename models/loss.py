@@ -102,11 +102,11 @@ def apply_mask(outputs, targets, mask, multi_class=True, keep_shp=False):
         expanded_mask = mask
 
     if keep_shp:
-        # Set invalid outputs and targets to zero
+        # Set invalid outputs and targets to 255
         outputs = outputs.clone()
         targets = targets.clone()
-        outputs[expanded_mask] = 0
-        targets[expanded_mask] = 0
+        outputs[expanded_mask] = 255
+        targets[expanded_mask] = 255
         return outputs, targets
     else:
         # Apply mask to exclude invalid data points
@@ -140,3 +140,29 @@ def aggregate_to_superpixels(
     lambda_contrastive = lambda_contrastive
 
     return lambda_contrastive * contrastive_loss
+
+
+import torch
+import torch.nn.functional as F
+
+
+def focal_loss_multiclass(inputs, targets, alpha=0.25, gamma=2):
+    """
+    Multi-class focal loss implementation
+    - inputs: raw logits from the model
+    - targets: true class labels (as integer indices, not one-hot encoded)
+    """
+    # Convert logits to log probabilities
+    log_prob = F.log_softmax(inputs, dim=-1)
+    prob = torch.exp(log_prob)  # Calculate probabilities from log probabilities
+
+    # Gather the probabilities corresponding to the correct classes
+    targets_one_hot = F.one_hot(targets, num_classes=inputs.shape[-1])
+    pt = torch.sum(prob * targets_one_hot, dim=-1)
+
+    # Apply focal adjustment
+    focal_loss = (
+        -alpha * (1 - pt) ** gamma * torch.sum(log_prob * targets_one_hot, dim=-1)
+    )
+
+    return focal_loss.mean()
