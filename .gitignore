@@ -2,3 +2,17 @@ utils/RasterProcessing.ipynb
 utils/
 results/
 data_utils/
+augmentation/
+data_processing/
+dataset/
+fuse_train_logs/
+imagery_classification_sample.ipynb
+img_logs/
+key.txt
+leading_train_logs/
+__pycache__
+pts_tune_logs/
+wandb/
+vis/
+record.md
+scripts/local_train.sh
