@@ -35,13 +35,11 @@ data_processing/temp2.ipynb
 key.txt
 
 *.ipynb
-augmentation
-data_processing
+augmentation/
 record.md
 scripts/local_train.sh
 utils/tester_fuse.py
 
-utils/RasterProcessing.ipynb
 utils/
 results/
 data_utils/

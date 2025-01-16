@@ -61,7 +61,7 @@ class SuperpixelModel(pl.LightningModule):
         # Define loss functions
         if self.config["loss"] == "ce":
             # Loss function and other parameters
-            class_weights = torch.tensor(
+            self.class_weights = torch.tensor(
                 [
                     0.64776265,
                     0.00496458,
@@ -74,7 +74,6 @@ class SuperpixelModel(pl.LightningModule):
                     0.26137963,
                 ]
             )
-            self.criterion = nn.CrossEntropyLoss(class_weights, ignore_index=255)
 
         # Metrics
         self.train_f1 = MulticlassF1Score(
@@ -176,7 +175,12 @@ class SuperpixelModel(pl.LightningModule):
         if self.config["mode"] != "img":
             # Compute point cloud loss
             if self.config["loss"] == "ce":
-                loss_point = self.criterion(pc_logits, true_labels)
+                loss_point = F.nll_loss(
+                    pc_logits,
+                    true_labels,
+                    weight=self.class_weights.to(pc_logits.device),
+                    ignore_index=255,
+                )
             else:
                 loss_point = focal_loss_multiclass(pc_logits, true_labels)
             loss += loss_point
@@ -197,7 +201,18 @@ class SuperpixelModel(pl.LightningModule):
             )
             # correct = (valid_pixel_lead_preds.view(-1) == valid_pixel_lead_true.view(-1)).float()
             # loss_pixel_leads = 1 - correct.mean()  # 1 - accuracy as pseudo-loss
-            loss_pixel_leads = self.criterion(pixel_logits, valid_pixel_lead_true)
+            if self.config["loss"] == "ce":
+                loss_pixel_leads = F.nll_loss(
+                    pixel_logits,
+                    valid_pixel_lead_true,
+                    weight=self.class_weights.to(pc_logits.device),
+                    ignore_index=255,
+                )
+            else:
+                loss_pixel_leads = focal_loss_multiclass(
+                    pixel_logits, valid_pixel_lead_true
+                )
+
             loss += loss_pixel_leads
 
             # Log metrics
@@ -210,13 +225,18 @@ class SuperpixelModel(pl.LightningModule):
         # Fusion stream
         # Compute fusion loss
         if self.config["loss"] == "ce":
-            loss_fuse = self.criterion(fuse_logits, true_labels)
+            loss_fuse = F.nll_loss(
+                fuse_logits,
+                true_labels,
+                weight=self.class_weights.to(pc_logits.device),
+                ignore_index=255,
+            )
         else:
             loss_fuse = focal_loss_multiclass(fuse_logits, true_labels)
         loss += loss_fuse
 
         # Compute F1 score
-        pred_lead_fuse_labels = torch.argmax(F.softmax(fuse_logits, dim=1), dim=1)
+        pred_lead_fuse_labels = torch.argmax(fuse_logits, dim=1)
 
         fuse_f1 = f1_metric(pred_lead_fuse_labels, true_labels)
         fuse_oa = oa_metric(pred_lead_fuse_labels, true_labels)
@@ -231,7 +251,7 @@ class SuperpixelModel(pl.LightningModule):
         )
         if stage == "val":
             self.validation_step_outputs.append(
-                {"val_target": labels, "val_pred": F.softmax(fuse_logits, dim=1)}
+                {"val_target": labels, "val_pred": fuse_logits}
             )
 
         # Compute RMSE
@@ -255,7 +275,7 @@ class SuperpixelModel(pl.LightningModule):
                 sync_dist=True,
             )
         if stage == "test":
-            return labels, F.softmax(fuse_logits, dim=1), loss
+            return labels, fuse_logits, loss
         else:
             return loss
 

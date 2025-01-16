@@ -146,18 +146,20 @@ import torch
 import torch.nn.functional as F
 
 
-def focal_loss_multiclass(inputs, targets, alpha=0.25, gamma=2):
+def focal_loss_multiclass(inputs, targets, alpha=0.25, gamma=2, ignore_index=255):
     """
     Multi-class focal loss implementation
     - inputs: raw logits from the model
     - targets: true class labels (as integer indices, not one-hot encoded)
     """
-    # Convert logits to log probabilities
-    log_prob = F.log_softmax(inputs, dim=-1)
-    prob = torch.exp(log_prob)  # Calculate probabilities from log probabilities
 
     # Gather the probabilities corresponding to the correct classes
+    targets = targets * (targets != ignore_index).long()
     targets_one_hot = F.one_hot(targets, num_classes=inputs.shape[-1])
+
+    # Convert logits to log probabilities
+    log_prob = torch.gather(inputs, -1, 1, targets.unsqueeze(1))
+    prob = torch.exp(log_prob)  # Calculate probabilities from log probabilities
     pt = torch.sum(prob * targets_one_hot, dim=-1)
 
     # Apply focal adjustment

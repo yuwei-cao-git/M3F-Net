@@ -3,7 +3,6 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import WandbLogger
 
 # from pytorch_lightning.utilities.model_summary import ModelSummary
-from models.fuse_model import SuperpixelModel
 from dataset.superpixel import SuperpixelDataModule
 import os
 from .common import generate_eva, PointCloudLogger
@@ -31,15 +30,16 @@ def train(config):
     )
     # point_logger = PointCloudLogger(trainer=Trainer)
     # Define a checkpoint callback to save the best model
+    metric = "sys_f1" if config["task"] == "classify" else "ave_val_r2"
     checkpoint_callback = ModelCheckpoint(
-        monitor="ave_val_r2",  # Track the validation loss
+        monitor=metric,  # Track the validation loss
         dirpath=chk_dir,
         filename="final_model",
         save_top_k=1,  # Only save the best model
         mode="min",  # We want to minimize the validation loss
     )
     early_stopping = EarlyStopping(
-        monitor="ave_val_r2",  # Metric to monitor
+        monitor=metric,  # Metric to monitor
         patience=10,  # Number of epochs with no improvement after which training will be stopped
         mode="max",  # Set "min" for validation loss
         verbose=True,
@@ -52,6 +52,10 @@ def train(config):
     data_module.setup(stage="fit")
 
     # Use the calculated input channels from the DataModule to initialize the model
+    if config["task"] == "classify":
+        from models.leading_species_classify import SuperpixelModel
+    else:
+        from models.fuse_model import SuperpixelModel
     model = SuperpixelModel(config)
     # print(ModelSummary(model, max_depth=-1))  # Prints the full model summary
 

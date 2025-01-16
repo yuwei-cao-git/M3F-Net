@@ -21,6 +21,7 @@ def main():
         default="fuse",
         help="Mode to run the model: 'img', 'pts', or 'fuse'",
     )
+    parser.add_argument("--task", type=str, default="regression")
     parser.add_argument(
         "--data_dir",
         type=str,
@@ -179,6 +180,7 @@ def main():
         default="fuse",
         help="Mode to run the model: 'img', 'pts', or 'fuse'",
     )
+    parser.add_argument("--task", default="regression")
     parser.add_argument(
         "--data_dir",
         type=str,
