@@ -102,7 +102,7 @@ class SuperpixelModel(pl.LightningModule):
         # Optimizer and scheduler settings
         self.optimizer_type = self.config["optimizer"]
         self.scheduler_type = self.config["scheduler"]
-        self.lr = 1e-4
+        self.lr = 1e-5
 
         self.best_test_f1 = 0.0
         self.best_test_outputs = None
@@ -171,56 +171,53 @@ class SuperpixelModel(pl.LightningModule):
             f1_metric = self.test_f1
             oa_metric = self.test_oa
 
-        # Point cloud stream
-        if self.config["mode"] != "img":
-            # Compute point cloud loss
-            if self.config["loss"] == "ce":
-                loss_point = F.nll_loss(
-                    pc_logits,
-                    true_labels,
-                    weight=self.class_weights.to(pc_logits.device),
-                    ignore_index=255,
-                )
-            else:
-                loss_point = focal_loss_multiclass(pc_logits, true_labels)
-            loss += loss_point
+        # Compute point cloud loss
+        if self.config["loss"] == "ce":
+            loss_point = F.nll_loss(
+                pc_logits,
+                true_labels,
+                weight=self.class_weights.to(pc_logits.device),
+                ignore_index=255,
+            )
+        else:
+            loss_point = focal_loss_multiclass(pc_logits, true_labels)
+        loss += loss_point
 
-            # Log metrics
-            logs.update({f"pc_{stage}_loss": loss_point})
+        # Log metrics
+        logs.update({f"pc_{stage}_loss": loss_point})
 
         # Image stream
+        pred_lead_pixel_labels = torch.argmax(pixel_logits, dim=1)
+        true_lead_pixel_labels = torch.argmax(pixel_labels, dim=1)
+        _, valid_pixel_lead_true = apply_mask(
+            pred_lead_pixel_labels,
+            true_lead_pixel_labels,
+            img_masks,
+            multi_class=False,
+            keep_shp=True,
+        )
+        # correct = (valid_pixel_lead_preds.view(-1) == valid_pixel_lead_true.view(-1)).float()
+        # loss_pixel_leads = 1 - correct.mean()  # 1 - accuracy as pseudo-loss
         if self.config["loss"] == "ce":
-            pred_lead_pixel_labels = torch.argmax(pixel_logits, dim=1)
-            true_lead_pixel_labels = torch.argmax(pixel_labels, dim=1)
-            _, valid_pixel_lead_true = apply_mask(
-                pred_lead_pixel_labels,
-                true_lead_pixel_labels,
-                img_masks,
-                multi_class=False,
-                keep_shp=True,
+            loss_pixel_leads = F.nll_loss(
+                pixel_logits,
+                valid_pixel_lead_true,
+                weight=self.class_weights.to(pc_logits.device),
+                ignore_index=255,
             )
-            # correct = (valid_pixel_lead_preds.view(-1) == valid_pixel_lead_true.view(-1)).float()
-            # loss_pixel_leads = 1 - correct.mean()  # 1 - accuracy as pseudo-loss
-            if self.config["loss"] == "ce":
-                loss_pixel_leads = F.nll_loss(
-                    pixel_logits,
-                    valid_pixel_lead_true,
-                    weight=self.class_weights.to(pc_logits.device),
-                    ignore_index=255,
-                )
-            else:
-                loss_pixel_leads = focal_loss_multiclass(
-                    pixel_logits, valid_pixel_lead_true
-                )
-
-            loss += loss_pixel_leads
-
-            # Log metrics
-            logs.update(
-                {
-                    f"pixel_{stage}_loss": loss_pixel_leads,
-                }
+        else:
+            loss_pixel_leads = focal_loss_multiclass(
+                pixel_logits, valid_pixel_lead_true
             )
+
+        loss += loss_pixel_leads
+
+        # Log metrics
+        logs.update(
+            {
+                f"pixel_{stage}_loss": loss_pixel_leads,
+            }
+        )
 
         # Fusion stream
         # Compute fusion loss
@@ -270,7 +267,7 @@ class SuperpixelModel(pl.LightningModule):
                 value,
                 on_step="loss" in key,
                 on_epoch=True,
-                prog_bar="val_r2" in key,
+                prog_bar="val_f1" in key,
                 logger=True,
                 sync_dist=True,
             )
@@ -332,7 +329,7 @@ class SuperpixelModel(pl.LightningModule):
         self.log("sys_f1", sys_f1, sync_dist=True)
 
         if sys_f1 > self.best_test_f1:
-            self.best_test_r2 = sys_f1
+            self.best_test_f1 = sys_f1
             self.best_test_outputs = {
                 "preds_all": test_pred,
                 "true_labels_all": test_true,

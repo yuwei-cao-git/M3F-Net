@@ -158,7 +158,7 @@ def focal_loss_multiclass(inputs, targets, alpha=0.25, gamma=2, ignore_index=255
     targets_one_hot = F.one_hot(targets, num_classes=inputs.shape[-1])
 
     # Convert logits to log probabilities
-    log_prob = torch.gather(inputs, -1, 1, targets.unsqueeze(1))
+    log_prob = torch.gather(inputs, 1, targets.unsqueeze(1))
     prob = torch.exp(log_prob)  # Calculate probabilities from log probabilities
     pt = torch.sum(prob * targets_one_hot, dim=-1)
 
