@@ -102,7 +102,7 @@ class SuperpixelModel(pl.LightningModule):
         # Optimizer and scheduler settings
         self.optimizer_type = self.config["optimizer"]
         self.scheduler_type = self.config["scheduler"]
-        self.lr = 1e-5
+        self.lr = 1e-3
 
         self.best_test_f1 = 0.0
         self.best_test_outputs = None
