@@ -272,7 +272,7 @@ class SuperpixelModel(pl.LightningModule):
                 sync_dist=True,
             )
         if stage == "test":
-            return labels, fuse_logits, loss
+            return true_labels, pred_lead_fuse_labels, loss
         else:
             return loss
 
@@ -397,11 +397,8 @@ class SuperpixelModel(pl.LightningModule):
         )
         num_samples = labels.shape[0]
         data = {"SampleID": np.arange(num_samples)}
-
-        # Add true and predicted values for each class
-        for i, class_name in enumerate(classes):
-            data[f"True_{class_name}"] = labels[:, i]
-            data[f"Pred_{class_name}"] = outputs[:, i]
+        data["True"] = labels[:]
+        data["Pred"] = outputs[:]
 
         df = pd.DataFrame(data)
 

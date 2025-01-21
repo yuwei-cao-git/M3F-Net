@@ -53,7 +53,9 @@ class PointNextModel(nn.Module):
         logits = self.cls_head(out)
 
         if self.task == "classify":
-            return F.log_softmax(logits, dim=1), pc_feats
+            # return F.log_softmax(logits, dim=1), pc_feats
+            # Lower T -> sharper, Higher T -> flatter
+            return F.softmax(logits / 0.5, dim=1), pc_feats
         else:
             if self.mode == "pc":
                 return logits
