@@ -3,7 +3,7 @@ import torch.nn as nn
 import pytorch_lightning as pl
 import torch.nn.functional as F
 
-from .blocks import MambaFusionBlock
+from .blocks import MambaFusionBlock, MLPBlock
 from .unet import UNet
 from .pointNext import PointNextModel
 
@@ -46,8 +46,7 @@ class SuperpixelModel(pl.LightningModule):
         self.pc_model = PointNextModel(
             self.config, in_dim=6 if self.config.get("pc_norm", False) else 3
         )
-
-        # Fusion and classification layers with additional linear layer
+        """
         self.fuse_head = MambaFusionBlock(
             in_img_chs=512,
             in_pc_chs=(self.config["emb_dims"]),
@@ -57,6 +56,10 @@ class SuperpixelModel(pl.LightningModule):
             drop=self.config["dp_fuse"],
             return_logits=True,
         )
+        """
+        # Fusion and classification layers with additional linear layer
+        in_ch = 512 + self.config["emb_dims"]
+        self.fuse_head = MLPBlock(config, in_ch, self.config["linear_layers_dims"])
 
         # Define loss functions
         if self.config["loss"] == "ce":
@@ -102,7 +105,7 @@ class SuperpixelModel(pl.LightningModule):
         # Optimizer and scheduler settings
         self.optimizer_type = self.config["optimizer"]
         self.scheduler_type = self.config["scheduler"]
-        self.lr = 1e-3
+        self.lr = 1e-4
 
         self.best_test_f1 = 0.0
         self.best_test_outputs = None

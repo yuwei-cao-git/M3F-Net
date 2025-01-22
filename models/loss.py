@@ -142,10 +142,6 @@ def aggregate_to_superpixels(
     return lambda_contrastive * contrastive_loss
 
 
-import torch
-import torch.nn.functional as F
-
-
 def focal_loss_multiclass(inputs, targets, alpha=0.25, gamma=2, ignore_index=255):
     """
     Multi-class focal loss implementation
