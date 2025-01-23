@@ -46,21 +46,22 @@ class SuperpixelModel(pl.LightningModule):
         self.pc_model = PointNextModel(
             self.config, in_dim=6 if self.config.get("pc_norm", False) else 3
         )
-        """
-        self.fuse_head = MambaFusionBlock(
-            in_img_chs=512,
-            in_pc_chs=(self.config["emb_dims"]),
-            dim=self.config["fusion_dim"],
-            hidden_ch=self.config["linear_layers_dims"],
-            num_classes=self.config["n_classes"],
-            drop=self.config["dp_fuse"],
-            return_logits=True,
-        )
-        """
-        # Fusion and classification layers with additional linear layer
-        in_ch = 512 + self.config["emb_dims"]
-        self.fuse_head = MLPBlock(config, in_ch, self.config["linear_layers_dims"])
-
+        if self.config["mamba_fuse"]:
+            self.fuse_head = MambaFusionBlock(
+                in_img_chs=512,
+                in_pc_chs=(self.config["emb_dims"]),
+                dim=self.config["fusion_dim"],
+                hidden_ch=self.config["linear_layers_dims"],
+                num_classes=self.config["n_classes"],
+                drop=self.config["dp_fuse"],
+                return_logits=True,
+            )
+        else:
+            # Fusion and classification layers with additional linear layer
+            in_ch = 512 + self.config["emb_dims"]
+            self.fuse_head = MLPBlock(
+                config, in_ch, self.config["linear_layers_dims"], return_logits=True
+            )
         # Define loss functions
         if self.config["loss"] == "ce":
             # Loss function and other parameters
@@ -105,7 +106,7 @@ class SuperpixelModel(pl.LightningModule):
         # Optimizer and scheduler settings
         self.optimizer_type = self.config["optimizer"]
         self.scheduler_type = self.config["scheduler"]
-        self.lr = 1e-4
+        self.lr = self.config["lr"]
 
         self.best_test_f1 = 0.0
         self.best_test_outputs = None
@@ -344,27 +345,6 @@ class SuperpixelModel(pl.LightningModule):
             print(f"OA Score:{self.val_oa.compute()}")
             print(cm)
 
-            """
-            output_dir = os.path.join(
-                self.config["save_dir"],
-                "outputs",
-            )
-            # _ = generate_eva(self.best_test_outputs, self.config["classes"], output_dir)
-            
-            cm_array = cm.cpu().numpy()
-
-            # Convert to Pandas DataFrame and add species names
-            import pandas as pd
-
-            species_names = self.config["classes"]
-            cm_df = pd.DataFrame(cm_array, index=species_names, columns=species_names)
-
-            # Log the confusion matrix as a WandB Table
-            cm_table = wandb.Table(dataframe=cm_df)
-            self.logger.experiment.log(
-                {f"confusion_matrix at epoch {self.current_epoch}": cm_table}
-            )
-            """
         self.validation_step_outputs.clear()
         self.val_f1.reset()
         self.val_oa.reset()
@@ -389,7 +369,7 @@ class SuperpixelModel(pl.LightningModule):
             stage="test",
         )
 
-        self.save_to_file(labels, fuse_preds, self.config["classes"])
+        # self.save_to_file(labels, fuse_preds, self.config["classes"])
         return loss
 
     def save_to_file(self, labels, outputs, classes):
