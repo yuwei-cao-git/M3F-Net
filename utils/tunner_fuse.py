@@ -97,16 +97,17 @@ def train_func(config):
     # Train the model
     trainer.fit(model, data_module)
 
-    # using a pandas DataFrame to recode best results
-    if model.best_test_outputs is not None:
-        output_dir = os.path.join(
-            save_dir,
-            "outputs",
-        )
-        sp_df = generate_eva(model.best_test_outputs, config["classes"], output_dir)
-        wandb_logger.log_text(key="preds", dataframe=sp_df)
-    else:
-        print("No best test output found!")
+    if config["task"] == "regression":
+        # using a pandas DataFrame to recode best results
+        if model.best_test_outputs is not None:
+            output_dir = os.path.join(
+                save_dir,
+                "outputs",
+            )
+            sp_df = generate_eva(model.best_test_outputs, config["classes"], output_dir)
+            wandb_logger.log_text(key="preds", dataframe=sp_df)
+        else:
+            print("No best test output found!")
 
     # Report the final metric to Ray Tune
     final_result = trainer.callback_metrics[metric].item()
@@ -128,6 +129,3 @@ def train_func(config):
 
     # Load the saved model
     # model = SuperpixelModel.load_from_checkpoint("final_model.ckpt")
-
-    time.sleep(5)  # Wait for wandb to finish logging
-    # wandb.finish()
