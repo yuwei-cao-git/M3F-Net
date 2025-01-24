@@ -91,47 +91,25 @@ class SuperpixelDataModule(LightningDataModule):
         self.aug_rotate = config["pc_transforms"]
         self.aug_norm = config["pc_norm"]
         self.processed_dir = join(config["data_dir"], f'{self.config["resolution"]}m')
-        """
         self.data_dirs = {
             "train": join(
                 config["data_dir"],
                 f"{config['resolution']}m",
-                "superpixel_v2",
-                "train",
-            ),
-            "val": join(
-                config["data_dir"],
-                f"{config['resolution']}m",
-                "superpixel_v2",
-                "val",
-            ),
-            "test": join(
-                config["data_dir"],
-                f"{config['resolution']}m",
-                "superpixel_v2",
-                "test",
-            ),
-        }
-        """
-        self.data_dirs = {
-            "train": join(
-                config["data_dir"],
-                f"{config['resolution']}m",
-                "fusion_v2",
+                "fusion",
                 "train",
                 "superpixel",
             ),
             "val": join(
                 config["data_dir"],
                 f"{config['resolution']}m",
-                "fusion_v2",
+                "fusion",
                 "val",
                 "superpixel",
             ),
             "test": join(
                 config["data_dir"],
                 f"{config['resolution']}m",
-                "fusion_v2",
+                "fusion",
                 "test",
                 "superpixel",
             ),
