@@ -408,8 +408,8 @@ class MLPBlock(nn.Module):
         x = self.dropout2(x)
         logits = self.fc3(x)  # [batch_size, num_classes]
         if self.return_logits:
-            # return logits
-            return F.softmax(logits / 0.5, dim=1)
+            return F.softmax(logits, dim=1)
+            # return F.softmax(logits / 0.5, dim=1)
         else:
             class_output = F.softmax(logits, dim=1)
             return class_output

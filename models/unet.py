@@ -35,9 +35,9 @@ class UNet(nn.Module):
         x = self.up4(x, x1)  # Up 4
         logits = self.outc(x)  # Output layer
         if self.return_logits:
-            # return F.log_softmax(logits, dim=1), x5
+            return F.log_softmax(logits, dim=1), x5
             # Lower T -> sharper, Higher T -> flatter
-            return F.softmax(logits / 0.5, dim=1), x5
+            # return F.softmax(logits / 0.5, dim=1), x5
         else:
             preds = F.softmax(logits, dim=1)
             return preds, x5
