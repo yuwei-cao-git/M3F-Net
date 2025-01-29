@@ -185,7 +185,7 @@ class SuperpixelModel(pl.LightningModule):
             )
         else:
             loss_point = focal_loss_multiclass(pc_logits, true_labels)
-        loss += loss_point
+        loss += loss_point * 0.1
 
         # Log metrics
         logs.update({f"pc_{stage}_loss": loss_point})

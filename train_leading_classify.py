@@ -61,6 +61,7 @@ def main():
         choices=["plateau", "steplr", "asha", "cosine"],
     )
     parser.add_argument("--loss", default="ce")
+    parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--patience", type=int, default=10)
     parser.add_argument("--step_size", type=int, default=10)
     parser.add_argument("--momentum", type=float, default=0.9)
@@ -79,6 +80,7 @@ def main():
     parser.add_argument(
         "--log_name", default="Fuse_ff_mamba_pointnext_b_Unet_20_leading_classify"
     )
+    parser.add_argument("--mamba_fuse", default=True)
     parser.add_argument("--task", default="classify")
 
     # Parse arguments
