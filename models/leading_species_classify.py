@@ -63,7 +63,7 @@ class SuperpixelModel(pl.LightningModule):
                 config, in_ch, self.config["linear_layers_dims"], return_logits=True
             )
         # Define loss functions
-        if self.config["loss"] == "ce":
+        if self.config["loss"] == "wce":
             # Loss function and other parameters
             self.class_weights = torch.tensor(
                 [
@@ -176,16 +176,19 @@ class SuperpixelModel(pl.LightningModule):
             oa_metric = self.test_oa
 
         # Compute point cloud loss
-        if self.config["loss"] == "ce":
+        if self.config["loss"] == "wce" and stage == "train":
             loss_point = F.nll_loss(
-                pc_logits,
-                true_labels,
-                weight=self.class_weights.to(pc_logits.device),
-                ignore_index=255,
+                pc_logits, true_labels, weight=self.class_weights.to(pc_logits.device)
             )
-        else:
+        elif self.config["loss"] == "ae" and stage == "train":
+            pred_lead_pc_labels = torch.argmax(pc_logits, dim=1)
+            correct = (pred_lead_pc_labels.view(-1) == true_labels.view(-1)).float()
+            loss_point = 1 - correct.mean()  # 1 - accuracy as pseudo-loss
+        elif self.config["loss"] == "focal" and stage == "train":
             loss_point = focal_loss_multiclass(pc_logits, true_labels)
-        loss += loss_point * 0.1
+        else:
+            loss_point = F.nll_loss(pc_logits, true_labels)
+        loss += loss_point * 0.5
 
         # Log metrics
         logs.update({f"pc_{stage}_loss": loss_point})
@@ -200,18 +203,34 @@ class SuperpixelModel(pl.LightningModule):
             multi_class=False,
             keep_shp=True,
         )
-        # correct = (valid_pixel_lead_preds.view(-1) == valid_pixel_lead_true.view(-1)).float()
-        # loss_pixel_leads = 1 - correct.mean()  # 1 - accuracy as pseudo-loss
-        if self.config["loss"] == "ce":
+        if self.config["loss"] == "wce" and stage == "train":
             loss_pixel_leads = F.nll_loss(
                 pixel_logits,
                 valid_pixel_lead_true,
                 weight=self.class_weights.to(pc_logits.device),
                 ignore_index=255,
             )
-        else:
+        elif self.config["loss"] == "ae" and stage == "train":
+            valid_pixel_lead_preds, valid_pixel_lead_true = apply_mask(
+                pred_lead_pixel_labels,
+                true_lead_pixel_labels,
+                img_masks,
+                multi_class=False,
+                keep_shp=False,
+            )
+            correct = (
+                valid_pixel_lead_preds.view(-1) == valid_pixel_lead_true.view(-1)
+            ).float()
+            loss_pixel_leads = 1 - correct.mean()  # 1 - accuracy as pseudo-loss
+        elif self.config["loss"] == "focal" and stage == "train":
             loss_pixel_leads = focal_loss_multiclass(
                 pixel_logits, valid_pixel_lead_true
+            )
+        else:
+            loss_pixel_leads = F.nll_loss(
+                pixel_logits,
+                valid_pixel_lead_true,
+                ignore_index=255,
             )
 
         loss += loss_pixel_leads
@@ -225,15 +244,18 @@ class SuperpixelModel(pl.LightningModule):
 
         # Fusion stream
         # Compute fusion loss
-        if self.config["loss"] == "ce":
+        if self.config["loss"] == "wce" and stage == "train":
             loss_fuse = F.nll_loss(
-                fuse_logits,
-                true_labels,
-                weight=self.class_weights.to(pc_logits.device),
-                ignore_index=255,
+                fuse_logits, true_labels, weight=self.class_weights.to(pc_logits.device)
             )
-        else:
+        elif self.config["loss"] == "ae" and stage == "train":
+            pred_lead_fuse_labels = torch.argmax(fuse_logits, dim=1)
+            correct = (pred_lead_fuse_labels.view(-1) == true_labels.view(-1)).float()
+            loss_fuse = 1 - correct.mean()  # 1 - accuracy as pseudo-loss
+        elif self.config["loss"] == "focal" and stage == "train":
             loss_fuse = focal_loss_multiclass(fuse_logits, true_labels)
+        else:
+            loss_fuse = F.nll_loss(fuse_logits, true_labels)
         loss += loss_fuse
 
         # Compute F1 score
@@ -271,7 +293,7 @@ class SuperpixelModel(pl.LightningModule):
                 value,
                 on_step="loss" in key,
                 on_epoch=True,
-                prog_bar="val_f1" in key,
+                prog_bar="val" in key,
                 logger=True,
                 sync_dist=True,
             )
@@ -369,7 +391,7 @@ class SuperpixelModel(pl.LightningModule):
             stage="test",
         )
 
-        # self.save_to_file(labels, fuse_preds, self.config["classes"])
+        self.save_to_file(labels, fuse_preds, self.config["classes"])
         return loss
 
     def save_to_file(self, labels, outputs, classes):
