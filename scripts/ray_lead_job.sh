@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ray_fuse_tune
-#SBATCH --output=ray_fuse_tune_%j.out
-#SBATCH --error=ray_fuse_tune_%j.err
+#SBATCH --output=ray_lead_tune_%j.out
+#SBATCH --error=ray_lead_tune_%j.err
 #SBATCH --time=20:00:00        # Specify run time 
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -26,7 +26,7 @@ echo "Source code cloned!"
 echo "Start transfer data..."
 mkdir -p data/20m
 tar -xf $project/M3F-Net/data/20m/fusion.tar -C ./data/20m
-ls ./data/20m/fusion
+ls ./data/20m/fusion_v2
 # ls ./data/20m/fusion/train/superpixel
 echo "Data transfered"
 
@@ -56,7 +56,7 @@ wandb login
 
 #Run python script
 echo "Start runing model.................................................................................."
-srun python tune_leading_classify.py --max_epochs 200 --n_sampled 30 --task "classify"
+srun python tune_leading_classify.py --max_epochs 200 --n_samples 30 --task "classify"
 #wandb sync ./logs/ray_results/wandb/*
 
 tar -cf ~/scratch/lead_tune_logs/logs.tar ./lead_tune_logs/ray_results/*
