@@ -1,7 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=ray_fuse_tune
 #SBATCH --output=ray_fuse_tune_%j.out
-#SBATCH --error=ray_fuse_tune_%j.err
 #SBATCH --time=1-12:00:00        # Specify run time 
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -17,10 +16,13 @@ trap 'job_failed=$?' EXIT
 
 # code transfer
 cd $SLURM_TMPDIR
-mkdir work
-cd work
-git clone git@github.com:yuwei-cao-git/M3F-Net.git
-cd M3F-Net
+mkdir -p work/M3F-Net
+cd work/M3F-Net
+cp -r $project/SRS-Net/dataset .
+cp -r $project/SRS-Net/data_utils .
+cp -r $project/SRS-Net/models .
+cp -r $project/SRS-Net/utils .
+cp -r $project/SRS-Net/tune_fuse_ovf.py .
 echo "Source code cloned!"
 
 echo "Start transfer data..."
@@ -28,8 +30,8 @@ echo "Start transfer data..."
 mkdir -p data/20m
 # extract an archive to a different directory, the ‘-C’ option is followed by the destination path
 # tar -xf $project/data/10m/fusion.tar -C ./data/10m/fusion
-tar -xf $project/M3F-Net/data/20m/fusion.tar -C ./data/20m
-ls ./data/20m/fusion
+tar -xf $project/M3F-Net/data/20m/fusion_v2.tar -C ./data/20m
+ls ./data/20m/fusion_v2
 # ls ./data/20m/fusion/train/superpixel
 echo "Data transfered"
 
@@ -42,7 +44,7 @@ echo "create virtual env..."
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
-pip install --no-index ray[tune] tensorboardX lightning pytorch_lightning torch torch-scatter torchaudio torchdata torcheval torchmetrics torchtext torchvision rasterio imageio wandb numpy pandas
+pip install --no-index ray[tune] tensorboardX lightning pytorch_lightning torch==2.5.0 torch-scatter torchaudio torchdata torcheval torchmetrics torchtext torchvision rasterio imageio wandb numpy pandas
 pip install seaborn scikit-learn torchsummary geopandas --no-index
 pip install pointnext==0.0.5 mamba-ssm==2.2.2
 pip install laspy[laszip]
@@ -54,15 +56,14 @@ export TORCH_NCCL_BLOCKING_WAIT=1  #Set this environment variable if you wish to
 export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MASTER_ADDR environment variable.
 
 # Log experiment variables
-export WANDB_API_KEY=*
-wandb login
+wandb offline
 
 #Run python script
 echo "Start runing model.................................................................................."
-srun python tune_fuse.py --max_epochs 200
+srun python tune_fuse_ovf.py --max_epochs 200
 #wandb sync ./logs/ray_results/wandb/*
 
-tar -cf ~/scratch/fuse_tune_logs/logs.tar ./pts_tune_logs/ray_results/*
+tar -cf ~/scratch/fuse_tune_logs/logs.tar ./fuse_tune_logs/ray_results/*
 tar -xf ~/scratch/fuse_tune_logs/logs.tar -C ~/scratch/fuse_tune_logs
 rm ~/scratch/fuse_tune_logs/logs.tar
 ls ~/scratch/fuse_tune_logs/
