@@ -44,10 +44,10 @@ echo "create virtual env..."
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
-pip install --no-index ray[tune] tensorboardX lightning pytorch_lightning torch==2.5.0 torch-scatter torchaudio torchdata torcheval torchmetrics torchtext torchvision rasterio imageio wandb numpy pandas
-pip install seaborn scikit-learn torchsummary geopandas --no-index
-pip install pointnext==0.0.5 mamba-ssm==2.2.2
-pip install laspy[laszip]
+pip install --no-index ray[tune] lightning pytorch_lightning torch==2.5.0 tensorboardX torch-scatter torchaudio torchdata torcheval torchmetrics torchtext torchvision rasterio imageio wandb numpy pandas
+pip install --no-index seaborn scikit-learn torchsummary geopandas
+pip install --no-index pointnext mamba-ssm
+pip install --no-index laspy[laszip]
 
 echo "Virtual Env created!"
 

@@ -40,7 +40,6 @@ record.md
 scripts/local_train.sh
 utils/tester_fuse.py
 
-utils/
 results/
 data_utils/
 augmentation/
