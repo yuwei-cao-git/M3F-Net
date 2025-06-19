@@ -5,8 +5,32 @@ from lightning.pytorch.loggers import WandbLogger
 # from pytorch_lightning.utilities.model_summary import ModelSummary
 from dataset.superpixel import SuperpixelDataModule
 import os
-from .common import generate_eva, PointCloudLogger
+from .common import generate_eva
+import torch
 
+def load_backbone_weights(model, checkpoint_path):
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+
+    # Get the actual state_dict (Lightning saves it under 'state_dict')
+    state_dict = checkpoint.get("state_dict", checkpoint)
+
+    # 1. Filter out classifier layers with shape mismatches (e.g. output heads)
+    model_state = model.state_dict()
+    compatible_state_dict = {
+        k: v for k, v in state_dict.items()
+        if k in model_state and v.shape == model_state[k].shape
+    }
+
+    # 2. Load only compatible tensors
+    missing, unexpected = model.load_state_dict(compatible_state_dict, strict=False)
+
+    # 3. log what was skipped
+    if missing or unexpected:
+        print(f"Skipped {len(unexpected)} incompatible or filtered tensors:")
+        for name in unexpected:
+            print(f"  • {name}")
+
+    return model
 
 def train(config):
     seed_everything(1)
@@ -31,6 +55,7 @@ def train(config):
     # point_logger = PointCloudLogger(trainer=Trainer)
     # Define a checkpoint callback to save the best model
     metric = "sys_f1" if config["task"] == "classify" else "ave_val_r2"
+    
     checkpoint_callback = ModelCheckpoint(
         monitor=metric,  # Track the validation loss
         dirpath=chk_dir,
@@ -56,8 +81,12 @@ def train(config):
         from models.leading_species_classify import SuperpixelModel
     else:
         from models.fuse_model import SuperpixelModel
+    
     model = SuperpixelModel(config)
     # print(ModelSummary(model, max_depth=-1))  # Prints the full model summary
+    
+    if config["ckp"] != None:
+        model = load_backbone_weights(model, config["ckp"])
 
     # Create a PyTorch Lightning Trainer
     trainer = Trainer(

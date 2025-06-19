@@ -41,6 +41,7 @@ def main(args):
     class_weights = torch.from_numpy(np.array(class_weights)).float()
     config = {
         "mode": "fuse",  # tune.choice(["img", "pc", "fuse"]),
+        "task": "regression",
         "img_lr": tune.choice([1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3]),
         "pc_lr": tune.choice([1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3]),
         "fuse_lr": tune.choice([1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3]),
