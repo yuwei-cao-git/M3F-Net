@@ -2,15 +2,15 @@ import os
 from pathlib import Path
 from itertools import cycle, islice
 import torch
-from torch_scatter import scatter_mean
+# from torch_scatter import scatter_mean
 import laspy
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 # from plyer import notification
-from sklearn.metrics import confusion_matrix, mean_squared_error, r2_score
-from torch.utils.data import DataLoader, Dataset
+from sklearn.metrics import mean_squared_error, r2_score
+from torch.utils.data import Dataset
 
 
 def load_tile_names(file_path):
@@ -379,19 +379,19 @@ def plot_stats(
         plt.savefig(os.path.join(root_dir, f"{model}_rmse.png"))
     plt.close()
 
-
+"""
 def aggregate_predictions(per_pixel_predictions, superpixel_mask):
-    """
-    Aggregates per-pixel predictions to superpixel-level predictions.
+    
+    # Aggregates per-pixel predictions to superpixel-level predictions.
 
-    Args:
-        per_pixel_predictions: Tensor of shape (batch_size, num_classes, height, width)
-        superpixel_mask: Tensor of shape (batch_size, height, width)
+    #Args:
+        #per_pixel_predictions: Tensor of shape (batch_size, num_classes, height, width)
+        #superpixel_mask: Tensor of shape (batch_size, height, width)
 
-    Returns:
-        superpixel_predictions: List of tensors, each of shape (num_superpixels, num_classes)
-        superpixel_ids_list: List of tensors containing superpixel IDs for each batch element
-    """
+    #Returns:
+        #superpixel_predictions: List of tensors, each of shape (num_superpixels, num_classes)
+        #superpixel_ids_list: List of tensors containing superpixel IDs for each batch element
+    
     batch_size, num_classes, height, width = per_pixel_predictions.size()
     superpixel_predictions = []
     superpixel_ids_list = []
@@ -432,7 +432,7 @@ def aggregate_predictions(per_pixel_predictions, superpixel_mask):
         superpixel_ids_list.append(sp_ids_unique)
 
     return superpixel_predictions, superpixel_ids_list
-
+"""
 
 def extract_polyids_from_mask(superpixel_mask):
     polyids = np.unique(superpixel_mask)
