@@ -8,8 +8,6 @@ from ray import tune, train
 from dataset.superpixel import SuperpixelDataModule
 
 import os
-import time
-import wandb
 from .common import generate_eva
 
 

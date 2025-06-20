@@ -114,15 +114,7 @@ def main(args):
             run_config=train.RunConfig(
                 storage_path=config["save_dir"],
                 log_to_file=("my_stdout.log", "my_stderr.log"),
-                callbacks=[
-                    WandbLoggerCallback(
-                        project="M3F-Net-fuse-ovf",
-                        group="tune_group",
-                        api_key=os.environ["WANDB_API_KEY"],
-                        log_config=True,
-                        save_checkpoints=True,
-                    )
-                ],
+                
             ),
             param_space=config,
         )
