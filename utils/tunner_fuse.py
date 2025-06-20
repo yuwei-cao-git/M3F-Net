@@ -1,6 +1,6 @@
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
-from lightning.pytorch.loggers import WandbLogger
+from lightning.pytorch.loggers import WandbLogger, TensorBoardLogger
 
 # from pytorch_lightning.utilities.model_summary import ModelSummary
 from ray import tune, train
@@ -50,6 +50,7 @@ def train_func(config):
 
     # Initialize WandB, CSV Loggers
     project_name = "M3F-Net-lead" if config["task"] == "classify" else "M3F-Net-fuse"
+    '''
     wandb_logger = WandbLogger(
         project=project_name,
         group="tune_group",
@@ -57,6 +58,8 @@ def train_func(config):
         save_dir=log_dir,
         log_model=True,
     )
+    '''
+    logger = TensorBoardLogger(log_dir, name="trial_{tune.Trainable().trial_id}")
     metric = "sys_f1" if config["task"] == "classify" else "fuse_val_r2"
     # Define a checkpoint callback to save the best model
     checkpoint_callback = ModelCheckpoint(
@@ -86,7 +89,7 @@ def train_func(config):
     # Create a PyTorch Lightning Trainer
     trainer = Trainer(
         max_epochs=config["epochs"],
-        logger=[wandb_logger],
+        logger=[logger],
         callbacks=[early_stopping, checkpoint_callback],
         devices=config["gpus"],
         num_nodes=1,
@@ -103,7 +106,7 @@ def train_func(config):
                 "outputs",
             )
             sp_df = generate_eva(model.best_test_outputs, config["classes"], output_dir)
-            wandb_logger.log_text(key="preds", dataframe=sp_df)
+            #wandb_logger.log_text(key="preds", dataframe=sp_df)
         else:
             print("No best test output found!")
 
