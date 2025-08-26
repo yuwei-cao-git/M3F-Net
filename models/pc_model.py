@@ -10,9 +10,6 @@ from .loss import calc_loss
 from torchmetrics.classification import MulticlassF1Score, MulticlassAccuracy
 from torchmetrics.regression import R2Score
 
-import torch.nn as nn
-import torch.nn.init as init
-
 
 class PointNeXtLightning(pl.LightningModule):
     def __init__(self, params, in_dim):
